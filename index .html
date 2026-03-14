@@ -1,0 +1,3389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;">
+<meta name="referrer" content="no-referrer-when-downgrade">
+<title>SCORIX — School Marks System</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1117;--s1:#181c27;--s2:#1f2436;--s3:#252b3d;
+  --bd:#2e3550;--ink:#e8ecf5;--ink2:#9aa3bf;--ink3:#5a6380;
+  --gold:#f0b429;--red:#e05252;--green:#3ecf8e;--blue:#4a8fff;--purple:#9f7aea;
+}
+
+/* ── LIGHT MODE ── */
+body.light{
+  --bg:#f0f2f7;--s1:#ffffff;--s2:#f5f7fc;--s3:#eaecf4;
+  --bd:#d0d5e8;--ink:#1a1d2e;--ink2:#4a5070;--ink3:#8890b0;
+  --gold:#d09010;--red:#c0392b;--green:#1a7a4a;--blue:#2563eb;--purple:#7c3aed;
+}
+body.light .lbox{background:#fff;border-color:#d0d5e8;box-shadow:0 24px 60px rgba(0,0,0,.12);}
+body.light .lf input{background:#f5f7fc;}
+body.light #loginWrap{background:radial-gradient(ellipse at 55% 40%,#dde3f5,#f0f2f7 70%);}
+body.light .rpaper{box-shadow:0 4px 24px rgba(0,0,0,.08);}
+body.light ::-webkit-scrollbar-track{background:var(--bg);}
+
+/* ── THEME TOGGLE BUTTON ── */
+.theme-toggle{
+  background:none;border:1px solid var(--bd);border-radius:20px;
+  padding:4px 10px;cursor:pointer;font-size:.82rem;color:var(--ink2);
+  display:flex;align-items:center;gap:5px;transition:all .2s;
+  white-space:nowrap;
+}
+.theme-toggle:hover{border-color:var(--gold);color:var(--gold);}
+.theme-toggle .tt-icon{font-size:1rem;transition:transform .3s;}
+body.light .theme-toggle .tt-icon{transform:rotate(180deg);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+input,select,textarea,button{font-family:'Outfit',sans-serif;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px;}
+@keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ── LOGIN ── */
+#loginWrap{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 55% 40%,#1a1f35,#0f1117 70%);
+}
+.lbox{
+  background:var(--s1);border:1px solid var(--bd);border-radius:16px;
+  padding:2.4rem;width:100%;max-width:400px;
+  box-shadow:0 24px 60px rgba(0,0,0,0.55);
+  animation:slideUp .4s cubic-bezier(.16,1,.3,1);
+}
+.llogo{text-align:center;font-family:'Playfair Display',serif;font-size:2.1rem;letter-spacing:.02em;}
+.llogo span{color:var(--gold);}
+.lsub{text-align:center;font-size:.7rem;color:var(--ink3);letter-spacing:.1em;text-transform:uppercase;margin-top:4px;}
+.lschool{text-align:center;font-size:.88rem;color:var(--ink2);margin-top:6px;min-height:1.2rem;}
+.lerr{
+  color:var(--red);font-size:.82rem;padding:8px 12px;
+  background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.2);
+  border-radius:6px;margin:1rem 0 .5rem;display:none;
+}
+.lf{margin-top:1rem;}
+.lf label{display:block;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:5px;}
+.lf input{
+  width:100%;padding:10px 13px;background:var(--s2);border:1px solid var(--bd);
+  border-radius:7px;color:var(--ink);font-size:.92rem;outline:none;transition:border .15s;
+}
+.lf input:focus{border-color:var(--gold);}
+.lbtn{
+  width:100%;margin-top:1.3rem;padding:11px;background:var(--gold);color:#1a1200;
+  border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;
+  transition:filter .15s;
+}
+.lbtn:hover{filter:brightness(1.08);}
+.lreset{
+  display:block;text-align:center;margin-top:.9rem;
+  background:none;border:none;color:var(--ink3);font-size:.73rem;
+  cursor:pointer;text-decoration:underline;
+}
+.lf .pw-wrap{position:relative;}
+.lf .pw-wrap input{padding-right:38px;}
+.lf .pw-eye{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--ink3);cursor:pointer;
+  font-size:.88rem;padding:2px;line-height:1;
+}
+.lf .pw-eye:hover{color:var(--ink);}
+.tcls-tag{
+  display:inline-flex;align-items:center;gap:4px;
+  background:rgba(74,143,255,.12);color:var(--blue);
+  border:1px solid rgba(74,143,255,.25);
+  border-radius:10px;padding:2px 8px;font-size:.72rem;font-weight:500;
+  margin:2px;
+}
+.tcls-tag .tag-edit{
+  background:none;border:none;cursor:pointer;
+  color:inherit;opacity:.6;font-size:.68rem;padding:0 0 0 2px;
+  line-height:1;transition:opacity .15s;
+}
+.tcls-tag .tag-edit:hover{opacity:1;}
+.tag-edit-btn{
+  display:inline-flex;align-items:center;gap:3px;
+  background:rgba(255,255,255,.05);border:1px dashed var(--bd);
+  border-radius:10px;padding:2px 8px;font-size:.72rem;color:var(--ink3);
+  cursor:pointer;margin:2px;transition:all .15s;
+}
+.tag-edit-btn:hover{border-color:var(--gold);color:var(--gold);}
+.chk-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding:4px 0;}
+.chk-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:8px;border:1px solid var(--bd);
+  background:var(--s2);cursor:pointer;transition:all .13s;font-size:.88rem;
+}
+.chk-item:hover{border-color:var(--gold);background:var(--s3);}
+.chk-item.checked{border-color:var(--gold);background:rgba(240,180,41,.1);color:var(--gold);}
+.chk-item input[type=checkbox]{display:none;}
+.chk-box{
+  width:18px;height:18px;border-radius:5px;border:2px solid var(--bd);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:var(--s3);transition:all .13s;font-size:.75rem;
+}
+.chk-item.checked .chk-box{background:var(--gold);border-color:var(--gold);color:#1a1200;}
+.teacher-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),#2a5fcf);
+  color:#fff;display:inline-flex;align-items:center;justify-content:center;
+  font-size:.72rem;font-weight:700;flex-shrink:0;
+}
+.pw-wrap-modal{position:relative;}
+.pw-wrap-modal input{padding-right:38px;}
+.pw-wrap-modal .pw-eye-m{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--ink3);cursor:pointer;
+  font-size:.88rem;padding:2px;line-height:1;
+}
+.pw-wrap-modal .pw-eye-m:hover{color:var(--ink);}
+
+/* ── APP ── */
+#loginWrap{display:none;}
+#landingWrap{display:none;}
+#appWrap{display:none;flex-direction:column;height:100vh;}
+
+/* TOPBAR */
+.topbar{
+  height:54px;background:var(--s1);border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 1.4rem;position:sticky;top:0;z-index:100;flex-shrink:0;
+}
+.tlogo{font-family:'Playfair Display',serif;font-size:1.25rem;}
+.tlogo span{color:var(--gold);}
+.tschool{font-size:.66rem;color:var(--ink3);margin-top:1px;}
+.tright{display:flex;align-items:center;gap:10px;}
+.tsaving{font-size:.72rem;color:var(--ink3);}
+.upill{
+  display:flex;align-items:center;gap:8px;
+  background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:4px 11px 4px 4px;
+}
+.uav{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;}
+.uav.admin{background:linear-gradient(135deg,var(--gold),#d09010);color:#1a1200;}
+.uav.teacher{background:linear-gradient(135deg,var(--blue),#2a5fcf);color:#fff;}
+.uname{font-size:.82rem;font-weight:500;}
+.urole{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:10px;}
+.urole.admin{background:rgba(240,180,41,.15);color:var(--gold);}
+.urole.teacher{background:rgba(74,143,255,.15);color:var(--blue);}
+.tbtn{background:none;border:1px solid var(--bd);color:var(--ink3);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.77rem;transition:all .15s;}
+.tbtn:hover{border-color:var(--red);color:var(--red);}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:215px;background:var(--s1);border-right:1px solid var(--bd);padding:1rem 0;overflow-y:auto;flex-shrink:0;}
+.navgrp{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);padding:.75rem 1.1rem .25rem;}
+.navbtn{
+  display:flex;align-items:center;gap:9px;width:100%;padding:8px 1.1rem;
+  background:none;border:none;border-left:3px solid transparent;
+  color:var(--ink2);font-size:.85rem;cursor:pointer;text-align:left;transition:all .12s;
+}
+.navbtn:hover{background:var(--s2);color:var(--ink);}
+.navbtn.active{background:var(--s2);color:var(--gold);border-left-color:var(--gold);font-weight:600;}
+.navicon{width:17px;text-align:center;flex-shrink:0;}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;padding:1.6rem;background:var(--bg);}
+.page{display:none;}
+.page.on{display:block;animation:fadeIn .18s ease;}
+
+/* PAGE HEADER */
+.ph{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1.4rem;padding-bottom:.9rem;border-bottom:1px solid var(--bd);}
+.phtitle{font-family:'Playfair Display',serif;font-size:1.55rem;}
+.phsub{font-size:.78rem;color:var(--ink3);margin-top:3px;}
+.phact{display:flex;gap:7px;flex-wrap:wrap;}
+
+/* STATS */
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:1.3rem;}
+.scard{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.1rem;position:relative;overflow:hidden;}
+.scard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;}
+.scard.gold::after{background:var(--gold);}
+.scard.blue::after{background:var(--blue);}
+.scard.green::after{background:var(--green);}
+.scard.purple::after{background:var(--purple);}
+.snum{font-size:1.9rem;font-weight:600;}
+.slbl{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-top:2px;}
+
+/* CARD */
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;margin-bottom:.9rem;}
+.ctitle{font-size:.82rem;font-weight:600;color:var(--ink2);margin-bottom:.9rem;text-transform:uppercase;letter-spacing:.05em;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;border:none;font-size:.83rem;font-weight:500;cursor:pointer;transition:all .13s;}
+.btn.gold{background:var(--gold);color:#1a1200;}
+.btn.gold:hover{filter:brightness(1.07);}
+.btn.ghost{background:var(--s2);color:var(--ink2);border:1px solid var(--bd);}
+.btn.ghost:hover{color:var(--ink);}
+.btn.green{background:rgba(62,207,142,.14);color:var(--green);border:1px solid rgba(62,207,142,.3);}
+.btn.red{background:rgba(224,82,82,.12);color:var(--red);border:1px solid rgba(224,82,82,.2);}
+.btn.sm{padding:4px 9px;font-size:.74rem;}
+.brow{display:flex;gap:7px;flex-wrap:wrap;}
+
+/* FORMS */
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg label{font-size:.69rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);}
+.fg input,.fg select,.fg textarea{
+  padding:8px 11px;background:var(--s2);border:1px solid var(--bd);
+  border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;transition:border .13s;width:100%;
+}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold);}
+.fg select option{background:var(--s2);}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;}
+.span2{grid-column:span 2;}
+
+/* TABLE */
+.tw{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:.85rem;}
+thead tr{border-bottom:1px solid var(--bd);}
+th{padding:9px 11px;text-align:left;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);}
+td{padding:9px 11px;border-bottom:1px solid rgba(46,53,80,.45);vertical-align:middle;}
+tr:hover td{background:var(--s2);}
+
+/* MARK INPUTS */
+.mkin{width:68px;padding:5px 7px;background:var(--s3);border:1px solid var(--bd);border-radius:5px;color:var(--ink);font-size:.86rem;text-align:center;outline:none;}
+.mkin:focus{border-color:var(--gold);}
+.mksel{width:84px;padding:5px 7px;background:var(--s3);border:1px solid var(--bd);border-radius:5px;color:var(--ink);font-size:.86rem;outline:none;}
+.mksel:focus{border-color:var(--gold);}
+
+/* GRADE BADGES */
+.gb{display:inline-flex;align-items:center;justify-content:center;padding:2px 8px;border-radius:11px;font-size:.73rem;font-weight:600;}
+.gb.A{background:rgba(62,207,142,.15);color:var(--green);}
+.gb.B{background:rgba(74,143,255,.15);color:var(--blue);}
+.gb.C{background:rgba(240,180,41,.15);color:var(--gold);}
+.gb.D{background:rgba(159,122,234,.15);color:var(--purple);}
+.gb.F{background:rgba(224,82,82,.15);color:var(--red);}
+.gb.dash{color:var(--ink3);}
+.pok{color:var(--green);font-size:.77rem;font-weight:600;}
+.pfail{color:var(--red);font-size:.77rem;font-weight:600;}
+
+/* ALERTS */
+.al{padding:9px 13px;border-radius:7px;font-size:.81rem;margin-bottom:.9rem;display:flex;align-items:center;gap:8px;}
+.al.ok{background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.25);}
+.al.info{background:rgba(74,143,255,.1);color:var(--blue);border:1px solid rgba(74,143,255,.25);}
+.al.warn{background:rgba(224,82,82,.1);color:var(--red);border:1px solid rgba(224,82,82,.25);}
+
+/* MODAL */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.mbg.open{display:flex;}
+.modal{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:1.5rem;width:90%;max-width:500px;max-height:88vh;overflow-y:auto;animation:slideUp .22s cubic-bezier(.16,1,.3,1);}
+.mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem;}
+.mtitle{font-family:'Playfair Display',serif;font-size:1.1rem;}
+.mx{background:none;border:none;color:var(--ink3);font-size:1.1rem;cursor:pointer;padding:3px 7px;border-radius:4px;}
+.mx:hover{background:var(--s2);}
+
+/* SEARCH */
+.srow{display:flex;gap:7px;margin-bottom:.9rem;}
+.srow input,.srow select{padding:7px 11px;background:var(--s1);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;}
+.srow input:focus,.srow select:focus{border-color:var(--gold);}
+.srow input{flex:1;}
+
+/* DROP ZONE */
+.dzone{border:2px dashed var(--bd);border-radius:9px;padding:2.2rem;text-align:center;cursor:pointer;transition:all .18s;background:var(--s1);}
+.dzone:hover,.dzone.drag{border-color:var(--gold);background:rgba(240,180,41,.04);}
+
+/* PROCLAMATION */
+.pcard{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.1rem 1.4rem;margin-bottom:.6rem;display:flex;align-items:center;gap:1.1rem;transition:border-color .13s;}
+.pcard:hover{border-color:var(--gold);}
+.rcirc{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.05rem;flex-shrink:0;}
+.r1{background:linear-gradient(135deg,#FFD700,#d09010);color:#1a1200;box-shadow:0 4px 14px rgba(255,215,0,.3);}
+.r2{background:linear-gradient(135deg,#C0C0C0,#888);color:#111;}
+.r3{background:linear-gradient(135deg,#CD7F32,#9a5a20);color:#fff;}
+.rn{background:var(--s3);color:var(--ink2);font-size:.84rem;}
+
+/* REPORT */
+.rpaper{background:#fff;color:#111;border-radius:10px;padding:2.2rem;max-width:660px;font-family:'Outfit',sans-serif;}
+.rphd{text-align:center;border-bottom:2px solid #111;padding-bottom:.9rem;margin-bottom:1.3rem;}
+.rpschool{font-family:'Playfair Display',serif;font-size:1.45rem;}
+.rpsub{font-size:.83rem;color:#555;margin-top:3px;}
+.rpinfo{display:flex;justify-content:space-between;font-size:.83rem;margin-bottom:1.1rem;background:#f5f5f0;padding:9px 13px;border-radius:6px;}
+.rptbl{width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:.9rem;}
+.rptbl th,.rptbl td{border:1px solid #ddd;padding:7px 9px;}
+.rptbl th{background:#f0ede4;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;}
+.rpsum{background:#f5f5f0;border-radius:6px;padding:9px 13px;font-size:.83rem;display:flex;justify-content:space-between;}
+.rpsigs{display:flex;justify-content:space-between;font-size:.8rem;margin-top:1.3rem;padding-top:.9rem;border-top:1px solid #ddd;}
+
+/* EMPTY */
+.empty{text-align:center;padding:2.2rem;color:var(--ink3);}
+.ei{font-size:2.3rem;margin-bottom:.5rem;}
+
+/* TYPE BADGE */
+.tbadge{font-size:.73rem;font-weight:600;padding:2px 8px;border-radius:11px;background:rgba(255,255,255,.07);}
+
+/* ── SUPERADMIN ── */
+.uav.super{background:linear-gradient(135deg,#e05252,#a01010);color:#fff;}
+.urole.super{background:rgba(224,82,82,.15);color:var(--red);}
+.super-school-card{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.1rem 1.3rem;margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;transition:border-color .13s;}
+.super-school-card.paused{border-color:var(--red);background:rgba(224,82,82,.06);}
+.super-school-card:hover{border-color:var(--gold);}
+.super-school-name{font-size:.95rem;font-weight:600;flex:1;}
+.super-school-meta{font-size:.72rem;color:var(--ink3);margin-top:2px;}
+.pause-pill{font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:10px;background:rgba(224,82,82,.15);color:var(--red);border:1px solid rgba(224,82,82,.25);}
+.active-pill{font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:10px;background:rgba(62,207,142,.12);color:var(--green);border:1px solid rgba(62,207,142,.2);}
+
+@media print{
+  #loginWrap,.topbar,.sidebar,.phact,.btn,.srow,.brow,.mbg,.noprint{display:none!important;}
+  .layout{display:block;}
+  .main{padding:0;}
+  .page{display:block!important;}
+}
+
+/* ══ MOBILE ══════════════════════════════════════════ */
+@media(max-width:700px){
+
+  /* ── App shell ── */
+  #appWrap{height:100dvh;}
+
+  /* ── Topbar ── */
+  .topbar{padding:0 .9rem;height:50px;}
+  .tschool{display:none;}
+  .tsaving{display:none!important;}
+  .uname,.urole{display:none;}
+  .upill{padding:4px 6px;}
+  .tbtn{padding:5px 8px;font-size:.72rem;}
+
+  /* ── Layout: sidebar moves to bottom nav ── */
+  .layout{flex-direction:column-reverse;}
+
+  /* ── Sidebar → bottom tab bar ── */
+  .sidebar{
+    width:100%;height:auto;border-right:none;border-top:1px solid var(--bd);
+    padding:.3rem 0 .5rem;display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;
+    flex-shrink:0;background:var(--s1);
+    scrollbar-width:none;
+  }
+  .sidebar::-webkit-scrollbar{display:none;}
+  .navgrp{display:none;}
+  .navbtn{
+    flex-direction:column;align-items:center;justify-content:center;
+    padding:.35rem .6rem;min-width:60px;width:auto;flex-shrink:0;
+    border-left:none;border-top:3px solid transparent;
+    font-size:.56rem;gap:3px;white-space:nowrap;
+  }
+  .navbtn.active{border-left-color:transparent;border-top-color:var(--gold);}
+  .navicon{width:auto;font-size:1.1rem;}
+
+  /* ── Main content ── */
+  .main{padding:.9rem .8rem;overflow-y:auto;flex:1;}
+
+  /* ── Page header ── */
+  .ph{flex-direction:column;align-items:flex-start;gap:.6rem;margin-bottom:1rem;}
+  .phtitle{font-size:1.25rem;}
+  .phact{flex-wrap:wrap;width:100%;}
+  .phact .btn{flex:1;justify-content:center;min-width:0;}
+
+  /* ── Stats grid ── */
+  .sgrid{grid-template-columns:1fr 1fr;gap:.6rem;}
+  .snum{font-size:1.45rem;}
+
+  /* ── Form grids ── */
+  .g2,.g3,.g4{grid-template-columns:1fr;}
+  .span2{grid-column:span 1;}
+
+  /* ── Cards ── */
+  .card{padding:.95rem;}
+
+  /* ── Search row ── */
+  .srow{flex-direction:column;}
+  .srow select{width:100%;}
+
+  /* ── Tables ── */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table{font-size:.78rem;min-width:480px;}
+  th{padding:7px 8px;}
+  td{padding:7px 8px;}
+
+  /* ── Mark inputs ── */
+  .mkin{width:58px;}
+  .mksel{width:74px;}
+
+  /* ── Modals ── */
+  .mbg{align-items:flex-end;}
+  .modal{
+    width:100%;max-width:100%;border-radius:16px 16px 0 0;
+    padding:1.2rem 1rem 2rem;max-height:92dvh;
+    animation:slideUp .25s cubic-bezier(.16,1,.3,1);
+  }
+
+  /* ── Proclamation cards ── */
+  .pcard{padding:.85rem 1rem;gap:.8rem;}
+  .rcirc{width:36px;height:36px;font-size:.9rem;}
+
+  /* ── Buttons row ── */
+  .brow{flex-direction:column;}
+  .brow .btn{width:100%;justify-content:center;}
+
+  /* ── Report card inside rpOut ── */
+  #rpOut > div{
+    border-radius:0!important;
+    box-shadow:none!important;
+  }
+  /* Report inner padding */
+  #rpOut > div > div:nth-child(2){
+    padding:1.4rem 1rem 1.2rem!important;
+  }
+  /* Student info grid → single column on very small screens */
+  #rpOut .rp-info-grid{grid-template-columns:1fr!important;}
+
+  /* Summary panel 4-col → 2×2 */
+  #rpOut > div > div:nth-child(2) > div[style*="grid-template-columns:1fr 1fr 1fr 1fr"]{
+    grid-template-columns:1fr 1fr!important;
+  }
+  /* Promotion decision row spans 2 on mobile */
+  #rpOut > div > div:nth-child(2) > div[style*="grid-template-columns:1fr 1fr 1fr 1fr"] > div:last-child{
+    grid-column:span 2!important;
+  }
+
+  /* Report table scroll */
+  #rpOut table{min-width:520px;font-size:.76rem;}
+  #rpOut > div > div:nth-child(2) > table{
+    display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  }
+
+  /* Logo upload area */
+  #rpLogoPreview{display:none!important;}
+
+  /* Analytics grids */
+  #anOut > div[style*="grid-template-columns"]{grid-template-columns:1fr!important;}
+  #anOut > div > div[style*="grid-template-columns"]{grid-template-columns:1fr!important;}
+
+  .theme-toggle .tt-label{display:none;}
+  .theme-toggle{padding:5px 8px;}
+  .modal > div[style*="display:flex"][style*="gap"],
+  .modal > div > div[style*="display:flex"][style*="gap"]{
+    flex-direction:column!important;
+  }
+  .modal .btn{width:100%!important;justify-content:center!important;}
+
+  /* chk-list items larger touch targets */
+  .chk-item{padding:10px 12px;}
+
+  /* Login box */
+  .lbox{padding:1.8rem 1.2rem;}
+}
+
+/* Extra small phones */
+@media(max-width:380px){
+  .sgrid{grid-template-columns:1fr;}
+  .navbtn{min-width:52px;font-size:.5rem;}
+  .main{padding:.7rem .6rem;}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<!-- ══ LOGIN ══════════════════════════════════════ -->
+<!-- ══ LANDING PAGE ════════════════════════════════════════ -->
+<div id="landingWrap" style="display:none;">
+  <div style="min-height:100vh;background:var(--bg);color:var(--ink);font-family:'Outfit',sans-serif;">
+
+    <!-- Nav -->
+    <div style="position:sticky;top:0;z-index:100;background:var(--s1);border-bottom:1px solid var(--bd);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:'Playfair Display',serif;font-size:1.3rem;" id="landingLogoText">SC<span style="color:var(--gold)">ORIX</span></div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="theme-toggle" onclick="toggleTheme()" style="font-size:.8rem;"><span class="tt-icon">🌙</span></button>
+        <button class="lbtn" onclick="showLogin()" style="padding:8px 22px;font-size:.85rem;border-radius:8px;width:auto;margin:0;">Sign In →</button>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div style="text-align:center;padding:5rem 1.5rem 3rem;max-width:700px;margin:0 auto;">
+      <div style="display:inline-block;background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.25);border-radius:20px;padding:4px 14px;font-size:.72rem;font-weight:600;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1.2rem;">School Management System</div>
+      <h1 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,6vw,3.2rem);font-weight:700;line-height:1.15;margin-bottom:1rem;color:var(--ink);">Academic Excellence,<br><span style="color:var(--gold);">Precisely Tracked.</span></h1>
+      <p style="font-size:1.05rem;color:var(--ink2);margin-bottom:2rem;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;">The complete marks management platform for schools — enter grades, generate report cards, track performance, and manage multiple schools from one place.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <button onclick="showLogin()" style="background:var(--gold);color:#1a1200;border:none;border-radius:9px;padding:13px 30px;font-size:1rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;transition:filter .15s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">Get Started →</button>
+        <a href="#features" style="background:var(--s2);color:var(--ink2);border:1px solid var(--bd);border-radius:9px;padding:13px 26px;font-size:1rem;font-weight:500;cursor:pointer;font-family:'Outfit',sans-serif;text-decoration:none;display:inline-flex;align-items:center;">Explore Features</a>
+      </div>
+      <!-- Stats -->
+      <div style="display:flex;justify-content:center;gap:2.5rem;margin-top:3rem;flex-wrap:wrap;">
+        <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--gold);">∞</div><div style="font-size:.72rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;">Schools</div></div>
+        <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--green);">⚡</div><div style="font-size:.72rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;">Real-time</div></div>
+        <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--blue);">📱</div><div style="font-size:.72rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;">Mobile Ready</div></div>
+        <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--purple);">🔒</div><div style="font-size:.72rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;">Secure</div></div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div id="features" style="padding:3rem 1.5rem;max-width:960px;margin:0 auto;">
+      <div style="text-align:center;margin-bottom:2.5rem;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink3);margin-bottom:.5rem;">Everything You Need</div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:clamp(1.5rem,4vw,2.2rem);color:var(--ink);">A Complete Academic Toolkit</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;">
+          <div style="font-size:1.6rem;margin-bottom:.7rem;">✏️</div>
+          <div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Marks Entry</div>
+          <div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Enter grades by class, subject and term with component breakdown — Quiz, CAT, Exam.</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;">
+          <div style="font-size:1.6rem;margin-bottom:.7rem;">📄</div>
+          <div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Report Cards</div>
+          <div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Generate polished, printable report cards with school logo, motto and signatures.</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;">
+          <div style="font-size:1.6rem;margin-bottom:.7rem;">📊</div>
+          <div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Analytics</div>
+          <div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Visualise class rankings, subject averages, grade distributions and trends.</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;">
+          <div style="font-size:1.6rem;margin-bottom:.7rem;">🏆</div>
+          <div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Proclamation</div>
+          <div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Honours list and class rankings updated automatically as marks are entered.</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;">
+          <div style="font-size:1.6rem;margin-bottom:.7rem;">🏫</div>
+          <div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Multi-School</div>
+          <div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Superadmin manages multiple schools — each with their own isolated data.</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;">
+          <div style="font-size:1.6rem;margin-bottom:.7rem;">⏸</div>
+          <div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Access Control</div>
+          <div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Pause schools, manage admins, and control who sees what across your system.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;padding:3rem 1.5rem 4rem;background:var(--s1);margin-top:2rem;">
+      <h2 style="font-family:'Playfair Display',serif;font-size:clamp(1.4rem,4vw,2rem);color:var(--ink);margin-bottom:.8rem;">Ready to Get Started?</h2>
+      <p style="color:var(--ink3);margin-bottom:1.6rem;font-size:.9rem;">Sign in to your school account or contact your administrator.</p>
+      <button onclick="showLogin()" style="background:var(--gold);color:#1a1200;border:none;border-radius:9px;padding:13px 32px;font-size:1rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">Sign In Now →</button>
+      <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--bd);font-size:.75rem;color:var(--ink3);">
+        Having trouble? Call <a href="tel:0792580714" style="color:var(--blue);font-weight:600;">📞 0792 580 714</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="loginWrap">
+  <div style="position:absolute;top:1rem;right:1rem;">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Switch light/dark mode" style="font-size:.75rem;">
+      <span class="tt-icon">🌙</span>
+    </button>
+  </div>
+  <div class="lbox">
+    <div class="llogo" id="llogoText">SC<span>ORIX</span></div>
+    <div class="lsub" id="lsubText">School Marks Management System</div>
+    <div class="lerr" id="lerr">❌ Invalid username or password.</div>
+    <div class="lf"><label>Username</label><input type="text" id="luser" placeholder="Enter username" autocomplete="username"></div>
+    <div class="lf"><label>Password</label><div class="pw-wrap"><input type="password" id="lpass" placeholder="Enter password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="toggleLoginPw(this)" title="Show/hide password">👁</button></div></div>
+    <button class="lbtn" id="loginBtn">Sign In →</button>
+    <button class="lreset" id="resetBtn">Can't login? Reset to defaults</button>
+    <div style="margin-top:1.2rem;padding:.75rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.18);border-radius:8px;text-align:center;">
+      <div style="font-size:.65rem;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">Having trouble? Contact support</div>
+      <a href="tel:0792580714" style="font-size:1rem;font-weight:700;color:var(--blue);text-decoration:none;letter-spacing:.04em;">📞 0792 580 714</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ════════════════════════════════════════ -->
+<div id="appWrap">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="tlogo" id="tlogoMain">SC<span>ORIX</span></div>
+      <div class="tschool" id="tschool"></div>
+    </div>
+    <div class="tright">
+      <span class="tsaving" id="tsaving" style="display:none">💾 Saving…</span>
+      <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Switch light/dark mode">
+        <span class="tt-icon">🌙</span>
+        <span class="tt-label">Dark</span>
+      </button>
+      <div class="upill">
+        <div class="uav" id="uav"></div>
+        <span class="uname" id="uname"></span>
+        <span class="urole" id="urole"></span>
+      </div>
+      <button class="tbtn" id="logoutBtn">⏻ Sign Out</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar"></div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- DASHBOARD -->
+      <div class="page" id="p-dashboard">
+        <div class="ph"><div><div class="phtitle">Dashboard</div><div class="phsub" id="dwelcome"></div></div></div>
+        <div class="sgrid">
+          <div class="scard gold"><div class="snum" id="ds0">0</div><div class="slbl">Students</div></div>
+          <div class="scard blue"><div class="snum" id="ds1">0</div><div class="slbl">Classes</div></div>
+          <div class="scard green"><div class="snum" id="ds2">0</div><div class="slbl">Subjects</div></div>
+          <div class="scard purple"><div class="snum" id="ds3">0</div><div class="slbl">Marks Recorded</div></div>
+        </div>
+        <div class="card"><div class="ctitle">Recent Activity</div><div id="dact"></div></div>
+      </div>
+
+      <!-- TEACHERS -->
+      <div class="page" id="p-teachers">
+        <div class="ph"><div><div class="phtitle">Teachers</div><div class="phsub">Manage staff accounts</div></div><div class="phact"><button class="btn gold" onclick="om('mt')">+ Add Teacher</button></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Teacher</th><th>Password</th><th>⭐ Class Teacher Of</th><th>🏫 Assigned Classes</th><th>📚 Assigned Subjects</th><th>Action</th></tr></thead><tbody id="tbt"></tbody></table></div></div>
+      </div>
+
+      <!-- CLASSES -->
+      <div class="page" id="p-classes">
+        <div class="ph"><div><div class="phtitle">Classes</div><div class="phsub">Manage class groups</div></div><div class="phact" id="clsbtn"></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Class Name</th><th>Students</th><th id="clsacth"></th></tr></thead><tbody id="tbc"></tbody></table></div></div>
+      </div>
+
+      <!-- TERMS -->
+      <div class="page" id="p-terms">
+        <div class="ph"><div><div class="phtitle">Terms &amp; Periods</div><div class="phsub">Manage assessment periods &amp; mark components</div></div><div class="phact"><button class="btn gold" onclick="om('mterm')">+ Add Term</button></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Components</th><th>Active</th><th>Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
+      </div>
+
+      <!-- SUBJECTS -->
+      <div class="page" id="p-subjects">
+        <div class="ph"><div><div class="phtitle">Subjects</div><div class="phsub">Manage subjects &amp; grading scales</div></div><div class="phact" id="subjbtn"></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Subject</th><th>Scale</th><th>Promotion Mark</th><th>Grade Thresholds</th><th id="subacth"></th></tr></thead><tbody id="tbs"></tbody></table></div></div>
+      </div>
+
+      <!-- STUDENTS -->
+      <div class="page" id="p-students">
+        <div class="ph"><div><div class="phtitle">Students</div><div class="phsub">Student roster</div></div><div class="phact" id="stbtn"></div></div>
+        <div class="srow">
+          <input type="text" id="stSearch" placeholder="Search by name or number…" oninput="renderStudents()">
+          <select id="stCls" onchange="renderStudents()"><option value="">All Classes</option></select>
+        </div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>No.</th><th>Class</th><th id="stacth"></th></tr></thead><tbody id="tbst"></tbody></table></div></div>
+      </div>
+
+      <!-- MARKS -->
+      <div class="page" id="p-marks">
+        <div class="ph"><div><div class="phtitle">Enter Marks</div><div class="phsub">Record student grades</div></div><div class="phact"><button class="btn green" onclick="saveAllMarks()">💾 Save Marks</button></div></div>
+        <div class="card">
+          <div class="g3" style="margin-bottom:1rem;">
+            <div class="fg"><label>Class</label><select id="mkCls" onchange="loadMkTable()"><option value="">— Select Class —</option></select></div>
+            <div class="fg"><label>Subject</label><select id="mkSub" onchange="loadMkTable()"><option value="">— Select Subject —</option></select></div>
+            <div class="fg"><label>Term</label><select id="mkTerm" onchange="loadMkTable()"></select></div>
+          </div>
+          <div id="mkWrap"><div class="empty"><div class="ei">✏️</div><p>Select class and subject to enter marks.</p></div></div>
+        </div>
+      </div>
+
+      <!-- IMPORT -->
+      <div class="page" id="p-import">
+        <div class="ph"><div><div class="phtitle">Import Students</div><div class="phsub">Upload CSV or paste data</div></div></div>
+        <div class="card">
+          <div class="al info">ℹ️ CSV format: <strong>Name, StudentNumber, ClassName</strong> — first row can be a header</div>
+          <div class="dzone" id="dzone" onclick="document.getElementById('csvf').click()"
+            ondragover="event.preventDefault();this.classList.add('drag')"
+            ondragleave="this.classList.remove('drag')"
+            ondrop="this.classList.remove('drag');event.preventDefault();handleDrop(event)">
+            <div style="font-size:2rem;margin-bottom:.5rem;">📂</div>
+            <div style="font-size:.86rem;color:var(--ink2);"><strong style="color:var(--gold);">Click to browse</strong> or drag &amp; drop a CSV file</div>
+          </div>
+          <input type="file" id="csvf" accept=".csv,.txt" style="display:none" onchange="handleFile(event)">
+          <div id="impres" style="margin-top:.9rem;"></div>
+        </div>
+        <div class="card">
+          <div class="ctitle">Paste CSV Data</div>
+          <div class="fg" style="margin-bottom:.8rem;"><label>Paste here</label>
+            <textarea id="csvpaste" rows="5" style="resize:vertical;font-family:monospace;font-size:.81rem;" placeholder="Name,Number,Class&#10;Alice Johnson,1,Grade 2A&#10;Bob Smith,2,Grade 2A"></textarea>
+          </div>
+          <button class="btn gold" onclick="importPaste()">Import</button>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="page" id="p-reports">
+        <div class="ph"><div><div class="phtitle">Report Cards</div><div class="phsub">Official Academic Bridge report card</div></div><div class="phact"><button class="btn ghost" onclick="openReportSettings()">⚙️ Report Settings</button><button class="btn ghost" onclick="window.print()">&#128438; Print</button></div></div>
+        <div class="card noprint">
+          <div class="g3">
+            <div class="fg"><label>Student</label><select id="rpSt" onchange="genReport()"><option value="">&#8212; Select Student &#8212;</option></select></div>
+            <div class="fg"><label>Term</label><select id="rpTerm" onchange="genReport()"></select></div>
+            <div class="fg"><label>Class Teacher Remarks</label><input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term&#8230;" oninput="genReport()"></div>
+          </div>
+          <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--bd);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <div class="fg" style="flex:1;min-width:200px;">
+              <label>🖼️ School Logo <span style="color:var(--ink3);font-weight:400;">(optional — appears on report card)</span></label>
+              <input type="file" id="rpLogoFile" accept="image/*" onchange="handleLogoUpload(event)" style="padding:6px 10px;font-size:.82rem;">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="rpLogoPreview" style="display:none;width:56px;height:56px;border-radius:8px;border:1px solid var(--bd);overflow:hidden;background:var(--s2);display:flex;align-items:center;justify-content:center;">
+                <img id="rpLogoImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;">
+              </div>
+              <button class="btn sm red" id="rpLogoRemove" style="display:none;" onclick="removeLogo()">✕ Remove</button>
+            </div>
+          </div>
+        </div>
+        <div id="rpSettingsFlash"></div>
+        <div id="rpOut"><div class="empty"><div class="ei">&#128196;</div><p>Select a student to preview their report card.</p></div></div>
+      </div>
+
+      <!-- ANALYTICS -->
+      <div class="page" id="p-analytics">
+        <div class="ph"><div><div class="phtitle">Performance Analytics</div><div class="phsub">Visual academic performance overview</div></div></div>
+        <div class="card noprint" style="margin-bottom:1rem;">
+          <div class="g3">
+            <div class="fg"><label>Class</label><select id="anCls" onchange="renderAnalytics()"><option value="">All Classes</option></select></div>
+            <div class="fg"><label>Term</label><select id="anTerm" onchange="renderAnalytics()"></select></div>
+            <div class="fg"><label>Subject</label><select id="anSub" onchange="renderAnalytics()"><option value="">All Subjects</option></select></div>
+          </div>
+        </div>
+        <div id="anOut"><div class="empty"><div class="ei">&#128202;</div><p>Select filters above to see analytics.</p></div></div>
+      </div>
+
+      <!-- PROCLAMATION -->
+      <div class="page" id="p-proclamation">
+        <div class="ph"><div><div class="phtitle">Proclamation List</div><div class="phsub">Honours &amp; student ranking</div></div><div class="phact"><button class="btn ghost" onclick="window.print()">🖨️ Print</button></div></div>
+        <div class="card noprint">
+          <div class="g2">
+            <div class="fg"><label>Class</label><select id="prCls" onchange="genProcl()"><option value="">All Classes</option></select></div>
+            <div class="fg"><label>Term</label><select id="prTerm" onchange="genProcl()"></select></div>
+          </div>
+        </div>
+        <div id="prOut"><div class="empty"><div class="ei">🏆</div><p>Enter marks first to see rankings.</p></div></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="p-settings">
+        <div class="ph"><div><div class="phtitle">Settings</div><div class="phsub">Account &amp; system configuration</div></div></div>
+        <div class="card" id="schoolCard">
+          <div class="ctitle">School Information</div>
+          <div id="schal"></div>
+          <div class="g2" style="max-width:600px;margin-bottom:.9rem;">
+            <div class="fg span2"><label>School Name</label><input type="text" id="schin" placeholder="e.g. Greenfield Primary School"></div>
+            <div class="fg span2"><label>School Motto <span style="color:var(--ink3);font-weight:400;">(appears on report cards)</span></label><input type="text" id="schmotto" placeholder="e.g. Excellence in Education"></div>
+            <div class="fg span2"><label>School Address / Location <span style="color:var(--ink3);font-weight:400;">(optional)</span></label><input type="text" id="schaddr" placeholder="e.g. P.O. Box 123, Kigali"></div>
+          </div>
+          <button class="btn gold" onclick="saveSchool()">💾 Save School Info</button>
+        </div>
+        <div class="card" style="max-width:450px;">
+          <div class="ctitle">Change My Password</div>
+          <div id="pwal"></div>
+          <div style="display:flex;flex-direction:column;gap:.75rem;margin-bottom:.9rem;">
+            <div class="fg"><label>Current Password</label><input type="password" id="pwold"></div>
+            <div class="fg"><label>New Password</label><input type="password" id="pwnew"></div>
+            <div class="fg"><label>Confirm New Password</label><input type="password" id="pwcf"></div>
+          </div>
+          <button class="btn gold" onclick="changePw()">Update Password</button>
+        </div>
+        <div class="card" id="gradeCard">
+          <div class="ctitle">Default Grade Thresholds (%)</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.7rem;">These are the global defaults. Each subject can override these in the Subjects page.</div>
+          <div id="gral"></div>
+          <div class="g4" style="margin-bottom:.6rem;">
+            <div class="fg"><label>A — from %</label><input type="number" id="grA"></div>
+            <div class="fg"><label>B — from %</label><input type="number" id="grB"></div>
+            <div class="fg"><label>C — from %</label><input type="number" id="grC"></div>
+            <div class="fg"><label>D — from %</label><input type="number" id="grD"></div>
+          </div>
+          <div style="font-size:.72rem;color:var(--ink3);margin-bottom:.8rem;">
+            A = 80%+ &nbsp;|&nbsp; B = 70–79% &nbsp;|&nbsp; C = 60–69% &nbsp;|&nbsp; D = 50–59% &nbsp;|&nbsp; F = below 50%
+          </div>
+          <button class="btn gold" onclick="saveGrades()">Save</button>
+        </div>
+        <div class="card" id="dataCard">
+          <div class="ctitle" style="color:var(--red);">⚠️ Data Management</div>
+          <div class="brow">
+            <button class="btn ghost" onclick="exportData()">📤 Export Backup</button>
+            <button class="btn ghost" onclick="document.getElementById('bkf').click()">📥 Import Backup</button>
+            <button class="btn red" onclick="clearAll()">🗑️ Clear All Data</button>
+          </div>
+          <input type="file" id="bkf" accept=".json" style="display:none" onchange="loadBackup(event)">
+        </div>
+      </div>
+
+      <!-- SUPERADMIN CONTROL PANEL -->
+      <div class="page" id="p-super">
+        <div class="ph">
+          <div><div class="phtitle" style="color:var(--red);">🛡️ Super Admin Panel</div><div class="phsub">System-wide control — manage all schools and admins</div></div>
+          <div class="phact">
+            <button class="btn gold" onclick="om('mAddSchool')">+ Add School</button>
+            <button class="btn ghost" onclick="om('mAddSuperUser')">+ Add Super User</button>
+          </div>
+        </div>
+
+        <!-- System Branding -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="ctitle">🎨 System Name</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.9rem;">This is the name that appears on the login screen for all schools. Each school sees their own name once they log in.</div>
+          <div style="display:flex;gap:.9rem;align-items:flex-end;margin-bottom:.9rem;flex-wrap:wrap;">
+            <div class="fg" style="flex:1;min-width:180px;">
+              <label>System Name</label>
+              <input type="text" id="sysNameInput" placeholder="e.g. SCORIX, EduTrack, SchoolIQ" oninput="updateBrandPreview()">
+            </div>
+            <button class="btn gold" onclick="saveBranding()" style="flex-shrink:0;">✅ Save Name</button>
+          </div>
+          <!-- Live preview -->
+          <div style="padding:.9rem 1rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;text-align:center;">
+            <div style="font-size:.6rem;color:var(--ink3);margin-bottom:5px;letter-spacing:.1em;text-transform:uppercase;">Login screen preview</div>
+            <div class="llogo" id="brandPreview" style="font-size:1.5rem;margin-bottom:2px;">SC<span>ORIX</span></div>
+            <div style="font-size:.65rem;color:var(--ink3);">School Marks Management System</div>
+          </div>
+        </div>
+
+        <div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1rem;">
+          <div class="scard red"><div class="snum" id="ss0">0</div><div class="slbl">Schools</div></div>
+          <div class="scard gold"><div class="snum" id="ss1">0</div><div class="slbl">Active</div></div>
+          <div class="scard purple"><div class="snum" id="ss2">0</div><div class="slbl">Paused</div></div>
+        </div>
+        <div class="card">
+          <div class="ctitle">🏫 Schools</div>
+          <div id="superSchoolList"><div class="empty"><div class="ei">🏫</div><p>No schools yet.</p></div></div>
+        </div>
+        <div class="card">
+          <div class="ctitle">🛡️ Super Users</div>
+          <div id="superUserList"></div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /layout -->
+</div><!-- /appWrap -->
+
+<!-- ══ MODALS ══════════════════════════════════════ -->
+
+<!-- Add Teacher -->
+<div class="mbg" id="mt"><div class="modal">
+  <div class="mhead"><div class="mtitle">➕ Add Teacher</div><button class="mx" onclick="cm('mt')">✕</button></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg"><label>Full Name</label><input type="text" id="mtn" placeholder="Mrs. Johnson"></div>
+    <div class="fg"><label>Username</label><input type="text" id="mtu" placeholder="johnson"></div>
+    <div class="fg"><label>Password</label><div class="pw-wrap-modal"><input type="password" id="mtp" placeholder="••••••"><button class="pw-eye-m" type="button" onclick="togglePwField('mtp',this)">👁</button></div></div>
+    <div class="fg"><label>⭐ Class Teacher Of <span style="color:var(--ink3);font-weight:400;">(reports & proclamation)</span></label><select id="mtct"><option value="">— None —</option></select></div>
+    <div class="fg span2"><label>🏫 Assigned Classes <span style="color:var(--ink3);font-weight:400;">(can enter marks for)</span></label>
+      <div class="chk-list" id="mtc-chk" style="max-height:130px;"></div>
+      <select id="mtc" multiple style="display:none;"></select>
+    </div>
+    <div class="fg span2"><label>📚 Assigned Subjects <span style="color:var(--ink3);font-weight:400;">(subjects they teach)</span></label>
+      <div class="chk-list" id="mts-chk" style="max-height:130px;"></div>
+      <select id="mts" multiple style="display:none;"></select>
+    </div>
+  </div>
+  <button class="btn gold" onclick="addTeacher()">Add Teacher</button>
+</div></div>
+
+<!-- Edit Teacher -->
+<div class="mbg" id="met"><div class="modal">
+  <div class="mhead"><div class="mtitle">✏️ Edit Teacher</div><button class="mx" onclick="cm('met')">✕</button></div>
+  <input type="hidden" id="metid">
+  <div style="margin-bottom:.8rem;padding:9px 12px;background:var(--s2);border-radius:7px;font-size:.86rem;color:var(--ink2);">Editing: <strong id="metname" style="color:var(--ink);"></strong></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg"><label>Full Name</label><input type="text" id="metn" placeholder="Mrs. Johnson"></div>
+    <div class="fg"><label>Username</label><input type="text" id="metu" placeholder="johnson"></div>
+    <div class="fg"><label>New Password <span style="color:var(--ink3);font-weight:400;">(leave blank to keep)</span></label><div class="pw-wrap-modal"><input type="password" id="metp" placeholder="Leave blank to keep"><button class="pw-eye-m" type="button" onclick="togglePwField('metp',this)">👁</button></div></div>
+    <div class="fg"><label>⭐ Class Teacher Of <span style="color:var(--ink3);font-weight:400;">(reports & proclamation)</span></label><select id="metct"><option value="">— None —</option></select></div>
+    <div class="fg span2"><label>🏫 Assigned Classes <span style="color:var(--ink3);font-weight:400;">(can enter marks for)</span></label>
+      <div class="chk-list" id="metc-chk" style="max-height:130px;"></div>
+      <select id="metc" multiple style="display:none;"></select>
+    </div>
+    <div class="fg span2"><label>📚 Assigned Subjects <span style="color:var(--ink3);font-weight:400;">(subjects they teach)</span></label>
+      <div class="chk-list" id="mets-chk" style="max-height:130px;"></div>
+      <select id="mets" multiple style="display:none;"></select>
+    </div>
+  </div>
+  <button class="btn gold" onclick="saveEditTeacher()">Save Changes</button>
+</div></div>
+
+<!-- Add Class -->
+<div class="mbg" id="mc"><div class="modal">
+  <div class="mhead"><div class="mtitle">Add Class</div><button class="mx" onclick="cm('mc')">✕</button></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg span2"><label>Class Name</label><input type="text" id="mcn" placeholder="e.g. Grade 3A"></div>
+  </div>
+  <button class="btn gold" onclick="addClass()">Add Class</button>
+</div></div>
+
+<!-- Edit Class -->
+<div class="mbg" id="mec"><div class="modal">
+  <div class="mhead"><div class="mtitle">✏️ Edit Class</div><button class="mx" onclick="cm('mec')">✕</button></div>
+  <input type="hidden" id="mecid">
+  <div style="margin-bottom:.8rem;padding:9px 12px;background:var(--s2);border-radius:7px;font-size:.86rem;color:var(--ink2);">Editing: <strong id="mecname" style="color:var(--ink);"></strong></div>
+  <div class="fg" style="margin-bottom:.9rem;"><label>Class Name</label><input type="text" id="mecn" placeholder="e.g. Grade 3A"></div>
+  <button class="btn gold" onclick="saveEditClass()">Save Changes</button>
+</div></div>
+
+<!-- Add Term -->
+<div class="mbg" id="mterm"><div class="modal" style="max-width:520px;">
+  <div class="mhead"><div class="mtitle">Add Term / Period</div><button class="mx" onclick="cm('mterm')">✕</button></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg"><label>Term Name</label><input type="text" id="mtrn" placeholder="e.g. Term 1, Mid Term…"></div>
+    <div class="fg"><label>Type</label><select id="mtrt">
+      <option value="term">Term</option><option value="period">Period</option><option value="midterm">Mid Term</option>
+      <option value="exam">Exam</option><option value="trimester">Trimester</option><option value="semester">Semester</option><option value="other">Other</option>
+    </select></div>
+  </div>
+  <!-- Mark Components -->
+  <div class="ctitle" style="margin-bottom:.5rem;">📋 Mark Components <span style="font-size:.7rem;font-weight:400;color:var(--ink3);">(optional — breakdown of how the total mark is made up)</span></div>
+  <div style="font-size:.73rem;color:var(--ink3);margin-bottom:.7rem;">e.g. Unit Test: 30, Mid Term: 30, End of Term: 40 — must add up to the subject's max mark</div>
+  <div id="mtCompList" style="display:flex;flex-direction:column;gap:5px;margin-bottom:.7rem;"></div>
+  <div style="display:flex;gap:7px;margin-bottom:1rem;">
+    <input type="text" id="mtCompName" placeholder="Component name (e.g. Unit 1)" style="flex:1;padding:7px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;">
+    <input type="number" id="mtCompMax" placeholder="Max" min="1" style="width:72px;padding:7px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;text-align:center;">
+    <button class="btn ghost" style="font-size:.78rem;" onclick="addTermComp('mt')">+ Add</button>
+  </div>
+  <button class="btn gold" onclick="addTerm()">Add Term</button>
+</div></div>
+
+<!-- Edit Term -->
+<div class="mbg" id="meterm"><div class="modal" style="max-width:520px;">
+  <div class="mhead"><div class="mtitle">✏️ Edit Term</div><button class="mx" onclick="cm('meterm')">✕</button></div>
+  <input type="hidden" id="metrmid">
+  <div style="margin-bottom:.8rem;padding:9px 12px;background:var(--s2);border-radius:7px;font-size:.86rem;color:var(--ink2);">Editing: <strong id="metrmname" style="color:var(--ink);"></strong></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg"><label>Term Name</label><input type="text" id="metrn" placeholder="e.g. Mid Term, Period 1…"></div>
+    <div class="fg"><label>Type</label><select id="metrt">
+      <option value="term">Term</option><option value="period">Period</option><option value="midterm">Mid Term</option>
+      <option value="exam">Exam</option><option value="trimester">Trimester</option><option value="semester">Semester</option><option value="other">Other</option>
+    </select></div>
+  </div>
+  <!-- Mark Components -->
+  <div class="ctitle" style="margin-bottom:.5rem;">📋 Mark Components</div>
+  <div id="meCompList" style="display:flex;flex-direction:column;gap:5px;margin-bottom:.7rem;"></div>
+  <div style="display:flex;gap:7px;margin-bottom:1rem;">
+    <input type="text" id="meCompName" placeholder="Component name" style="flex:1;padding:7px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;">
+    <input type="number" id="meCompMax" placeholder="Max" min="1" style="width:72px;padding:7px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;text-align:center;">
+    <button class="btn ghost" style="font-size:.78rem;" onclick="addTermComp('me')">+ Add</button>
+  </div>
+  <button class="btn gold" onclick="saveEditTerm()">Save Changes</button>
+</div></div>
+
+<!-- Add Subject -->
+<div class="mbg" id="ms"><div class="modal" style="max-width:580px;">
+  <div class="mhead"><div class="mtitle">Add Subject</div><button class="mx" onclick="cm('ms')">✕</button></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg span2"><label>Subject Name</label><input type="text" id="msn" placeholder="e.g. Mathematics"></div>
+    <div class="fg"><label>Grading Type</label><select id="mssc" onchange="toggleSubForm('ms')">
+      <option value="number">Numeric (out of max mark)</option>
+      <option value="letter">Letter (A/B/C/D/F)</option>
+    </select></div>
+    <div class="fg" id="ms-maxmark"><label>Max Mark</label><input type="number" id="msmax" value="100" min="1" placeholder="e.g. 100"></div>
+    <div class="fg" id="ms-pass"><label>Promotion Mark</label><input type="number" id="msp" value="50" min="0" placeholder="e.g. 50"></div>
+  </div>
+  <div id="ms-grades" style="margin-bottom:.9rem;">
+    <div class="ctitle" style="margin-bottom:.6rem;">Grade Thresholds (% of max mark)</div>
+    <div class="g4">
+      <div class="fg"><label>A — from %</label><input type="number" id="ms-grA" value="80" min="0" max="100"></div>
+      <div class="fg"><label>B — from %</label><input type="number" id="ms-grB" value="70" min="0" max="100"></div>
+      <div class="fg"><label>C — from %</label><input type="number" id="ms-grC" value="60" min="0" max="100"></div>
+      <div class="fg"><label>D — from %</label><input type="number" id="ms-grD" value="50" min="0" max="100"></div>
+    </div>
+  </div>
+  <button class="btn gold" onclick="addSubject()">Add Subject</button>
+</div></div>
+
+<!-- Edit Subject -->
+<div class="mbg" id="mes"><div class="modal" style="max-width:580px;">
+  <div class="mhead"><div class="mtitle">✏️ Edit Subject</div><button class="mx" onclick="cm('mes')">✕</button></div>
+  <input type="hidden" id="mesid">
+  <div style="margin-bottom:.8rem;padding:9px 12px;background:var(--s2);border-radius:7px;font-size:.86rem;color:var(--ink2);">Editing: <strong id="mesname" style="color:var(--ink);"></strong></div>
+  <div class="al info" style="margin-bottom:.9rem;">ℹ️ Changes here affect how all existing marks are calculated and graded.</div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg span2"><label>Subject Name</label><input type="text" id="mesn" placeholder="e.g. Mathematics"></div>
+    <div class="fg"><label>Grading Type</label><select id="messc" onchange="toggleSubForm('mes')">
+      <option value="number">Numeric (out of max mark)</option>
+      <option value="letter">Letter (A/B/C/D/F)</option>
+    </select></div>
+    <div class="fg" id="mes-maxmark"><label>Max Mark</label><input type="number" id="mesmax" value="100" min="1" placeholder="e.g. 100"></div>
+    <div class="fg" id="mes-pass"><label>Promotion Mark</label><input type="number" id="mesp" value="50" min="0" placeholder="e.g. 50"></div>
+  </div>
+  <div id="mes-grades" style="margin-bottom:.9rem;">
+    <div class="ctitle" style="margin-bottom:.6rem;">Grade Thresholds (% of max mark)</div>
+    <div class="g4">
+      <div class="fg"><label>A — from %</label><input type="number" id="mes-grA" min="0" max="100"></div>
+      <div class="fg"><label>B — from %</label><input type="number" id="mes-grB" min="0" max="100"></div>
+      <div class="fg"><label>C — from %</label><input type="number" id="mes-grC" min="0" max="100"></div>
+      <div class="fg"><label>D — from %</label><input type="number" id="mes-grD" min="0" max="100"></div>
+    </div>
+  </div>
+  <button class="btn gold" onclick="saveEditSubject()">Save Changes</button>
+</div></div>
+
+<!-- Add Student -->
+<div class="mbg" id="mst"><div class="modal">
+  <div class="mhead"><div class="mtitle">Add Student</div><button class="mx" onclick="cm('mst')">✕</button></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg"><label>Full Name</label><input type="text" id="mstn" placeholder="e.g. Alice Johnson"></div>
+    <div class="fg"><label>Student Number</label><input type="number" id="mstnum" placeholder="Auto if empty"></div>
+    <div class="fg span2"><label>Class</label><select id="mstcls"><option value="">— Select Class —</option></select></div>
+  </div>
+  <button class="btn gold" onclick="addStudent()">Add Student</button>
+</div></div>
+
+<!-- Edit Student -->
+<div class="mbg" id="mest"><div class="modal">
+  <div class="mhead"><div class="mtitle">✏️ Edit Student</div><button class="mx" onclick="cm('mest')">✕</button></div>
+  <input type="hidden" id="mestid">
+  <div style="margin-bottom:.8rem;padding:9px 12px;background:var(--s2);border-radius:7px;font-size:.86rem;color:var(--ink2);">Editing: <strong id="mestname" style="color:var(--ink);"></strong></div>
+  <div class="g2" style="margin-bottom:.9rem;">
+    <div class="fg"><label>Full Name</label><input type="text" id="mestn" placeholder="e.g. Alice Johnson"></div>
+    <div class="fg"><label>Student Number</label><input type="text" id="mestnum"></div>
+    <div class="fg span2"><label>Class</label><select id="mestcls"><option value="">— Select Class —</option></select></div>
+  </div>
+  <button class="btn gold" onclick="saveEditStudent()">Save Changes</button>
+</div></div>
+
+<script>
+
+// ===== SUPABASE CONNECTION =====
+const SUPABASE_URL = "https://zabdtormeyrucjwjipzl.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphYmR0b3JtZXlydWNqd2ppcHpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NTkzODUsImV4cCI6MjA4OTAzNTM4NX0.Rs-puu3GLuQBJzpVdYfgP63GNnb8AxU8XFcvGEpwHPw";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ═══════════════════════════════════════
+//  SUPERADMIN DB  (stored separately)
+//  schools:[{id,name,paused,adminIds:[]}]
+//  superusers:[{id,username,password,name,role:'superadmin'}]
+// ═══════════════════════════════════════
+var SUPERDB = {
+  superusers:[{id:'sa1',username:'superadmin',password:'super@2025',name:'Super Administrator',role:'superadmin'}],
+  schools:[],  // {id, name, paused:false, adminIds:[]}
+  settings:{
+    systemName:'SCORIX',         // brand name shown on login & topbar
+    systemTagline:'School Marks Management System',
+    systemColor:'#f0b429'        // accent colour (gold by default)
+  }
+};
+
+async function superSave(){
+  try{
+    await supabaseClient.from('epaza_data').upsert({id:'superdb',data:SUPERDB});
+  }catch(e){ console.error('superSave',e); }
+}
+async function superLoad(){
+  try{
+    var res = await supabaseClient.from('epaza_data').select('*').eq('id','superdb').single();
+    if(res.data && res.data.data){
+      var r = res.data.data;
+      if(Array.isArray(r.superusers)&&r.superusers.length) SUPERDB.superusers=r.superusers;
+      if(Array.isArray(r.schools)) SUPERDB.schools=r.schools;
+      if(r.settings&&typeof r.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,r.settings);
+    }
+  }catch(e){ console.log('No superdb yet'); }
+}
+
+// ═══════════════════════════════════════
+//  PER-SCHOOL DB  (keyed by schoolId)
+// ═══════════════════════════════════════
+var DB = {
+  users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},
+  settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',
+    reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
+  activity:[],
+  terms:[
+    {id:'T1',name:'Term 1',type:'term',active:true},
+    {id:'T2',name:'Term 2',type:'term',active:true},
+    {id:'T3',name:'Term 3',type:'term',active:true},
+    {id:'Final',name:'Final Exam',type:'exam',active:true}
+  ]
+};
+var ME = null;
+var CURRENT_SCHOOL_ID = null;
+var saveTimer = null;
+var TCLR = {term:'var(--blue)',period:'var(--purple)',midterm:'var(--gold)',exam:'var(--red)',trimester:'var(--green)',semester:'var(--green)',other:'var(--ink3)'};
+var TLBL = {term:'Term',period:'Period',midterm:'Mid Term',exam:'Exam',trimester:'Trimester',semester:'Semester',other:'Other'};
+
+function schoolDbKey(sid){ return 'epaza_school_'+sid; }
+
+async function supabaseSave(){
+  if(!CURRENT_SCHOOL_ID) return;
+  if(!DB.users||DB.users.length===0) return;
+  // Cache locally immediately (instant)
+  try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
+  // Then push to Supabase in background
+  try{
+    await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(CURRENT_SCHOOL_ID),data:DB});
+    // Also update user index for any user changes
+    var idx={};
+    (DB.users||[]).forEach(function(u){ idx[u.username]={schoolId:CURRENT_SCHOOL_ID,password:u.password}; });
+    // Merge with existing index
+    try{
+      var existing=await userIndexLoad();
+      if(existing){
+        // Remove old entries for this school, add new ones
+        Object.keys(existing).forEach(function(uname){ if(existing[uname].schoolId!==CURRENT_SCHOOL_ID) idx[uname]=existing[uname]; });
+      }
+      await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:idx});
+    }catch(e){}
+  }catch(e){ console.error('supabaseSave',e); }
+}
+
+async function supabaseLoad(sid){
+  // 1. Try Supabase first (source of truth across all devices)
+  try{
+    var fetchP = supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single();
+    var tout   = new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},8000);});
+    var res    = await Promise.race([fetchP,tout]);
+    if(res.data && res.data.data){
+      var r=res.data.data;
+      if(Array.isArray(r.users)&&r.users.length)     DB.users=r.users;
+      if(Array.isArray(r.teachers))                  DB.teachers=r.teachers;
+      if(Array.isArray(r.classes))                   DB.classes=r.classes;
+      if(Array.isArray(r.subjects))                  DB.subjects=r.subjects;
+      if(Array.isArray(r.students))                  DB.students=r.students;
+      if(r.marks&&typeof r.marks==='object')         DB.marks=r.marks;
+      if(r.settings&&typeof r.settings==='object')   DB.settings=Object.assign(DB.settings,r.settings);
+      if(Array.isArray(r.activity))                  DB.activity=r.activity;
+      if(Array.isArray(r.terms)&&r.terms.length)     DB.terms=r.terms;
+      // Update local cache
+      try{ localStorage.setItem(schoolDbKey(sid),JSON.stringify(DB)); }catch(e){}
+      return true;
+    }
+  }catch(e){ console.log('Supabase load failed, trying local cache'); }
+
+  // 2. Fall back to localStorage cache
+  try{
+    var raw=localStorage.getItem(schoolDbKey(sid));
+    if(raw){
+      var d=JSON.parse(raw);
+      if(d){
+        if(Array.isArray(d.users)&&d.users.length)   DB.users=d.users;
+        if(Array.isArray(d.teachers))                DB.teachers=d.teachers;
+        if(Array.isArray(d.classes))                 DB.classes=d.classes;
+        if(Array.isArray(d.subjects))                DB.subjects=d.subjects;
+        if(Array.isArray(d.students))                DB.students=d.students;
+        if(d.marks&&typeof d.marks==='object')       DB.marks=d.marks;
+        if(d.settings&&typeof d.settings==='object') DB.settings=Object.assign(DB.settings,d.settings);
+        if(Array.isArray(d.activity))                DB.activity=d.activity;
+        if(Array.isArray(d.terms)&&d.terms.length)   DB.terms=d.terms;
+      }
+    }
+  }catch(e){}
+  return false;
+}
+
+// ═══════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════
+function dbSave(){
+  if(!CURRENT_SCHOOL_ID) return;
+  // Block saves if school is paused (except superadmin)
+  if(isSuperAdmin()) { _doSave(); return; }
+  var school=SUPERDB.schools.find(function(s){return s.id===CURRENT_SCHOOL_ID;});
+  if(school&&school.paused) return;
+  _doSave();
+}
+function _doSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(function(){
+    document.getElementById('tsaving').style.display='inline';
+    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); supabaseSave(); }catch(e){}
+    setTimeout(function(){ document.getElementById('tsaving').style.display='none'; },700);
+  },350);
+}
+
+// ═══════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('lpass').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+document.getElementById('logoutBtn').addEventListener('click', doLogout);
+document.getElementById('resetBtn').addEventListener('click', function(){
+  if(confirm('Clear all data and reset to defaults? This cannot be undone.')){
+    localStorage.clear(); location.reload();
+  }
+});
+
+// ═══════════════════════════════════════
+//  USER INDEX  — fast login lookup
+//  stored as epaza_users in Supabase
+//  {username: {schoolId, passwordHash}}
+// ═══════════════════════════════════════
+async function userIndexSave(){
+  // Rebuild full index from all schools in localStorage + SUPERDB
+  var index={};
+  for(var i=0;i<SUPERDB.schools.length;i++){
+    var sc=SUPERDB.schools[i];
+    var raw=localStorage.getItem(schoolDbKey(sc.id));
+    if(!raw) continue;
+    try{
+      var d=JSON.parse(raw);
+      (d.users||[]).forEach(function(u){
+        index[u.username]={schoolId:sc.id,password:u.password};
+      });
+    }catch(e){}
+  }
+  try{ await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:index}); }catch(e){}
+}
+async function userIndexLoad(){
+  try{
+    var res=await supabaseClient.from('epaza_data').select('*').eq('id','epaza_users').single();
+    if(res.data&&res.data.data) return res.data.data;
+  }catch(e){}
+  return null;
+}
+// Call this whenever a user is added/edited/deleted
+async function rebuildUserIndex(){
+  if(!SUPERDB.schools.length) return;
+  var index={};
+  // Fetch all schools in PARALLEL — much faster than sequential loop
+  var fetches=SUPERDB.schools.map(function(sc){
+    return supabaseClient.from('epaza_data').select('data').eq('id',schoolDbKey(sc.id)).single()
+      .then(function(res){
+        var schoolData=res.data&&res.data.data?res.data.data:null;
+        if(!schoolData){ var raw=localStorage.getItem(schoolDbKey(sc.id)); if(raw) try{schoolData=JSON.parse(raw);}catch(e){} }
+        if(schoolData)(schoolData.users||[]).forEach(function(u){ index[u.username]={schoolId:sc.id,password:u.password}; });
+      }).catch(function(){
+        var raw=localStorage.getItem(schoolDbKey(sc.id));
+        if(raw) try{ var d=JSON.parse(raw); (d.users||[]).forEach(function(u){ index[u.username]={schoolId:sc.id,password:u.password}; }); }catch(e){}
+      });
+  });
+  await Promise.all(fetches);
+  try{ await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:index}); }catch(e){}
+}
+
+async function doLogin(){
+  var u=document.getElementById('luser').value.trim();
+  var p=document.getElementById('lpass').value;
+  var err=document.getElementById('lerr');
+  var btn=document.getElementById('loginBtn');
+
+  if(!u||!p){ err.style.display='flex'; err.textContent='❌ Please enter username and password.'; return; }
+
+  // Show loading state
+  btn.disabled=true; btn.textContent='Signing in…';
+  err.style.display='none';
+
+  try{
+
+  // 1. Check superadmin (local — instant)
+  var su=SUPERDB.superusers.find(function(x){return x.username===u&&x.password===p;});
+  if(su){
+    ME=su; CURRENT_SCHOOL_ID='__super__';
+    enterApp(); return;
+  }
+
+  // 2. Fast lookup via user index (single Supabase call)
+  var index=await userIndexLoad();
+  var foundSchoolId=null;
+
+  if(index&&index[u]){
+    var entry=index[u];
+    if(entry.password===p){
+      foundSchoolId=entry.schoolId;
+    } else {
+      err.style.display='flex'; err.textContent='❌ Invalid username or password.'; return;
+    }
+  }
+
+  // 3. Fallback — search all schools directly (covers new schools not yet indexed)
+  if(!foundSchoolId){
+    for(var si=0;si<SUPERDB.schools.length;si++){
+      var sc=SUPERDB.schools[si];
+      var schoolData=null;
+      // Try localStorage cache first (fast), then Supabase
+      var lsRaw=localStorage.getItem(schoolDbKey(sc.id));
+      if(lsRaw){ try{ schoolData=JSON.parse(lsRaw); }catch(e){} }
+      if(!schoolData){
+        try{
+          var res=await supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sc.id)).single();
+          if(res.data&&res.data.data) schoolData=res.data.data;
+        }catch(e){}
+      }
+      if(!schoolData||!schoolData.users) continue;
+      var candidate=schoolData.users.find(function(x){return x.username===u&&x.password===p;});
+      if(candidate){ foundSchoolId=sc.id; break; }
+    }
+  }
+
+  if(!foundSchoolId){
+    err.style.display='flex'; err.textContent='❌ Invalid username or password.'; return;
+  }
+
+  // Check pause
+  var foundSchool=SUPERDB.schools.find(function(s){return s.id===foundSchoolId;});
+  if(foundSchool&&foundSchool.paused){
+    err.style.display='flex';
+    err.innerHTML='⏸ <strong>'+foundSchool.name+'</strong> has been paused by the system administrator. Please contact support.';
+    return;
+  }
+
+  // Load school DB from Supabase
+  CURRENT_SCHOOL_ID=foundSchoolId;
+  await supabaseLoad(CURRENT_SCHOOL_ID);
+
+  // Find the user in the loaded DB
+  var me=DB.users.find(function(x){return x.username===u&&x.password===p;});
+  if(!me){
+    // User exists in index but DB load failed — create minimal session
+    me={id:'u_'+Date.now(),username:u,password:p,role:'admin',name:u,schoolId:foundSchoolId};
+  }
+  ME=me;
+
+  // Update user index in background (keep it fresh)
+  rebuildUserIndex();
+
+  enterApp();
+
+  }finally{
+    btn.disabled=false; btn.textContent='Sign In →';
+  }
+}
+
+function enterApp(){
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('appWrap').style.display='flex';
+
+  var initials=ME.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+  var av=document.getElementById('uav');
+  av.textContent=initials;
+  av.className='uav '+(isSuperAdmin()?'super':isAdmin()?'admin':'teacher');
+
+  document.getElementById('uname').textContent=ME.name;
+  var rt=document.getElementById('urole');
+  rt.textContent=isSuperAdmin()?'Super Admin':isAdmin()?'Admin':'Teacher';
+  rt.className='urole '+(isSuperAdmin()?'super':isAdmin()?'admin':'teacher');
+
+  applyBranding();
+  applySchool();
+  buildSidebar();
+
+  // Show pause banner if school is paused and superadmin is viewing
+  if(isSuperAdmin()){
+    showPage('super');
+  } else {
+    showPage('dashboard');
+  }
+  addLog('Signed in: '+ME.name);
+  if(!isSuperAdmin()) dbSave();
+}
+
+function doLogout(){
+  ME=null; CURRENT_SCHOOL_ID=null;
+  // Reset DB
+  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},
+    settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
+    activity:[],
+    terms:[{id:'T1',name:'Term 1',type:'term',active:true},{id:'T2',name:'Term 2',type:'term',active:true},{id:'T3',name:'Term 3',type:'term',active:true},{id:'Final',name:'Final Exam',type:'exam',active:true}]
+  };
+  document.getElementById('appWrap').style.display='none';
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('landingWrap').style.display='block';
+  document.getElementById('luser').value='';
+  document.getElementById('lpass').value='';
+  // Remove pause banner
+  var pb=document.getElementById('pauseBanner');
+  if(pb) pb.remove();
+}
+
+function isSuperAdmin(){ return ME&&ME.role==='superadmin'; }
+function isAdmin(){ return ME&&(ME.role==='admin'||ME.role==='superadmin'); }
+function myClasses(){
+  if(isAdmin()) return DB.classes;
+  if(!ME.classes||!ME.classes.length) return [];
+  return DB.classes.filter(function(c){ return ME.classes.indexOf(c.id)>=0; });
+}
+function activeTerms(){ return DB.terms.filter(function(t){ return t.active; }); }
+function termLabel(id){
+  for(var i=0;i<DB.terms.length;i++) if(DB.terms[i].id===id) return DB.terms[i].name;
+  return id;
+}
+function addLog(txt){
+  var t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  DB.activity.push({text:txt,time:t});
+  if(DB.activity.length>60) DB.activity=DB.activity.slice(-60);
+}
+
+// ═══════════════════════════════════════
+//  PAUSE BANNER
+// ═══════════════════════════════════════
+function refreshPauseBanner(){
+  var old=document.getElementById('pauseBanner'); if(old) old.remove();
+  if(!CURRENT_SCHOOL_ID||CURRENT_SCHOOL_ID==='__super__') return;
+  var school=SUPERDB.schools.find(function(s){return s.id===CURRENT_SCHOOL_ID;});
+  if(school&&school.paused){
+    var b=document.createElement('div');
+    b.id='pauseBanner';
+    b.style.cssText='position:fixed;top:50px;left:0;right:0;z-index:999;background:rgba(224,82,82,.95);color:#fff;text-align:center;padding:10px 16px;font-size:.82rem;font-weight:600;letter-spacing:.03em;display:flex;align-items:center;justify-content:center;gap:8px;';
+    b.innerHTML='⏸ This school has been paused by the system administrator. All editing is disabled.';
+    document.body.appendChild(b);
+  }
+}
+
+// ═══════════════════════════════════════
+//  SIDEBAR / NAVIGATION
+// ═══════════════════════════════════════
+function buildSidebar(){
+  var admin=isAdmin();
+  var html='';
+  function grp(label,items){
+    html+='<div class="navgrp">'+label+'</div>';
+    items.forEach(function(it){
+      html+='<button class="navbtn" id="nb-'+it.id+'" onclick="showPage(\''+it.id+'\')"><span class="navicon">'+it.icon+'</span>'+it.label+'</button>';
+    });
+  }
+  if(isSuperAdmin()){
+    grp('System',[{id:'super',icon:'🛡️',label:'Control Panel'}]);
+    grp('Account',[{id:'settings',icon:'⚙️',label:'Settings'}]);
+  } else {
+    grp('Overview',[{id:'dashboard',icon:'📊',label:'Dashboard'}]);
+    if(admin){
+      grp('Setup',[
+        {id:'teachers',icon:'👩‍🏫',label:'Teachers'},
+        {id:'classes',icon:'🏫',label:'Classes'},
+        {id:'terms',icon:'📅',label:'Terms & Periods'},
+        {id:'subjects',icon:'📚',label:'Subjects'},
+        {id:'students',icon:'👨‍🎓',label:'Students'},
+      ]);
+    } else {
+      grp('My Classes',[{id:'students',icon:'👨‍🎓',label:'Students'}]);
+    }
+    grp('Marking',admin?[{id:'marks',icon:'✏️',label:'Enter Marks'},{id:'import',icon:'📥',label:'Import Data'}]:[{id:'marks',icon:'✏️',label:'Enter Marks'}]);
+    grp('Output',[{id:'reports',icon:'📄',label:'Report Cards'},{id:'analytics',icon:'📊',label:'Analytics'},{id:'proclamation',icon:'🏆',label:'Proclamation'}]);
+    grp('Account',[{id:'settings',icon:'⚙️',label:'Settings'}]);
+  }
+  document.getElementById('sidebar').innerHTML=html;
+}
+function showPage(id){
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('on'); });
+  document.querySelectorAll('.navbtn').forEach(function(b){ b.classList.remove('active'); });
+  var pg=document.getElementById('p-'+id);
+  if(pg) pg.classList.add('on');
+  var nb=document.getElementById('nb-'+id);
+  if(nb) nb.classList.add('active');
+  var fns={
+    dashboard:renderDash, teachers:renderTeachers, classes:renderClasses,
+    terms:renderTerms, subjects:renderSubjects, students:setupStudents,
+    marks:setupMarks, import:function(){}, reports:setupReports,
+    analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
+    super:renderSuperPanel
+  };
+  if(fns[id]) fns[id]();
+}
+function sysName(){ return (SUPERDB.settings&&SUPERDB.settings.systemName)||'SCORIX'; }
+function sysTagline(){ return (SUPERDB.settings&&SUPERDB.settings.systemTagline)||'School Marks Management System'; }
+function sysColor(){ return (SUPERDB.settings&&SUPERDB.settings.systemColor)||'#f0b429'; }
+
+// Render the brand logo HTML — splits last 4 chars into accent color
+function brandLogoHtml(name){
+  name = name || sysName();
+  if(name.length<=4) return '<span style="color:var(--gold)">'+name+'</span>';
+  var first = name.slice(0, name.length-4);
+  var last  = name.slice(-4);
+  return first+'<span style="color:var(--gold)">'+last+'</span>';
+}
+
+function applyBranding(){
+  var name=sysName();
+  var tagline=sysTagline();
+  // Login logo
+  var llogo=document.getElementById('llogoText');
+  if(llogo) llogo.innerHTML=brandLogoHtml(name);
+  // Landing page logo
+  var lland=document.getElementById('landingLogoText');
+  if(lland) lland.innerHTML=brandLogoHtml(name);
+  // Login tagline
+  var lsub=document.getElementById('lsubText');
+  if(lsub) lsub.textContent=tagline;
+  // Topbar
+  applySchool();
+  // Page title
+  document.title=name+' — School Marks System';
+  // Loading overlay
+  var lb=document.getElementById('loadBrand');
+  if(lb) lb.innerHTML=brandLogoHtml(name);
+}
+
+function applySchool(){
+  var n=(DB.settings&&DB.settings.schoolName)||'';
+  // Topbar — school name for admin/teacher, system name for superadmin
+  var logoEl=document.getElementById('tlogoMain');
+  var subEl=document.getElementById('tschool');
+  if(!logoEl) return;
+  if(isSuperAdmin()){
+    logoEl.innerHTML=brandLogoHtml(sysName()); logoEl.style.fontSize='';
+    if(subEl) subEl.textContent='System Control';
+  } else if(n){
+    logoEl.textContent=n;
+    logoEl.style.fontSize=n.length>22?'.78rem':n.length>14?'.95rem':'';
+    if(subEl) subEl.textContent='Powered by '+sysName();
+  } else {
+    logoEl.innerHTML=brandLogoHtml(sysName()); logoEl.style.fontSize='';
+    if(subEl) subEl.textContent='';
+  }
+}
+
+// ═══════════════════════════════════════
+//  THEME  (light / dark)
+// ═══════════════════════════════════════
+function applyTheme(mode){
+  var isLight = mode==='light';
+  document.body.classList.toggle('light', isLight);
+  // Update all toggle buttons
+  document.querySelectorAll('.theme-toggle').forEach(function(btn){
+    var icon = btn.querySelector('.tt-icon');
+    var label = btn.querySelector('.tt-label');
+    if(icon)  icon.textContent  = isLight ? '☀️' : '🌙';
+    if(label) label.textContent = isLight ? 'Light' : 'Dark';
+  });
+  try{ localStorage.setItem('scorix_theme', mode); }catch(e){}
+}
+function toggleTheme(){
+  var current = document.body.classList.contains('light') ? 'light' : 'dark';
+  applyTheme(current==='light' ? 'dark' : 'light');
+}
+// Apply saved theme immediately on page load
+(function(){
+  try{
+    var saved = localStorage.getItem('scorix_theme');
+    if(saved) applyTheme(saved);
+  }catch(e){}
+})();
+
+// ═══════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════
+function om(id){
+  if(id==='mt'){
+    var clsOpts=DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    document.getElementById('mtc').innerHTML=clsOpts;
+    document.getElementById('mtct').innerHTML='<option value="">— None —</option>'+clsOpts;
+    document.getElementById('mts').innerHTML=DB.subjects.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+    buildChkList('mtc-chk', DB.classes, [], 'classes');
+    buildChkList('mts-chk', DB.subjects, [], 'subjects');
+  }
+  if(id==='mterm'){ _termComps.mt=[]; renderTermCompList('mt'); }
+  if(id==='mst') document.getElementById('mstcls').innerHTML='<option value="">— Select Class —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  document.getElementById(id).classList.add('open');
+}
+function cm(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.mbg').forEach(function(m){
+  m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('open'); });
+});
+function flash(id,type,msg){
+  var el=document.getElementById(id);
+  el.innerHTML='<div class="al '+type+'">'+msg+'</div>';
+  setTimeout(function(){ el.innerHTML=''; },3000);
+}
+
+// ═══════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════
+function renderDash(){
+  var schoolName=DB.settings&&DB.settings.schoolName?DB.settings.schoolName:'';
+  var dw=document.getElementById('dwelcome');
+  if(dw&&ME) dw.textContent=(schoolName?schoolName+' — ':'')+' Welcome back, '+ME.name;
+  document.getElementById('ds0').textContent = DB.students.length;
+  document.getElementById('ds1').textContent = DB.classes.length;
+  document.getElementById('ds2').textContent = DB.subjects.length;
+  document.getElementById('ds3').textContent = Object.keys(DB.marks).length;
+  var el = document.getElementById('dact');
+  if(!DB.activity.length){
+    el.innerHTML='<div class="empty"><div class="ei">📋</div><p>No activity yet.</p></div>';return;
+  }
+  el.innerHTML = DB.activity.slice(-8).reverse().map(function(a){
+    return'<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);"><span style="font-family:monospace;font-size:.7rem;color:var(--ink3);white-space:nowrap;">'+a.time+'</span><span style="font-size:.84rem;">'+a.text+'</span></div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+//  TEACHERS
+// ═══════════════════════════════════════
+function mySubjects(){
+  if(isAdmin()) return DB.subjects;
+  if(!ME.subjects||!ME.subjects.length) return DB.subjects; // if no restriction, see all
+  return DB.subjects.filter(function(s){ return ME.subjects.indexOf(s.id)>=0; });
+}
+function addTeacher(){
+  var name=document.getElementById('mtn').value.trim();
+  var uname=document.getElementById('mtu').value.trim();
+  var pass=document.getElementById('mtp').value;
+  if(!name||!uname||!pass){alert('Fill all fields.');return;}
+  for(var i=0;i<DB.users.length;i++) if(DB.users[i].username===uname){alert('Username already exists.');return;}
+  var id='T'+Date.now();
+  var clsEl=document.getElementById('mtc');
+  var subEl=document.getElementById('mts');
+  var cls=getChkSelected('mtc-chk');
+  var subs=getChkSelected('mts-chk');
+  var classTeacher=document.getElementById('mtct').value;
+  DB.users.push({id:id,username:uname,password:pass,role:'teacher',name:name,classes:cls,subjects:subs,classTeacher:classTeacher});
+  DB.teachers.push({id:id,name:name,username:uname,classes:cls,subjects:subs,classTeacher:classTeacher});
+  addLog('Added teacher: '+name); dbSave(); rebuildUserIndex(); renderTeachers(); cm('mt');
+  document.getElementById('mtn').value='';document.getElementById('mtu').value='';document.getElementById('mtp').value='';
+  document.getElementById('mtct').value='';
+  Array.from(clsEl.options).forEach(function(o){o.selected=false;});
+  Array.from(subEl.options).forEach(function(o){o.selected=false;});
+}
+function openEditTeacher(id){
+  var t=DB.teachers.find(function(x){return x.id===id;});if(!t)return;
+  document.getElementById('metid').value=id;
+  document.getElementById('metname').textContent=t.name;
+  document.getElementById('metn').value=t.name;
+  document.getElementById('metu').value=t.username;
+  document.getElementById('metp').value='';
+  var ctOpts='<option value="">— None —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'"'+(t.classTeacher===c.id?' selected':'')+'>'+c.name+'</option>';}).join('');
+  document.getElementById('metct').innerHTML=ctOpts;
+  // populate hidden selects (for saveEditTeacher compatibility)
+  document.getElementById('metc').innerHTML=DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  document.getElementById('mets').innerHTML=DB.subjects.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+  // populate checkboxes
+  buildChkList('metc-chk', DB.classes, t.classes||[], 'classes');
+  buildChkList('mets-chk', DB.subjects, t.subjects||[], 'subjects');
+  document.getElementById('met').classList.add('open');
+}
+function saveEditTeacher(){
+  var id=document.getElementById('metid').value;
+  var t=DB.teachers.find(function(x){return x.id===id;});if(!t)return;
+  var u=DB.users.find(function(x){return x.id===id;});
+  var name=document.getElementById('metn').value.trim();
+  var uname=document.getElementById('metu').value.trim();
+  var pass=document.getElementById('metp').value;
+  if(!name||!uname){alert('Name and username are required.');return;}
+  for(var i=0;i<DB.users.length;i++) if(DB.users[i].username===uname&&DB.users[i].id!==id){alert('Username already taken.');return;}
+  var cls=getChkSelected('metc-chk');
+  var subs=getChkSelected('mets-chk');
+  var classTeacher=document.getElementById('metct').value;
+  t.name=name;t.username=uname;t.classes=cls;t.subjects=subs;t.classTeacher=classTeacher;
+  if(u){u.name=name;u.username=uname;u.classes=cls;u.subjects=subs;u.classTeacher=classTeacher;if(pass)u.password=pass;}
+  addLog('Updated teacher: '+name);dbSave();rebuildUserIndex();renderTeachers();cm('met');
+  if(ME&&ME.id===id){
+    ME.name=name;ME.username=uname;ME.classes=cls;ME.subjects=subs;ME.classTeacher=classTeacher;
+    if(pass)ME.password=pass;
+    document.getElementById('uname').textContent=name;
+  }
+}
+function renderTeachers(){
+  var tb=document.getElementById('tbt');
+  if(!DB.teachers.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><p>No teachers yet.</p></div></td></tr>';return;}
+  tb.innerHTML=DB.teachers.map(function(t,i){
+    var initials=t.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+    var assignedClasses=t.classes&&t.classes.length
+      ?t.classes.map(function(cid){var c=DB.classes.find(function(x){return x.id===cid;});return c||null;}).filter(Boolean):[];
+    var clsList=assignedClasses.length
+      ?assignedClasses.map(function(c){return'<span class="tcls-tag">🏫 '+c.name+'<button class="tag-edit" onclick="openQuickClasses(\''+t.id+'\')" title="Edit classes">✏️</button></span>';}).join('')
+      :'<span style="color:var(--ink3);font-size:.78rem;">None</span>';
+    clsList+='<button class="tag-edit-btn" onclick="openQuickClasses(\''+t.id+'\')">＋ Edit</button>';
+    var assignedSubs=t.subjects&&t.subjects.length
+      ?t.subjects.map(function(sid){var s=DB.subjects.find(function(x){return x.id===sid;});return s?'<span class="tcls-tag" style="background:rgba(62,207,142,.1);color:var(--green);border-color:rgba(62,207,142,.25);">📚 '+s.name+'<button class="tag-edit" onclick="openQuickSubjects(\''+t.id+'\')" title="Edit subjects">✏️</button></span>':'';}).join('')
+      :'<span style="color:var(--ink3);font-size:.78rem;">All subjects</span>';
+    assignedSubs+='<button class="tag-edit-btn" onclick="openQuickSubjects(\''+t.id+'\')">＋ Edit</button>';
+    var ctCls=t.classTeacher?DB.classes.find(function(c){return c.id===t.classTeacher;}):null;
+    var ctBadge=ctCls
+      ?'<span style="background:rgba(240,180,41,.15);color:var(--gold);border:1px solid rgba(240,180,41,.3);border-radius:10px;padding:2px 9px;font-size:.74rem;font-weight:600;">⭐ '+ctCls.name+'</span>'
+      :'<span style="color:var(--ink3);font-size:.78rem;">—</span>';
+    var userRec=DB.users.find(function(u){return u.id===t.id;});
+    var pwDisplay=userRec?userRec.password:'—';
+    return'<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td><div style="display:flex;align-items:center;gap:9px;"><div class="teacher-avatar">'+initials+'</div><div><div style="font-weight:600;">'+t.name+'</div><div style="font-size:.7rem;color:var(--ink3);">'+t.username+'</div></div></div></td>'
+      +'<td><div style="display:flex;align-items:center;gap:6px;">'
+        +'<span id="pw-mask-'+t.id+'" style="font-family:monospace;font-size:.81rem;letter-spacing:.1em;">••••••</span>'
+        +'<span id="pw-val-'+t.id+'" style="font-family:monospace;font-size:.81rem;display:none;">'+pwDisplay+'</span>'
+        +'<button class="btn sm ghost" style="padding:2px 7px;font-size:.68rem;" onclick="toggleTeacherPw(\''+t.id+'\',this)">Show</button>'
+      +'</div></td>'
+      +'<td>'+ctBadge+'</td>'
+      +'<td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center;">'+clsList+'</div></td>'
+      +'<td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center;">'+assignedSubs+'</div></td>'
+      +'<td><div class="brow"><button class="btn sm ghost" onclick="openEditTeacher(\''+t.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delTeacher(\''+t.id+'\')">Remove</button></div></td>'
+      +'</tr>';
+  }).join('');
+}
+function toggleTeacherPw(tid,btn){
+  var mask=document.getElementById('pw-mask-'+tid);
+  var val=document.getElementById('pw-val-'+tid);
+  if(val.style.display==='none'){val.style.display='inline';mask.style.display='none';btn.textContent='Hide';}
+  else{val.style.display='none';mask.style.display='inline';btn.textContent='Show';}
+}
+function delTeacher(id){
+  if(!confirm('Remove this teacher?'))return;
+  DB.teachers=DB.teachers.filter(function(t){return t.id!==id;});
+  DB.users=DB.users.filter(function(u){return u.id!==id;});
+  dbSave();renderTeachers();
+}
+
+// ═══════════════════════════════════════
+//  CLASSES
+// ═══════════════════════════════════════
+function renderClasses(){
+  var admin=isAdmin();
+  document.getElementById('clsbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mc\')">+ Add Class</button>':'';
+  document.getElementById('clsacth').textContent=admin?'Action':'';
+  var tb=document.getElementById('tbc');
+  var list=myClasses();
+  if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes yet.</p></div></td></tr>';return;}
+  tb.innerHTML=list.map(function(c,i){
+    var cnt=DB.students.filter(function(s){return s.classId===c.id;}).length;
+    return'<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td>'+cnt+'</td><td>'+(admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div>':'—')+'</td></tr>';
+  }).join('');
+}
+function openEditClass(id){
+  var c=DB.classes.find(function(x){return x.id===id;});if(!c)return;
+  document.getElementById('mecid').value=id;
+  document.getElementById('mecname').textContent=c.name;
+  document.getElementById('mecn').value=c.name;
+  document.getElementById('mec').classList.add('open');
+}
+function saveEditClass(){
+  var id=document.getElementById('mecid').value;
+  var c=DB.classes.find(function(x){return x.id===id;});if(!c)return;
+  var name=document.getElementById('mecn').value.trim();
+  if(!name){alert('Enter a class name.');return;}
+  c.name=name;
+  addLog('Updated class: '+name);dbSave();renderClasses();syncAll();syncClassSelects();cm('mec');
+}
+function addClass(){
+  var name=document.getElementById('mcn').value.trim();
+  if(!name){alert('Enter a class name.');return;}
+  DB.classes.push({id:'C'+Date.now(),name:name});
+  addLog('Added class: '+name);dbSave();renderClasses();syncAll();syncClassSelects();cm('mc');
+  document.getElementById('mcn').value='';
+}
+function delClass(id){
+  if(!confirm('Delete class?'))return;
+  DB.classes=DB.classes.filter(function(c){return c.id!==id;});
+  dbSave();renderClasses();syncAll();syncClassSelects();
+}
+// Sync all class selects across the app (marks, teacher modals, student modals, reports)
+function syncClassSelects(){
+  // Teacher add/edit modals class lists
+  var teacherClassOpts=DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  var mtcEl=document.getElementById('mtc');if(mtcEl)mtcEl.innerHTML=teacherClassOpts;
+  var metcEl=document.getElementById('metc');if(metcEl)metcEl.innerHTML=teacherClassOpts;
+  // Student class select in marks page
+  var mkCls=document.getElementById('mkCls');
+  if(mkCls){mkCls.innerHTML='<option value="">— Select Class —</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');}
+  // Proclamation class filter
+  var prCls=document.getElementById('prCls');
+  if(prCls){var pv=prCls.value;prCls.innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');prCls.value=pv;}
+}
+
+// ═══════════════════════════════════════
+//  TERMS
+// ═══════════════════════════════════════
+function renderTerms(){
+  var tb=document.getElementById('tbterm');
+  if(!DB.terms.length){tb.innerHTML='<tr><td colspan="6"><div class="empty"><p>No terms yet.</p></div></td></tr>';return;}
+  tb.innerHTML=DB.terms.map(function(t,i){
+    var comps=t.components&&t.components.length
+      ?t.components.map(function(c){
+          return'<span class="tbadge" style="color:var(--ink2);margin:1px;">'+c.name+' /'+c.maxMark+'</span>';
+        }).join(' ')
+      :'<span style="font-size:.75rem;color:var(--ink3);">Single mark</span>';
+    return'<tr><td>'+(i+1)+'</td><td><strong>'+t.name+'</strong></td>'
+    +'<td><span class="tbadge" style="color:'+(TCLR[t.type]||'var(--ink2)')+';">'+(TLBL[t.type]||t.type)+'</span></td>'
+    +'<td style="font-size:.78rem;">'+comps+'</td>'
+    +'<td><label style="display:flex;align-items:center;gap:7px;cursor:pointer;"><input type="checkbox" '+(t.active?'checked':'')
+    +' onchange="toggleTerm(\''+t.id+'\')" style="accent-color:var(--gold);width:15px;height:15px;"><span style="font-size:.81rem;color:'+(t.active?'var(--green)':'var(--ink3)')+';">'+(t.active?'Active':'Hidden')+'</span></label></td>'
+    +'<td><div class="brow"><button class="btn sm ghost" onclick="openEditTerm(\''+t.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delTerm(\''+t.id+'\')">Delete</button></div></td></tr>';
+  }).join('');
+}
+
+// ── Term component helpers ──
+var _termComps = { mt:[], me:[] }; // temporary storage while modal is open
+
+function renderTermCompList(prefix){
+  var list = _termComps[prefix];
+  var el = document.getElementById(prefix+'CompList');
+  if(!list.length){ el.innerHTML='<div style="font-size:.76rem;color:var(--ink3);padding:4px 0;">No components — teacher enters a single mark per subject.</div>'; return; }
+  var total = list.reduce(function(s,c){return s+c.maxMark;},0);
+  el.innerHTML = list.map(function(c,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;">'
+      +'<span style="flex:1;font-size:.85rem;font-weight:500;">'+c.name+'</span>'
+      +'<span class="tbadge" style="color:var(--gold);">/ '+c.maxMark+'</span>'
+      +'<button class="btn sm red" onclick="removeTermComp(\''+prefix+'\','+i+')">✕</button>'
+      +'</div>';
+  }).join('')
+  +'<div style="font-size:.72rem;color:var(--ink3);margin-top:5px;text-align:right;">Total: <strong style="color:var(--gold);">'+total+'</strong></div>';
+}
+
+function addTermComp(prefix){
+  var name = document.getElementById(prefix+'CompName').value.trim();
+  var max  = parseInt(document.getElementById(prefix+'CompMax').value)||0;
+  if(!name||max<1){ alert('Enter component name and max mark.'); return; }
+  _termComps[prefix].push({id:'C'+Date.now()+Math.random(),name:name,maxMark:max});
+  document.getElementById(prefix+'CompName').value='';
+  document.getElementById(prefix+'CompMax').value='';
+  renderTermCompList(prefix);
+}
+
+function removeTermComp(prefix,idx){
+  _termComps[prefix].splice(idx,1);
+  renderTermCompList(prefix);
+}
+
+function openEditTerm(id){
+  var t=DB.terms.find(function(x){return x.id===id;});if(!t)return;
+  document.getElementById('metrmid').value=id;
+  document.getElementById('metrmname').textContent=t.name;
+  document.getElementById('metrn').value=t.name;
+  document.getElementById('metrt').value=t.type;
+  _termComps.me = t.components ? JSON.parse(JSON.stringify(t.components)) : [];
+  renderTermCompList('me');
+  document.getElementById('meCompName').value='';
+  document.getElementById('meCompMax').value='';
+  document.getElementById('meterm').classList.add('open');
+}
+
+function saveEditTerm(){
+  var id=document.getElementById('metrmid').value;
+  var t=DB.terms.find(function(x){return x.id===id;});if(!t)return;
+  var name=document.getElementById('metrn').value.trim();
+  if(!name){alert('Enter a term name.');return;}
+  t.name=name; t.type=document.getElementById('metrt').value;
+  t.components=_termComps.me.slice();
+  addLog('Updated term: '+name);dbSave();renderTerms();syncTerms();cm('meterm');
+}
+
+function addTerm(){
+  var name=document.getElementById('mtrn').value.trim();
+  if(!name){alert('Enter a term name.');return;}
+  for(var i=0;i<DB.terms.length;i++) if(DB.terms[i].name.toLowerCase()===name.toLowerCase()){alert('Term already exists.');return;}
+  DB.terms.push({id:'TR'+Date.now(),name:name,type:document.getElementById('mtrt').value,active:true,components:_termComps.mt.slice()});
+  addLog('Added term: '+name);dbSave();renderTerms();syncTerms();cm('mterm');
+  document.getElementById('mtrn').value='';
+  _termComps.mt=[];
+  renderTermCompList('mt');
+}
+
+function toggleTerm(id){
+  for(var i=0;i<DB.terms.length;i++) if(DB.terms[i].id===id){DB.terms[i].active=!DB.terms[i].active;break;}
+  dbSave();renderTerms();syncTerms();
+}
+function delTerm(id){
+  if(!confirm('Delete this term?'))return;
+  DB.terms=DB.terms.filter(function(t){return t.id!==id;});
+  dbSave();renderTerms();syncTerms();
+}
+
+// ═══════════════════════════════════════
+//  SUBJECTS
+// ═══════════════════════════════════════
+function toggleSubForm(prefix){
+  var sc=document.getElementById(prefix+'sc').value;
+  var isLetter=sc==='letter';
+  document.getElementById(prefix+'-maxmark').style.display=isLetter?'none':'';
+  document.getElementById(prefix+'-pass').style.display=isLetter?'none':'';
+  document.getElementById(prefix+'-grades').style.display=isLetter?'none':'';
+}
+function renderSubjects(){
+  var admin=isAdmin();
+  document.getElementById('subjbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'ms\')">+ Add Subject</button>':'';
+  document.getElementById('subacth').textContent=admin?'Actions':'';
+  var tb=document.getElementById('tbs');
+  if(!DB.subjects.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><p>No subjects yet.</p></div></td></tr>';return;}
+  tb.innerHTML=DB.subjects.map(function(s,i){
+    var isL=s.scale==='letter';
+    var gradeInfo=isL?'—':'A≥'+s.grA+'% B≥'+s.grB+'% C≥'+s.grC+'% D≥'+s.grD+'%';
+    return'<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td><strong>'+s.name+'</strong></td>'
+      +'<td>'+(isL?'Letter (A–F)':'Out of '+s.scale)+'</td>'
+      +'<td>'+(isL?'—':s.pass)+'</td>'
+      +'<td style="font-size:.75rem;color:var(--ink2);">'+gradeInfo+'</td>'
+      +'<td>'+(admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditSub(\''+s.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delSubject(\''+s.id+'\')">Delete</button></div>':'—')+'</td>'
+      +'</tr>';
+  }).join('');
+}
+function addSubject(){
+  var name=document.getElementById('msn').value.trim();
+  if(!name){alert('Enter a subject name.');return;}
+  var sc=document.getElementById('mssc').value;
+  var isL=sc==='letter';
+  var maxMark=isL?'letter':parseFloat(document.getElementById('msmax').value)||100;
+  var pass=isL?0:parseFloat(document.getElementById('msp').value)||50;
+  var grA=isL?80:parseFloat(document.getElementById('ms-grA').value)||80;
+  var grB=isL?70:parseFloat(document.getElementById('ms-grB').value)||70;
+  var grC=isL?60:parseFloat(document.getElementById('ms-grC').value)||60;
+  var grD=isL?50:parseFloat(document.getElementById('ms-grD').value)||50;
+  DB.subjects.push({id:'S'+Date.now(),name:name,scale:maxMark,pass:pass,grA:grA,grB:grB,grC:grC,grD:grD});
+  addLog('Added subject: '+name);dbSave();renderSubjects();cm('ms');
+  document.getElementById('msn').value='';
+  document.getElementById('msmax').value='100';document.getElementById('msp').value='50';
+  document.getElementById('ms-grA').value='80';document.getElementById('ms-grB').value='70';
+  document.getElementById('ms-grC').value='60';document.getElementById('ms-grD').value='50';
+  document.getElementById('mssc').value='number';toggleSubForm('ms');
+}
+function openEditSub(id){
+  var s=DB.subjects.find(function(x){return x.id===id;});if(!s)return;
+  document.getElementById('mesid').value=id;
+  document.getElementById('mesname').textContent=s.name;
+  document.getElementById('mesn').value=s.name;
+  document.getElementById('mesc').value=s.code||'';
+  var isL=s.scale==='letter';
+  document.getElementById('messc').value=isL?'letter':'number';
+  document.getElementById('mesmax').value=isL?'100':s.scale;
+  document.getElementById('mesp').value=s.pass||50;
+  document.getElementById('mes-grA').value=s.grA||85;
+  document.getElementById('mes-grB').value=s.grB||70;
+  document.getElementById('mes-grC').value=s.grC||55;
+  document.getElementById('mes-grD').value=s.grD||40;
+  toggleSubForm('mes');
+  document.getElementById('mes').classList.add('open');
+}
+function saveEditSubject(){
+  var id=document.getElementById('mesid').value;
+  var s=DB.subjects.find(function(x){return x.id===id;});if(!s)return;
+  var sc=document.getElementById('messc').value;
+  var isL=sc==='letter';
+  s.name=document.getElementById('mesn').value.trim()||s.name;
+  s.scale=isL?'letter':parseFloat(document.getElementById('mesmax').value)||100;
+  s.pass=isL?0:parseFloat(document.getElementById('mesp').value)||50;
+  s.grA=isL?80:parseFloat(document.getElementById('mes-grA').value)||80;
+  s.grB=isL?70:parseFloat(document.getElementById('mes-grB').value)||70;
+  s.grC=isL?60:parseFloat(document.getElementById('mes-grC').value)||60;
+  s.grD=isL?50:parseFloat(document.getElementById('mes-grD').value)||50;
+  addLog('Updated subject: '+s.name);dbSave();renderSubjects();cm('mes');
+}
+function delSubject(id){
+  if(!confirm('Delete subject?'))return;
+  DB.subjects=DB.subjects.filter(function(s){return s.id!==id;});
+  dbSave();renderSubjects();
+}
+
+// ═══════════════════════════════════════
+//  STUDENTS
+// ═══════════════════════════════════════
+function setupStudents(){
+  var admin=isAdmin();
+  document.getElementById('stbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mst\')">+ Add Student</button>':'';
+  document.getElementById('stacth').textContent=admin?'Action':'';
+  var cl=document.getElementById('stCls');
+  cl.innerHTML='<option value="">All Classes</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  renderStudents();
+}
+function renderStudents(){
+  var admin=isAdmin();
+  var q=document.getElementById('stSearch').value.toLowerCase();
+  var cf=document.getElementById('stCls').value;
+  var list=admin?DB.students:DB.students.filter(function(s){return myClasses().some(function(c){return c.id===s.classId;});});
+  if(q) list=list.filter(function(s){return s.name.toLowerCase().includes(q)||s.sid.includes(q);});
+  if(cf) list=list.filter(function(s){return s.classId===cf;});
+  var tb=document.getElementById('tbst');
+  if(!list.length){tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>No students found.</p></div></td></tr>';return;}
+  tb.innerHTML=list.map(function(s,i){
+    var c=DB.classes.find(function(x){return x.id===s.classId;});
+    return'<tr><td>'+(i+1)+'</td><td><strong>'+s.name+'</strong></td><td>'+s.sid+'</td><td>'+(c?c.name:'—')+'</td><td>'+(admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditStudent(\''+s.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delStudent(\''+s.id+'\')">Delete</button></div>':'—')+'</td></tr>';
+  }).join('');
+}
+function openEditStudent(id){
+  var s=DB.students.find(function(x){return x.id===id;});if(!s)return;
+  document.getElementById('mestid').value=id;
+  document.getElementById('mestname').textContent=s.name;
+  document.getElementById('mestn').value=s.name;
+  document.getElementById('mestnum').value=s.sid;
+  document.getElementById('mestcls').innerHTML='<option value="">— Select Class —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'"'+(c.id===s.classId?' selected':'')+'>'+c.name+'</option>';}).join('');
+  document.getElementById('mest').classList.add('open');
+}
+function saveEditStudent(){
+  var id=document.getElementById('mestid').value;
+  var s=DB.students.find(function(x){return x.id===id;});if(!s)return;
+  var name=document.getElementById('mestn').value.trim();
+  var sid=document.getElementById('mestnum').value.trim();
+  var cid=document.getElementById('mestcls').value;
+  if(!name||!cid){alert('Name and class are required.');return;}
+  s.name=name;s.sid=sid||s.sid;s.classId=cid;
+  addLog('Updated student: '+name);dbSave();renderStudents();renderClasses();cm('mest');
+  // Propagate to reports dropdown
+  var rpSt=document.getElementById('rpSt');
+  if(rpSt){var opt=rpSt.querySelector('option[value="'+id+'"]');if(opt)opt.textContent=name;}
+}
+function addStudent(){
+  var name=document.getElementById('mstn').value.trim();
+  var cid=document.getElementById('mstcls').value;
+  if(!name||!cid){alert('Fill name and class.');return;}
+  var sid=document.getElementById('mstnum').value||String(DB.students.length+1);
+  DB.students.push({id:'ST'+Date.now(),name:name,sid:sid,classId:cid});
+  addLog('Added student: '+name);dbSave();renderStudents();renderClasses();cm('mst');
+  document.getElementById('mstn').value='';document.getElementById('mstnum').value='';
+}
+function delStudent(id){
+  if(!confirm('Delete student?'))return;
+  DB.students=DB.students.filter(function(s){return s.id!==id;});
+  dbSave();renderStudents();renderClasses();
+}
+
+// ═══════════════════════════════════════
+//  MARKS
+// ═══════════════════════════════════════
+function calcGrade(v,sub){
+  if(v===''||v==null)return'—';
+  if(sub.scale==='letter')return v;
+  var pct=(parseFloat(v)/parseFloat(sub.scale))*100;
+  // Use per-subject thresholds if set, else fall back to global settings
+  var grA=sub.grA!=null?sub.grA:DB.settings.grA;
+  var grB=sub.grB!=null?sub.grB:DB.settings.grB;
+  var grC=sub.grC!=null?sub.grC:DB.settings.grC;
+  var grD=sub.grD!=null?sub.grD:DB.settings.grD;
+  if(pct>=grA)return'A';if(pct>=grB)return'B';if(pct>=grC)return'C';if(pct>=grD)return'D';
+  return'F';
+}
+function checkPass(v,sub){
+  if(v===''||v==null)return false;
+  if(sub.scale==='letter')return['A','B','C','D'].indexOf(v)>=0;
+  return parseFloat(v)>=sub.pass;
+}
+function setupMarks(){
+  document.getElementById('mkCls').innerHTML='<option value="">— Select Class —</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  document.getElementById('mkSub').innerHTML='<option value="">— Select Subject —</option>'+mySubjects().map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+  syncTerms();
+}
+
+function loadMkTable(){
+  var cid  = document.getElementById('mkCls').value;
+  var sid  = document.getElementById('mkSub').value;
+  var tid  = document.getElementById('mkTerm').value;
+  var wrap = document.getElementById('mkWrap');
+  if(!cid||!sid){ wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select class and subject to enter marks.</p></div>'; return; }
+
+  var students = DB.students.filter(function(s){ return s.classId===cid; });
+  var sub      = DB.subjects.find(function(s){ return s.id===sid; });
+  var term     = DB.terms.find(function(t){ return t.id===tid; });
+  if(!students.length){ wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>'; return; }
+
+  var comps = (term&&term.components&&term.components.length) ? term.components : null;
+  var isL   = sub.scale==='letter';
+
+  // ── Build component info banner ──
+  var compBanner = '';
+  if(comps){
+    var total = comps.reduce(function(s,c){return s+c.maxMark;},0);
+    compBanner = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:.9rem;padding:.7rem 1rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
+      +'<span style="font-size:.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-right:4px;">Components:</span>'
+      +comps.map(function(c){return'<span class="tbadge" style="color:var(--gold);">'+c.name+' <span style="opacity:.6;">/'+c.maxMark+'</span></span>';}).join('')
+      +'<span style="margin-left:auto;font-size:.75rem;color:var(--ink2);">Total: <strong style="color:var(--gold);">'+total+'</strong></span>'
+      +'</div>';
+  }
+
+  // ── Build table header ──
+  var thead = '<tr><th>#</th><th>Student</th><th>No.</th>';
+  if(comps){
+    comps.forEach(function(c){ thead+='<th style="text-align:center;">'+c.name+'<div style="font-size:.62rem;color:var(--ink3);font-weight:400;">/'+c.maxMark+'</div></th>'; });
+    thead+='<th style="text-align:center;">Total<div style="font-size:.62rem;color:var(--ink3);font-weight:400;">/'+comps.reduce(function(s,c){return s+c.maxMark;},0)+'</div></th>';
+  } else {
+    thead+='<th style="text-align:center;">Mark'+(isL?'':' /'+sub.scale)+'</th>';
+  }
+  thead+='<th style="text-align:center;">Grade</th><th style="text-align:center;">Status</th></tr>';
+
+  // ── Build rows ──
+  var rows = students.map(function(s,i){
+    var row = '<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.sid+'</td>';
+
+    if(comps){
+      // Component inputs
+      var compVals = comps.map(function(c){
+        var key = s.id+'_'+sid+'_'+tid+'_'+c.id;
+        return DB.marks[key]!==undefined ? DB.marks[key] : '';
+      });
+      comps.forEach(function(c,ci){
+        var key = s.id+'_'+sid+'_'+tid+'_'+c.id;
+        var val = DB.marks[key]!==undefined ? DB.marks[key] : '';
+        row+='<td style="text-align:center;">'
+          +'<input class="mkin" type="number" id="mkc_'+s.id+'_'+c.id+'" min="0" max="'+c.maxMark+'" step="0.5" value="'+val+'"'
+          +' oninput="prevMarkComp(\''+s.id+'\',\''+sid+'\',\''+tid+'\')" style="width:62px;">'
+          +'</td>';
+      });
+      // Total cell
+      var tot = calcCompTotal(s.id, sid, tid, comps, null);
+      var totMax = comps.reduce(function(s,c){return s+c.maxMark;},0);
+      var syntheticV = tot!==null ? (tot/totMax*parseFloat(sub.scale)).toFixed(1) : '';
+      var gr = calcGrade(syntheticV, sub);
+      var ps = checkPass(syntheticV, sub);
+      row+='<td style="text-align:center;"><span id="mktot_'+s.id+'" style="font-weight:700;font-size:.9rem;">'+(tot!==null?tot:'—')+'</span></td>';
+      row+='<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>';
+      row+='<td style="text-align:center;" id="ps_'+s.id+'">'+(syntheticV!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—')+'</td>';
+    } else {
+      // Single mark input
+      var key = s.id+'_'+sid+'_'+tid;
+      var val = DB.marks[key]||'';
+      var gr  = calcGrade(val,sub);
+      var ps  = checkPass(val,sub);
+      var inp = isL
+        ?'<select class="mksel" id="mk_'+s.id+'" onchange="prevMark(\''+s.id+'\',\''+sid+'\')"><option value="">—</option>'+['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(val===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>'
+        :'<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+sub.scale+'" step="0.5" value="'+val+'" oninput="prevMark(\''+s.id+'\',\''+sid+'\')">';
+      row+='<td style="text-align:center;">'+inp+'</td>';
+      row+='<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>';
+      row+='<td style="text-align:center;" id="ps_'+s.id+'">'+(val!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—')+'</td>';
+    }
+    return row+'</tr>';
+  }).join('');
+
+  wrap.innerHTML = compBanner
+    +'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+// Calculate the total from component inputs (live, before save)
+function calcCompTotal(stid, subid, tid, comps, liveOverrides){
+  var tot = 0; var hasSome = false;
+  comps.forEach(function(c){
+    var liveEl = document.getElementById('mkc_'+stid+'_'+c.id);
+    var v = liveEl ? liveEl.value : (DB.marks[stid+'_'+subid+'_'+tid+'_'+c.id]!==undefined ? DB.marks[stid+'_'+subid+'_'+tid+'_'+c.id] : '');
+    if(v!==''&&!isNaN(parseFloat(v))){ tot+=parseFloat(v); hasSome=true; }
+  });
+  return hasSome ? Math.round(tot*10)/10 : null;
+}
+
+function prevMarkComp(stid, subid, tid){
+  var term  = DB.terms.find(function(t){ return t.id===tid; });
+  var comps = term&&term.components&&term.components.length ? term.components : null;
+  var sub   = DB.subjects.find(function(s){ return s.id===subid; });
+  if(!comps||!sub) return;
+  var totMax = comps.reduce(function(s,c){return s+c.maxMark;},0);
+  var tot    = calcCompTotal(stid, subid, tid, comps, null);
+  var totEl  = document.getElementById('mktot_'+stid);
+  if(totEl) totEl.textContent = tot!==null ? tot : '—';
+  var syntheticV = tot!==null ? (tot/totMax*parseFloat(sub.scale)).toFixed(1) : '';
+  var gr = calcGrade(syntheticV, sub);
+  var ps = checkPass(syntheticV, sub);
+  var grEl = document.getElementById('gr_'+stid);
+  var psEl = document.getElementById('ps_'+stid);
+  if(grEl) grEl.innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
+  if(psEl) psEl.innerHTML = syntheticV!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—';
+}
+
+function prevMark(stid,subid){
+  var sub=DB.subjects.find(function(s){return s.id===subid;});
+  var el=document.getElementById('mk_'+stid);
+  if(!el)return;
+  var v=el.value;
+  var gr=calcGrade(v,sub);var ps=checkPass(v,sub);
+  document.getElementById('gr_'+stid).innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
+  document.getElementById('ps_'+stid).innerHTML=v!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—';
+}
+
+function saveAllMarks(){
+  var cid  = document.getElementById('mkCls').value;
+  var sid  = document.getElementById('mkSub').value;
+  var tid  = document.getElementById('mkTerm').value;
+  if(!cid||!sid){ alert('Select class and subject first.'); return; }
+
+  var students = DB.students.filter(function(s){ return s.classId===cid; });
+  var sub      = DB.subjects.find(function(s){ return s.id===sid; });
+  var term     = DB.terms.find(function(t){ return t.id===tid; });
+  var comps    = term&&term.components&&term.components.length ? term.components : null;
+  var cnt = 0;
+
+  students.forEach(function(s){
+    if(comps){
+      var totMax = comps.reduce(function(x,c){return x+c.maxMark;},0);
+      var tot=0; var hasSome=false;
+      comps.forEach(function(c){
+        var el = document.getElementById('mkc_'+s.id+'_'+c.id);
+        if(el&&el.value!==''){
+          var v=parseFloat(el.value);
+          // Clamp to component max
+          v=Math.min(v,c.maxMark);
+          DB.marks[s.id+'_'+sid+'_'+tid+'_'+c.id]=String(v);
+          tot+=v; hasSome=true;
+        }
+      });
+      // Save synthetic total as the main mark (scaled to subject max)
+      if(hasSome){
+        var syntheticV=(tot/totMax*parseFloat(sub.scale)).toFixed(1);
+        DB.marks[s.id+'_'+sid+'_'+tid]=syntheticV;
+        cnt++;
+      }
+    } else {
+      var el=document.getElementById('mk_'+s.id);
+      if(el&&el.value!==''){DB.marks[s.id+'_'+sid+'_'+tid]=el.value;cnt++;}
+    }
+  });
+
+  var sn=DB.subjects.find(function(s){return s.id===sid;});
+  addLog('Saved '+cnt+' marks — '+(sn?sn.name:'')+' ('+termLabel(tid)+')');
+  dbSave(); renderDash();
+
+  // Flash success inline instead of alert
+  var wrap=document.getElementById('mkWrap');
+  var banner=document.createElement('div');
+  banner.className='al ok';
+  banner.style.cssText='margin-bottom:.8rem;';
+  banner.textContent='✅ '+cnt+' marks saved!';
+  wrap.insertBefore(banner,wrap.firstChild);
+  setTimeout(function(){if(banner.parentNode)banner.parentNode.removeChild(banner);},2500);
+}
+
+// ═══════════════════════════════════════
+//  IMPORT
+// ═══════════════════════════════════════
+function handleDrop(e){var f=e.dataTransfer.files[0];if(f)readCSV(f);}
+function handleFile(e){var f=e.target.files[0];if(f)readCSV(f);}
+function readCSV(f){var r=new FileReader();r.onload=function(e){processCSV(e.target.result);};r.readAsText(f);}
+function importPaste(){var t=document.getElementById('csvpaste').value.trim();if(!t){alert('Paste CSV data first.');return;}processCSV(t);}
+function processCSV(text){
+  var lines=text.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  var isH=lines[0]&&lines[0].toLowerCase().indexOf('name')>=0;
+  var data=isH?lines.slice(1):lines;
+  var added=0,skipped=0;
+  data.forEach(function(line){
+    var p=line.split(',').map(function(x){return x.trim().replace(/^["']|["']$/g,'');});
+    if(!p[0]){skipped++;return;}
+    var name=p[0],sid=p[1]||String(DB.students.length+added+1),cname=p[2]||'';
+    var classId='';
+    if(cname){
+      var cls=DB.classes.find(function(c){return c.name.toLowerCase()===cname.toLowerCase();});
+      if(!cls){cls={id:'C'+Date.now()+Math.random(),name:cname,level:cname};DB.classes.push(cls);}
+      classId=cls.id;
+    }
+    if(DB.students.find(function(s){return s.sid===sid;})){skipped++;return;}
+    DB.students.push({id:'ST'+Date.now()+Math.random(),name:name,sid:sid,classId:classId});
+    added++;
+  });
+  addLog('Imported '+added+' students');dbSave();renderStudents();renderClasses();syncAll();
+  document.getElementById('impres').innerHTML='<div class="al ok">✅ Imported <strong>'+added+'</strong> students. ('+skipped+' skipped)</div>';
+}
+
+// ═══════════════════════════════════════
+//  REPORTS
+// ═══════════════════════════════════════
+function setupReports(){
+  var list;
+  if(isAdmin()){
+    list=DB.students;
+  } else {
+    // Teacher only sees report cards for students in their ONE class teacher class
+    var ct=ME.classTeacher;
+    if(!ct){
+      document.getElementById('rpSt').innerHTML='<option value="">— No class assigned —</option>';
+      document.getElementById('rpOut').innerHTML='<div class="empty"><div class="ei">🔒</div><p>You are not assigned as a class teacher of any class.</p></div>';
+      syncTerms();return;
+    }
+    list=DB.students.filter(function(s){return s.classId===ct;});
+  }
+  document.getElementById('rpSt').innerHTML='<option value="">— Select Student —</option>'+list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+  syncTerms();
+  initLogoPreview();
+  genReport();
+}
+function genReport(){
+  var stid=document.getElementById('rpSt').value;
+  var term=document.getElementById('rpTerm').value;
+  var remark=document.getElementById('rpRemark')?document.getElementById('rpRemark').value:'';
+  var out=document.getElementById('rpOut');
+  if(!stid){out.innerHTML='<div class="empty"><div class="ei">&#128196;</div><p>Select a student to preview their report card.</p></div>';return;}
+  var st=DB.students.find(function(s){return s.id===stid;});
+  if(!st){out.innerHTML='';return;}
+  var cls=DB.classes.find(function(c){return c.id===st.classId;});
+  var school=DB.settings.schoolName||'School Name';
+  var tl=termLabel(term);
+  var date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  var g=DB.settings;
+
+  // ── Apply report subject config ──
+  if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
+  var mergeTerms=DB.settings.reportMergeTerms||false;
+  var activeSubjects=DB.subjects.filter(function(s){
+    var cfg=DB.settings.reportSubjects[s.id];
+    return !cfg||cfg.include!==false;
+  });
+
+  // ── Build rows ──
+  var rows;
+  if(mergeTerms){
+    var allTerms=activeTerms();
+    rows=activeSubjects.map(function(sub){
+      var cfg=DB.settings.reportSubjects[sub.id]||{forPromotion:true};
+      var vals=[];var tot2=0;var cnt2=0;
+      allTerms.forEach(function(t){
+        var v=DB.marks[stid+'_'+sub.id+'_'+t.id];
+        if(v!==undefined&&v!=='') vals.push({term:t.name,v:v});
+      });
+      vals.forEach(function(vv){if(sub.scale!=='letter'){tot2+=parseFloat(vv.v);cnt2++;}});
+      var mergedVal=cnt2>0?(tot2/cnt2).toFixed(1):'';
+      var displayVals=vals.map(function(vv){return vv.term+': '+vv.v;}).join(' | ');
+      return{sub:sub,v:mergedVal,gr:calcGrade(mergedVal,sub),ps:checkPass(mergedVal,sub),displayVals:displayVals,cfg:cfg};
+    });
+  } else {
+    rows=activeSubjects.map(function(sub){
+      var cfg=DB.settings.reportSubjects[sub.id]||{forPromotion:true};
+      var v=DB.marks[stid+'_'+sub.id+'_'+term]||'';
+      return{sub:sub,v:v,gr:calcGrade(v,sub),ps:checkPass(v,sub),displayVals:'',cfg:cfg};
+    });
+  }
+
+  // ── Averages ──
+  var filled=rows.filter(function(r){return r.v!=='';});
+  var tot=0,cnt=0;
+  filled.forEach(function(r){if(r.sub.scale!=='letter'){tot+=(parseFloat(r.v)/parseFloat(r.sub.scale))*100;cnt++;}});
+  var avg=cnt?(tot/cnt):null;
+
+  var promTot=0,promCnt=0,promFails=0,promPasses=0;
+  filled.forEach(function(r){
+    var forProm=!r.cfg||r.cfg.forPromotion!==false;
+    if(!forProm)return;
+    if(r.sub.scale!=='letter'){promTot+=(parseFloat(r.v)/parseFloat(r.sub.scale))*100;promCnt++;}
+    r.ps?promPasses++:promFails++;
+  });
+  var promAvg=promCnt?(promTot/promCnt):null;
+
+  var avgStr=avg!==null?avg.toFixed(1)+'%':'—';
+  var promAvgStr=promAvg!==null?promAvg.toFixed(1)+'%':'—';
+
+  var GC={'A':'#1a7a4a','B':'#1a4a8a','C':'#7a5a00','D':'#5a3a7a','F':'#8a1a1a','—':'#888'};
+  var GL={'A':'Distinction','B':'Merit','C':'Credit','D':'Pass','F':'Fail','—':''};
+  var overallGrade=avg!==null?(avg>=g.grA?'A':avg>=g.grB?'B':avg>=g.grC?'C':avg>=g.grD?'D':'F'):'—';
+  var promGrade=promAvg!==null?(promAvg>=g.grA?'A':promAvg>=g.grB?'B':promAvg>=g.grC?'C':promAvg>=g.grD?'D':'F'):'—';
+  var promotion=promFails>0?'REFERRED FOR REVIEW':promPasses>0?'PROMOTED':filled.length>0?'PROMOTED':'NO MARKS';
+  var promColor=promotion==='PROMOTED'?'#1a5c30':'#7a1a1a';
+
+  // ── Class positions (computed from all students in same class & term) ──
+  function calcClassPositions(){
+    if(!cls) return{posAll:null,posSel:null,total:0};
+    var classmates=DB.students.filter(function(s){return s.classId===st.classId;});
+    var scores=classmates.map(function(s){
+      var t2=0,c2=0,pt=0,pc=0;
+      rows.forEach(function(r){
+        var v=mergeTerms?r.v:(DB.marks[s.id+'_'+r.sub.id+'_'+term]||'');
+        if(v===''||r.sub.scale==='letter')return;
+        var pct=(parseFloat(v)/parseFloat(r.sub.scale))*100;
+        t2+=pct;c2++;
+        var forProm=!r.cfg||r.cfg.forPromotion!==false;
+        if(forProm){pt+=pct;pc++;}
+      });
+      return{id:s.id,avgAll:c2?t2/c2:null,avgSel:pc?pt/pc:null};
+    });
+    var me=scores.find(function(s){return s.id===st.id;});
+    if(!me||me.avgAll===null) return{posAll:null,posSel:null,total:classmates.length};
+    var posAll=scores.filter(function(s){return s.avgAll!==null&&s.avgAll>me.avgAll;}).length+1;
+    var posSel=me.avgSel!==null?scores.filter(function(s){return s.avgSel!==null&&s.avgSel>me.avgSel;}).length+1:null;
+    return{posAll:posAll,posSel:posSel,total:classmates.length};
+  }
+  var pos=calcClassPositions();
+
+  // ── Mini bar ──
+  function miniBar(v,max){
+    if(!v||!max||isNaN(parseFloat(v))||isNaN(parseFloat(max)))return'';
+    var pct=Math.min(100,Math.round((parseFloat(v)/parseFloat(max))*100));
+    var bc=pct>=80?'#1a7a4a':pct>=70?'#1a4a8a':pct>=60?'#b8920a':pct>=50?'#5a3a7a':'#8a1a1a';
+    return'<div style="display:flex;align-items:center;gap:5px;min-width:90px;">'
+      +'<div style="flex:1;height:6px;background:#e0ddd4;border-radius:3px;overflow:hidden;">'
+      +'<div style="width:'+pct+'%;height:100%;background:'+bc+';border-radius:3px;"></div></div>'
+      +'<span style="font-size:.66rem;color:#888;width:28px;text-align:right;">'+pct+'%</span></div>';
+  }
+
+  // ── Position color ──
+  function posClr(p){return p<=3?'#b8920a':p<=10?'#1a5c30':'#3a3228';}
+
+  // ── Logo ──
+  var logoSrc=localStorage.getItem('scorix_logo')||'';
+  var logoHtml=logoSrc
+    ?'<div style="margin-bottom:10px;"><img src="'+logoSrc+'" style="max-height:80px;max-width:180px;object-fit:contain;display:block;margin:0 auto;"></div>'
+    :'<div style="width:76px;height:76px;border-radius:50%;background:#f0ece0;border:2px dashed #c8b88a;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:.6rem;color:#aaa;text-align:center;padding:8px;line-height:1.3;">SCHOOL<br>LOGO</div>';
+
+  out.innerHTML='<div style="background:#faf8f4;color:#1a1612;border-radius:4px;font-family:\'EB Garamond\',Georgia,serif;max-width:740px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.18);">'
+
+  // ── TOP ACCENT BAR ──
+  +'<div style="height:6px;background:linear-gradient(90deg,#1a1612 0%,#b8920a 35%,#d4a90e 50%,#b8920a 65%,#1a1612 100%);"></div>'
+
+  +'<div style="padding:2.2rem 2.6rem 2rem;">'
+
+  // ── HEADER ──
+  +'<div style="text-align:center;padding-bottom:1.4rem;margin-bottom:1.4rem;position:relative;">'
+  +'<div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#c8b88a,#b8920a,#c8b88a,transparent);"></div>'
+  +'<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:.8rem;">'
+  +'<div style="height:1px;width:50px;background:linear-gradient(90deg,transparent,#c8b88a);"></div>'
+  +'<div style="width:7px;height:7px;background:#b8920a;transform:rotate(45deg);"></div>'
+  +'<div style="height:1px;width:50px;background:linear-gradient(90deg,#c8b88a,transparent);"></div>'
+  +'</div>'
+  +logoHtml
+  +'<div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:#888;margin-bottom:4px;">Official Academic Record</div>'
+  +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.85rem;font-weight:700;color:#1a1612;letter-spacing:.01em;">'+school+'</div>'
+  +(DB.settings.schoolMotto?'<div style="font-size:.78rem;color:#b8920a;font-style:italic;margin-top:3px;letter-spacing:.03em;">"'+DB.settings.schoolMotto+'"</div>':'')
+  +(DB.settings.schoolAddress?'<div style="font-size:.7rem;color:#888;margin-top:2px;">'+DB.settings.schoolAddress+'</div>':'')
+  +'<div style="font-size:.72rem;color:#6b5e50;margin-top:5px;letter-spacing:.14em;text-transform:uppercase;">Student Academic Report &nbsp;✦&nbsp; '+tl+'</div>'
+  +'<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:1rem;">'
+  +'<div style="height:1px;width:50px;background:linear-gradient(90deg,transparent,#c8b88a);"></div>'
+  +'<div style="width:7px;height:7px;background:#b8920a;transform:rotate(45deg);"></div>'
+  +'<div style="height:1px;width:50px;background:linear-gradient(90deg,#c8b88a,transparent);"></div>'
+  +'</div>'
+  +'</div>'
+
+  // ── STUDENT INFO ──
+  +'<div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#6b5e50;margin-bottom:5px;">Student Information</div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #ddd4b8;border-radius:3px;overflow:hidden;margin-bottom:1.4rem;">'
+  +'<div style="padding:9px 14px;background:#f4f0e6;border-right:1px solid #ddd4b8;border-bottom:1px solid #ddd4b8;"><div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#888;margin-bottom:2px;">Full Name</div><div style="font-size:.98rem;font-weight:600;color:#1a1612;">'+st.name+'</div></div>'
+  +'<div style="padding:9px 14px;background:#faf8f4;border-bottom:1px solid #ddd4b8;"><div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#888;margin-bottom:2px;">Student No.</div><div style="font-size:.98rem;font-weight:600;color:#1a1612;font-family:monospace;">'+st.sid+'</div></div>'
+  +'<div style="padding:9px 14px;background:#f4f0e6;border-right:1px solid #ddd4b8;"><div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#888;margin-bottom:2px;">Class</div><div style="font-size:.98rem;font-weight:600;color:#1a1612;">'+(cls?cls.name:'—')+'</div></div>'
+  +'<div style="padding:9px 14px;background:#faf8f4;"><div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#888;margin-bottom:2px;">Date Issued</div><div style="font-size:.98rem;font-weight:600;color:#1a1612;">'+date+'</div></div>'
+  +'</div>'
+
+  // ── MARKS TABLE heading ──
+  +'<div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#6b5e50;margin-bottom:5px;">Academic Performance</div>'
+  +'<table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:1.3rem;border:1px solid #ddd4b8;border-radius:3px;overflow:hidden;">'
+  +'<thead><tr style="background:#1a1612;color:#f5f0e0;">'
+  +'<th style="padding:9px 11px;text-align:left;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Subject</th>'
+  +(mergeTerms?'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Terms</th>':'')
+  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Mark</th>'
+  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Out of</th>'
+  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">%</th>'
+  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Grade</th>'
+  +'<th style="padding:9px 11px;text-align:left;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Performance</th>'
+  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Result</th>'
+  +'</tr></thead><tbody>'
+  +rows.map(function(r,i){
+    var pct=r.v!==''&&r.sub.scale!=='letter'?((parseFloat(r.v)/parseFloat(r.sub.scale))*100).toFixed(1):'—';
+    var gc=GC[r.gr]||'#888';
+    var forProm=!r.cfg||r.cfg.forPromotion!==false;
+    var bg=i%2===0?'#faf8f4':'#f4f0e6';
+    return'<tr style="background:'+bg+';">'
+      +'<td style="padding:8px 11px;font-weight:500;color:#1a1612;">'+r.sub.name+(forProm?'<span style="color:#b8920a;font-size:.65rem;margin-left:4px;" title="Counts for promotion">★</span>':'')+'</td>'
+      +(mergeTerms?'<td style="padding:8px 11px;text-align:center;font-size:.68rem;color:#888;">'+(r.displayVals||'—')+'</td>':'')
+      +'<td style="padding:8px 11px;text-align:center;font-weight:700;color:#1a1612;">'+(r.v||'—')+'</td>'
+      +'<td style="padding:8px 11px;text-align:center;color:#888;">'+(r.sub.scale==='letter'?'Letter':r.sub.scale)+'</td>'
+      +'<td style="padding:8px 11px;text-align:center;">'+(pct==='—'?'—':pct+'%')+'</td>'
+      +'<td style="padding:8px 11px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:10px;font-weight:700;font-size:.78rem;background:'+gc+'22;color:'+gc+';border:1px solid '+gc+'44;">'+r.gr+'</span></td>'
+      +'<td style="padding:8px 11px;">'+miniBar(r.v,r.sub.scale)+'</td>'
+      +'<td style="padding:8px 11px;text-align:center;font-weight:700;font-size:.8rem;color:'+(r.v!==''?(r.ps?'#1a5c30':'#8a1a1a'):'#aaa')+'">'+(r.v!==''?(r.ps?'PASS':'FAIL'):'—')+'</td>'
+      +'</tr>';
+  }).join('')
+  +'</tbody></table>'
+
+  // ── SUMMARY PANEL ──
+  +'<div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#6b5e50;margin-bottom:5px;">Summary</div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border:1px solid #ddd4b8;border-radius:3px;overflow:hidden;margin-bottom:1rem;">'
+
+  // Cell 1: Overall Average
+  +'<div style="padding:13px 10px;text-align:center;background:#f4f0e6;border-right:1px solid #ddd4b8;border-bottom:1px solid #ddd4b8;">'
+  +'<div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#888;margin-bottom:4px;">Overall Average</div>'
+  +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.8rem;font-weight:700;color:'+(GC[overallGrade]||'#1a1612')+';line-height:1;">'+avgStr+'</div>'
+  +'<div style="font-size:.65rem;color:#888;margin-top:3px;">'+(GL[overallGrade]||'')+'&nbsp;<strong style="color:'+(GC[overallGrade]||'#555')+';">'+overallGrade+'</strong></div>'
+  +'</div>'
+
+  // Cell 2: Position in Class (both all + selected)
+  +'<div style="padding:13px 10px;text-align:center;background:#faf8f4;border-right:1px solid #ddd4b8;border-bottom:1px solid #ddd4b8;">'
+  +'<div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#888;margin-bottom:6px;">Position in Class</div>'
+  +'<div style="display:flex;align-items:flex-end;justify-content:center;gap:8px;">'
+  +'<div style="text-align:center;">'
+  +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.8rem;font-weight:700;line-height:1;color:'+(pos.posAll!==null?posClr(pos.posAll):'#ccc')+';">'+(pos.posAll!==null?pos.posAll:'—')+'</div>'
+  +'<div style="font-size:.58rem;color:#888;margin-top:3px;">All Subjects</div>'
+  +'</div>'
+  +'<div style="width:1px;height:32px;background:#ddd4b8;margin-bottom:6px;"></div>'
+  +'<div style="text-align:center;">'
+  +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.8rem;font-weight:700;line-height:1;color:'+(pos.posSel!==null?posClr(pos.posSel):'#ccc')+';">'+(pos.posSel!==null?pos.posSel:'—')+'</div>'
+  +'<div style="font-size:.58rem;color:#b8920a;margin-top:3px;">★ Selected</div>'
+  +'</div>'
+  +'</div>'
+  +(pos.total?'<div style="font-size:.58rem;color:#aaa;margin-top:4px;">out of '+pos.total+' students</div>':'')
+  +'</div>'
+
+  // Cell 3: Subjects Assessed
+  +'<div style="padding:13px 10px;text-align:center;background:#f4f0e6;border-right:1px solid #ddd4b8;border-bottom:1px solid #ddd4b8;">'
+  +'<div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#888;margin-bottom:4px;">Subjects Assessed</div>'
+  +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.8rem;font-weight:700;color:#1a1612;line-height:1;">'+filled.length+' / '+rows.length+'</div>'
+  +'<div style="font-size:.65rem;color:#888;margin-top:3px;">subjects with marks</div>'
+  +'</div>'
+
+  // Cell 4: Promotion Average
+  +'<div style="padding:13px 10px;text-align:center;background:#fffef0;border-bottom:1px solid #ddd4b8;">'
+  +'<div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.09em;color:#b8920a;margin-bottom:4px;">★ Promotion Average</div>'
+  +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.8rem;font-weight:700;color:'+(GC[promGrade]||'#7a6008')+';line-height:1;">'+promAvgStr+'</div>'
+  +'<div style="font-size:.65rem;color:#888;margin-top:3px;">'+(GL[promGrade]||'')+'&nbsp;<strong style="color:'+(GC[promGrade]||'#b8920a')+';">'+promGrade+'</strong></div>'
+  +'</div>'
+
+  // Bottom row: Promotion Decision (full width)
+  +'<div style="grid-column:span 4;padding:12px;text-align:center;background:'+(promotion==='PROMOTED'?'#eef7f2':'#fdf0f0')+';">'
+  +'<div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Promotion Decision</div>'
+  +'<div style="font-size:1rem;font-weight:800;color:'+promColor+';letter-spacing:.06em;">'+promotion+'</div>'
+  +'<div style="font-size:.62rem;color:#aaa;margin-top:2px;">Based on ★ subjects</div>'
+  +'</div>'
+  +'</div>'
+
+  // ── GRADE SCALE ──
+  +'<div style="margin-bottom:1.3rem;padding:8px 13px;background:#ede8da;border:1px solid #ddd4b8;border-radius:3px;font-size:.7rem;color:#6b5e50;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">'
+  +'<strong style="color:#1a1612;margin-right:4px;">Grade Scale:</strong>'
+  +'<span><strong style="color:#1a7a4a;">A</strong> = '+g.grA+'%+ (Distinction)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#1a4a8a;">B</strong> = '+g.grB+'–'+(g.grA-1)+'% (Merit)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#7a6008;">C</strong> = '+g.grC+'–'+(g.grB-1)+'% (Credit)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#5a3a7a;">D</strong> = '+g.grD+'–'+(g.grC-1)+'% (Pass)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#8a1a1a;">F</strong> = Below '+g.grD+'% (Fail)</span>&nbsp;&nbsp;'
+  +'<span style="color:#b8920a;">★ = Counts for promotion</span>'
+  +'</div>'
+
+  // ── REMARKS ──
+  +'<div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#6b5e50;margin-bottom:5px;">Class Teacher\'s Remarks</div>'
+  +'<div style="margin-bottom:1.3rem;padding:11px 15px;background:#fffef7;border:1px solid #ddd4b8;border-left:4px solid #b8920a;border-radius:0 3px 3px 0;">'
+  +'<div style="font-style:italic;color:#3a3228;font-size:.92rem;line-height:1.6;min-height:1.4rem;">'+(remark||'<span style="color:#bbb;">_____________________________________________</span>')+'</div>'
+  +'<div style="border-bottom:1px dashed #ddd4b8;height:1.5rem;margin-top:.5rem;"></div>'
+  +'<div style="border-bottom:1px dashed #ddd4b8;height:1.5rem;margin-top:.4rem;"></div>'
+  +'</div>'
+
+  // ── SIGNATURES ──
+  +'<div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#6b5e50;margin-bottom:5px;">Authorisation</div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2rem;padding-top:1rem;border-top:1px solid #ddd4b8;margin-bottom:1rem;">'
+  +'<div style="text-align:center;"><div style="border-bottom:1px solid #888;height:34px;margin-bottom:5px;"></div><div style="font-size:.72rem;color:#6b5e50;">Class Teacher</div></div>'
+  +'<div style="text-align:center;"><div style="border-bottom:1px solid #888;height:34px;margin-bottom:5px;"></div><div style="font-size:.72rem;color:#6b5e50;">Headteacher / Principal</div></div>'
+  +'<div style="text-align:center;"><div style="border-bottom:1px solid #888;height:34px;margin-bottom:5px;"></div><div style="font-size:.72rem;color:#6b5e50;">Parent / Guardian</div></div>'
+  +'</div>'
+
+  // ── FOOTER ──
+  +'<div style="border-top:1px solid #ddd4b8;padding-top:.8rem;display:flex;justify-content:space-between;align-items:center;">'
+  +'<div style="font-size:.6rem;color:#aaa;">This report is an official academic document. Please keep it for your records.</div>'
+  +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:.72rem;color:#6b5e50;">'+school+'</div>'
+  +'</div>'
+
+  +'</div>'
+  +'<div style="height:4px;background:linear-gradient(90deg,#d4a90e,#1a1612,#d4a90e);"></div>'
+  +'</div>';
+}
+
+// ═══════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════
+function setupAnalytics(){
+  var clsEl=document.getElementById('anCls');
+  var subEl=document.getElementById('anSub');
+  if(clsEl) clsEl.innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  if(subEl) subEl.innerHTML='<option value="">All Subjects</option>'+DB.subjects.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+  syncTerms();
+  renderAnalytics();
+}
+function renderAnalytics(){
+  var cid=document.getElementById('anCls')?document.getElementById('anCls').value:'';
+  var term=document.getElementById('anTerm')?document.getElementById('anTerm').value:'';
+  var sid=document.getElementById('anSub')?document.getElementById('anSub').value:'';
+  var out=document.getElementById('anOut');
+  if(!out) return;
+
+  var students=cid?DB.students.filter(function(s){return s.classId===cid;}):DB.students;
+  var subjects=sid?DB.subjects.filter(function(s){return s.id===sid;}):DB.subjects;
+  var g=DB.settings;
+
+  if(!students.length||!subjects.length||!term){
+    out.innerHTML='<div class="empty"><div class="ei">&#128202;</div><p>No data to display yet. Add students, subjects, and marks first.</p></div>';return;
+  }
+
+  // Grade distribution
+  var gradeCount={A:0,B:0,C:0,D:0,F:0};
+  var allAvgs=[];
+  var subjectAvgs={};
+
+  students.forEach(function(st){
+    var tot=0,cnt=0;
+    subjects.forEach(function(sub){
+      if(sub.scale==='letter') return;
+      var v=DB.marks[st.id+'_'+sub.id+'_'+term];
+      if(v===undefined||v==='') return;
+      var pct=(parseFloat(v)/parseFloat(sub.scale))*100;
+      tot+=pct;cnt++;
+      if(!subjectAvgs[sub.id]) subjectAvgs[sub.id]={name:sub.name,tot:0,cnt:0};
+      subjectAvgs[sub.id].tot+=pct;subjectAvgs[sub.id].cnt++;
+    });
+    if(cnt){var avg=tot/cnt;allAvgs.push({name:st.name,avg:avg});
+      var gr=avg>=g.grA?'A':avg>=g.grB?'B':avg>=g.grC?'C':avg>=g.grD?'D':'F';
+      gradeCount[gr]++;
+    }
+  });
+
+  if(!allAvgs.length){out.innerHTML='<div class="empty"><div class="ei">&#128202;</div><p>No numeric marks recorded for the selected filters.</p></div>';return;}
+
+  allAvgs.sort(function(a,b){return b.avg-a.avg;});
+  var classAvg=allAvgs.reduce(function(s,x){return s+x.avg;},0)/allAvgs.length;
+  var highest=allAvgs[0];
+  var lowest=allAvgs[allAvgs.length-1];
+  var passing=allAvgs.filter(function(x){return x.avg>=g.grD;}).length;
+
+  // Color helpers
+  var gradeColors={A:'#1a7a4a',B:'#1a4a8a',C:'#7a5a00',D:'#5a3a7a',F:'#8a1a1a'};
+  var gradeLabels={A:'Distinction',B:'Merit',C:'Credit',D:'Pass',F:'Fail'};
+  var total=allAvgs.length;
+
+  // Build SVG bar chart for grade distribution
+  function gradeBar(g,count,total){
+    var pct=total?Math.round((count/total)*100):0;
+    var barH=pct*1.2;
+    return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">'
+      +'<div style="font-size:.78rem;font-weight:700;color:var(--ink);">'+count+'</div>'
+      +'<div style="width:100%;height:120px;display:flex;align-items:flex-end;justify-content:center;">'
+      +'<div style="width:70%;background:'+gradeColors[g]+';height:'+Math.max(4,barH)+'px;border-radius:4px 4px 0 0;min-height:4px;transition:height .4s;"></div></div>'
+      +'<div style="font-size:.88rem;font-weight:700;color:'+gradeColors[g]+';">'+g+'</div>'
+      +'<div style="font-size:.65rem;color:var(--ink3);">'+pct+'%</div>'
+      +'</div>';
+  }
+
+  // Subject performance bars
+  var subBars=Object.values(subjectAvgs).map(function(s){
+    var a=s.cnt?s.tot/s.cnt:0;
+    var w=Math.round(a);
+    var bc=a>=g.grA?'#1a7a4a':a>=g.grB?'#1a4a8a':a>=g.grC?'#7a5a00':a>=g.grD?'#5a3a7a':'#8a1a1a';
+    return'<div style="margin-bottom:.7rem;">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px;">'
+      +'<span style="font-size:.81rem;color:var(--ink);">'+s.name+'</span>'
+      +'<span style="font-size:.78rem;font-weight:600;color:'+bc+';">'+a.toFixed(1)+'%</span></div>'
+      +'<div style="background:var(--s3);border-radius:4px;height:8px;overflow:hidden;">'
+      +'<div style="width:'+w+'%;height:100%;background:'+bc+';border-radius:4px;"></div></div>'
+      +'</div>';
+  }).join('');
+
+  // Top students list
+  var topList=allAvgs.slice(0,5).map(function(s,i){
+    var medals=['🥇','🥈','🥉','4.','5.'];
+    var bc=s.avg>=g.grA?'#1a7a4a':s.avg>=g.grB?'#1a4a8a':s.avg>=g.grC?'#7a5a00':s.avg>=g.grD?'#5a3a7a':'#8a1a1a';
+    return'<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd);">'
+      +'<span style="font-size:1rem;width:24px;text-align:center;">'+medals[i]+'</span>'
+      +'<span style="flex:1;font-size:.83rem;color:var(--ink);font-weight:500;">'+s.name+'</span>'
+      +'<span style="font-size:.85rem;font-weight:700;color:'+bc+';">'+s.avg.toFixed(1)+'%</span>'
+      +'</div>';
+  }).join('');
+
+  out.innerHTML=
+    // Summary stats
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1rem;">'
+    +'<div class="scard gold"><div class="snum">'+classAvg.toFixed(1)+'%</div><div class="slbl">Class Average</div></div>'
+    +'<div class="scard green"><div class="snum">'+passing+'</div><div class="slbl">Passing Students</div></div>'
+    +'<div class="scard blue"><div class="snum">'+total+'</div><div class="slbl">Total Students</div></div>'
+    +'<div class="scard purple"><div class="snum">'+Math.round((passing/total)*100)+'%</div><div class="slbl">Pass Rate</div></div>'
+    +'</div>'
+
+    // Grade distribution chart + Top students
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">'
+
+    +'<div class="card"><div class="ctitle">Grade Distribution</div>'
+    +'<div style="display:flex;gap:.5rem;align-items:flex-end;padding:0 .5rem;">'
+    +['A','B','C','D','F'].map(function(gr){return gradeBar(gr,gradeCount[gr],total);}).join('')
+    +'</div></div>'
+
+    +'<div class="card"><div class="ctitle">Top 5 Students</div>'
+    +topList
+    +'</div></div>'
+
+    // Subject averages
+    +(Object.keys(subjectAvgs).length?
+    '<div class="card"><div class="ctitle">Subject Averages</div>'+subBars+'</div>':'')
+
+    // Highest & Lowest
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">'
+    +'<div class="card"><div class="ctitle">Highest Performer</div>'
+    +'<div style="font-size:1.1rem;font-weight:600;color:var(--ink);">'+highest.name+'</div>'
+    +'<div style="font-size:1.5rem;font-weight:700;color:#1a7a4a;margin-top:4px;">'+highest.avg.toFixed(1)+'%</div>'
+    +'<div style="font-size:.72rem;color:var(--ink3);margin-top:2px;">Distinction</div></div>'
+
+    +'<div class="card"><div class="ctitle">Needs Support</div>'
+    +'<div style="font-size:1.1rem;font-weight:600;color:var(--ink);">'+lowest.name+'</div>'
+    +'<div style="font-size:1.5rem;font-weight:700;color:'+(lowest.avg>=g.grD?'#5a3a7a':'#8a1a1a')+';margin-top:4px;">'+lowest.avg.toFixed(1)+'%</div>'
+    +'<div style="font-size:.72rem;color:var(--ink3);margin-top:2px;">'+(lowest.avg>=g.grD?'Passing':'Below Pass Mark')+'</div></div>'
+    +'</div>';
+}
+
+// ═══════════════════════════════════════
+//  PROCLAMATION
+// ═══════════════════════════════════════
+function setupProcl(){
+  if(isAdmin()){
+    document.getElementById('prCls').innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  } else {
+    var ct=ME.classTeacher;
+    if(!ct){
+      document.getElementById('prCls').innerHTML='<option value="">— No class assigned —</option>';
+      document.getElementById('prOut').innerHTML='<div class="empty"><div class="ei">🔒</div><p>You are not assigned as a class teacher of any class.</p></div>';
+      syncTerms();return;
+    }
+    var ctCls=DB.classes.find(function(c){return c.id===ct;});
+    document.getElementById('prCls').innerHTML=ctCls?'<option value="'+ctCls.id+'">'+ctCls.name+'</option>':'<option value="">—</option>';
+  }
+  syncTerms();
+  genProcl();
+}
+function genProcl(){
+  var cid=document.getElementById('prCls').value;
+  var term=document.getElementById('prTerm').value;
+  var out=document.getElementById('prOut');
+  if(!cid){out.innerHTML='<div class="empty"><div class="ei">🏆</div><p>No class selected.</p></div>';return;}
+  if(!isAdmin()&&ME.classTeacher&&cid!==ME.classTeacher){
+    out.innerHTML='<div class="empty"><div class="ei">🔒</div><p>Access denied.</p></div>';return;
+  }
+  var list=DB.students.filter(function(s){return s.classId===cid;});
+  var g=DB.settings;
+  var ranked=list.map(function(s){
+    var tot=0,cnt=0;
+    DB.subjects.forEach(function(sub){var v=DB.marks[s.id+'_'+sub.id+'_'+term];if(v!==undefined&&v!==''&&sub.scale!=='letter'){tot+=(parseFloat(v)/parseFloat(sub.scale))*100;cnt++;}});
+    return Object.assign({},s,{avg:cnt?(tot/cnt):null,cnt:cnt});
+  }).filter(function(s){return s.avg!==null;}).sort(function(a,b){return b.avg-a.avg;});
+  if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🏆</div><p>No marks recorded for this term yet.</p></div>';return;}
+  var tl=termLabel(term);
+  var cn=(DB.classes.find(function(c){return c.id===cid;})||{}).name||'—';
+  out.innerHTML='<div style="text-align:center;padding:1.1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.25rem;">🏆 Proclamation List</div>'
+    +'<div style="font-size:.78rem;color:var(--ink3);margin-top:3px;">'+tl+' — '+cn+'</div></div>'
+    +ranked.map(function(s,i){
+      var cls=DB.classes.find(function(c){return c.id===s.classId;});
+      var grade=s.avg>=g.grA?'A':s.avg>=g.grB?'B':s.avg>=g.grC?'C':s.avg>=g.grD?'D':'F';
+      var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':String(i+1);
+      var rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+      return'<div class="pcard"><div class="rcirc '+rc+'">'+medal+'</div>'
+        +'<div style="flex:1;"><div style="font-weight:600;">'+s.name+'</div>'
+        +'<div style="font-size:.76rem;color:var(--ink3);margin-top:2px;">No. '+s.sid+' · '+(cls?cls.name:'—')+' · '+s.cnt+' subject'+(s.cnt!==1?'s':'')+'</div></div>'
+        +'<div style="text-align:right;"><div style="font-size:1.35rem;font-weight:600;color:var(--gold);">'+s.avg.toFixed(1)+'%</div>'
+        +'<div style="font-size:.7rem;color:var(--ink3);">Grade '+grade+'</div></div></div>';
+    }).join('');
+}
+
+// ═══════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════
+function setupSettings(){
+  var admin=isAdmin();
+  document.getElementById('schoolCard').style.display=admin?'block':'none';
+  document.getElementById('gradeCard').style.display=admin?'block':'none';
+  document.getElementById('dataCard').style.display=admin?'block':'none';
+  document.getElementById('schin').value=DB.settings.schoolName||'';
+  var mottoEl=document.getElementById('schmotto'); if(mottoEl) mottoEl.value=DB.settings.schoolMotto||'';
+  var addrEl=document.getElementById('schaddr');   if(addrEl)  addrEl.value=DB.settings.schoolAddress||'';
+  document.getElementById('grA').value=DB.settings.grA;
+  document.getElementById('grB').value=DB.settings.grB;
+  document.getElementById('grC').value=DB.settings.grC;
+  document.getElementById('grD').value=DB.settings.grD;
+}
+function saveGrades(){
+  DB.settings.grA=+document.getElementById('grA').value;
+  DB.settings.grB=+document.getElementById('grB').value;
+  DB.settings.grC=+document.getElementById('grC').value;
+  DB.settings.grD=+document.getElementById('grD').value;
+  dbSave();flash('gral','ok','✅ Grade thresholds saved.');
+}
+function changePw(){
+  var old=document.getElementById('pwold').value;
+  var nw=document.getElementById('pwnew').value;
+  var cf=document.getElementById('pwcf').value;
+  if(ME.password!==old){flash('pwal','warn','❌ Current password incorrect.');return;}
+  if(nw.length<4){flash('pwal','warn','❌ Password too short (min 4 chars).');return;}
+  if(nw!==cf){flash('pwal','warn','❌ Passwords do not match.');return;}
+  ME.password=nw;
+  DB.users=DB.users.map(function(u){return u.id===ME.id?Object.assign({},u,{password:nw}):u;});
+  dbSave(); rebuildUserIndex(); flash('pwal','ok','✅ Password updated.');
+  document.getElementById('pwold').value='';document.getElementById('pwnew').value='';document.getElementById('pwcf').value='';
+}
+function exportData(){
+  var b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download='scorix_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+}
+function loadBackup(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(ev){try{DB=JSON.parse(ev.target.result);dbSave();location.reload();}catch(e){alert('Invalid backup file.');}};
+  r.readAsText(f);
+}
+function clearAll(){
+  if(!confirm('⚠️ Delete ALL data? This cannot be undone.'))return;
+  if(!confirm('Are you absolutely sure?'))return;
+  localStorage.clear();location.reload();
+}
+
+// ═══════════════════════════════════════
+//  QUICK ASSIGN CLASSES & SUBJECTS
+// ═══════════════════════════════════════
+function buildChkList(containerId, items, selectedIds, labelKey){
+  var el = document.getElementById(containerId);
+  if(!items.length){ el.innerHTML='<div class="empty" style="padding:1rem;">No '+labelKey+' added yet.</div>'; return; }
+  el.innerHTML = items.map(function(item){
+    var checked = selectedIds.indexOf(item.id) >= 0;
+    return '<div class="chk-item'+(checked?' checked':'')+'" data-id="'+item.id+'" onclick="toggleChk(this)">'
+      +'<div class="chk-box">'+(checked?'✓':'')+'</div>'
+      +'<span>'+item.name+'</span>'
+      +'</div>';
+  }).join('');
+}
+function toggleChk(el){
+  el.classList.toggle('checked');
+  var box = el.querySelector('.chk-box');
+  box.textContent = el.classList.contains('checked') ? '✓' : '';
+}
+function getChkSelected(containerId){
+  return Array.from(document.querySelectorAll('#'+containerId+' .chk-item.checked')).map(function(el){
+    return el.getAttribute('data-id');
+  });
+}
+function openQuickClasses(tid){
+  var t=DB.teachers.find(function(x){return x.id===tid;});if(!t)return;
+  document.getElementById('mqcid').value=tid;
+  document.getElementById('mqcname').textContent=t.name;
+  buildChkList('mqclist', DB.classes, t.classes||[], 'classes');
+  document.getElementById('mqc').classList.add('open');
+}
+function saveQuickClasses(){
+  var tid=document.getElementById('mqcid').value;
+  var t=DB.teachers.find(function(x){return x.id===tid;});if(!t)return;
+  var u=DB.users.find(function(x){return x.id===tid;});
+  var cls=getChkSelected('mqclist');
+  t.classes=cls;
+  if(u) u.classes=cls;
+  if(ME&&ME.id===tid) ME.classes=cls;
+  addLog('Updated classes for: '+t.name);
+  dbSave();renderTeachers();cm('mqc');
+}
+function openQuickSubjects(tid){
+  var t=DB.teachers.find(function(x){return x.id===tid;});if(!t)return;
+  document.getElementById('mqsid').value=tid;
+  document.getElementById('mqsname').textContent=t.name;
+  buildChkList('mqslist', DB.subjects, t.subjects||[], 'subjects');
+  document.getElementById('mqs').classList.add('open');
+}
+function saveQuickSubjects(){
+  var tid=document.getElementById('mqsid').value;
+  var t=DB.teachers.find(function(x){return x.id===tid;});if(!t)return;
+  var u=DB.users.find(function(x){return x.id===tid;});
+  var subs=getChkSelected('mqslist');
+  t.subjects=subs;
+  if(u) u.subjects=subs;
+  if(ME&&ME.id===tid) ME.subjects=subs;
+  addLog('Updated subjects for: '+t.name);
+  dbSave();renderTeachers();cm('mqs');
+}
+
+
+// ═══════════════════════════════════════
+//  REPORT SETTINGS
+// ═══════════════════════════════════════
+function getReportSubjConfig(sid){
+  if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
+  return DB.settings.reportSubjects[sid]||{include:true,weight:100,forPromotion:true};
+}
+function openReportSettings(){
+  if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
+  if(typeof DB.settings.reportMergeTerms==='undefined') DB.settings.reportMergeTerms=false;
+  // Set mode UI
+  var merge=DB.settings.reportMergeTerms;
+  var sm=document.getElementById('rmode-single'); var sb=document.getElementById('rmode-single-box');
+  var mm=document.getElementById('rmode-merge');  var mb=document.getElementById('rmode-merge-box');
+  if(merge){ mm.classList.add('checked'); mb.textContent='✓'; sm.classList.remove('checked'); sb.textContent=''; }
+  else { sm.classList.add('checked'); sb.textContent='✓'; mm.classList.remove('checked'); mb.textContent=''; }
+  // Build subject config list
+  var container=document.getElementById('rpSubjConfig');
+  if(!DB.subjects.length){ container.innerHTML='<div class="empty" style="padding:1rem;">No subjects added yet.</div>'; }
+  else {
+    container.innerHTML=DB.subjects.map(function(s){
+      var cfg=getReportSubjConfig(s.id);
+      return '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:7px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
+        +'<span style="font-size:.85rem;font-weight:500;">'+s.name+'</span>'
+        +'<div onclick="toggleRpSubj(\''+s.id+'\',this)" style="cursor:pointer;width:32px;height:20px;border-radius:10px;background:'+(cfg.include?'var(--green)':'var(--bd)')+';position:relative;transition:.2s;" title="Show on report">'
+          +'<div style="position:absolute;top:2px;left:'+(cfg.include?'14px':'2px')+';width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;"></div>'
+        +'</div>'
+        +'<input type="number" id="rpw-'+s.id+'" value="'+cfg.weight+'" min="1" max="100" style="width:58px;padding:4px 6px;background:var(--s3);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.82rem;text-align:center;outline:none;" title="Weight %">'
+        +'<div onclick="toggleRpProm(\''+s.id+'\',this)" style="cursor:pointer;width:32px;height:20px;border-radius:10px;background:'+(cfg.forPromotion?'var(--gold)':'var(--bd)')+';position:relative;transition:.2s;" title="Count for promotion">'
+          +'<div style="position:absolute;top:2px;left:'+(cfg.forPromotion?'14px':'2px')+';width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;"></div>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+  }
+  document.getElementById('mrp').classList.add('open');
+}
+function setReportMode(merge){
+  DB.settings.reportMergeTerms=merge;
+  var sm=document.getElementById('rmode-single'); var sb=document.getElementById('rmode-single-box');
+  var mm=document.getElementById('rmode-merge');  var mb=document.getElementById('rmode-merge-box');
+  if(merge){ mm.classList.add('checked'); mb.textContent='✓'; sm.classList.remove('checked'); sb.textContent=''; }
+  else{ sm.classList.add('checked'); sb.textContent='✓'; mm.classList.remove('checked'); mb.textContent=''; }
+}
+function toggleRpSubj(sid,toggle){
+  var cfg=getReportSubjConfig(sid);
+  cfg.include=!cfg.include;
+  DB.settings.reportSubjects[sid]=cfg;
+  toggle.style.background=cfg.include?'var(--green)':'var(--bd)';
+  toggle.children[0].style.left=cfg.include?'14px':'2px';
+}
+function toggleRpProm(sid,toggle){
+  var cfg=getReportSubjConfig(sid);
+  cfg.forPromotion=!cfg.forPromotion;
+  DB.settings.reportSubjects[sid]=cfg;
+  toggle.style.background=cfg.forPromotion?'var(--gold)':'var(--bd)';
+  toggle.children[0].style.left=cfg.forPromotion?'14px':'2px';
+}
+function saveReportSettings(){
+  if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
+  DB.subjects.forEach(function(s){
+    var cfg=getReportSubjConfig(s.id);
+    var wEl=document.getElementById('rpw-'+s.id);
+    if(wEl) cfg.weight=Math.max(1,Math.min(100,parseInt(wEl.value)||100));
+    DB.settings.reportSubjects[s.id]=cfg;
+  });
+  dbSave();
+  flash('rpSettingsFlash','ok','✅ Report settings saved.');
+  cm('mrp');
+  genReport();
+}
+
+// ═══════════════════════════════════════
+//  LOGO UPLOAD
+// ═══════════════════════════════════════
+function handleLogoUpload(e){
+  var file=e.target.files[0]; if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var src=ev.target.result;
+    localStorage.setItem('scorix_logo',src);
+    showLogoPreview(src); genReport();
+  };
+  reader.readAsDataURL(file);
+}
+function showLogoPreview(src){
+  var preview=document.getElementById('rpLogoPreview');
+  var img=document.getElementById('rpLogoImg');
+  var btn=document.getElementById('rpLogoRemove');
+  if(img){ img.src=src; }
+  if(preview){ preview.style.display='flex'; }
+  if(btn){ btn.style.display='inline-flex'; }
+}
+function removeLogo(){
+  localStorage.removeItem('scorix_logo');
+  var preview=document.getElementById('rpLogoPreview');
+  var img=document.getElementById('rpLogoImg');
+  var btn=document.getElementById('rpLogoRemove');
+  var fi=document.getElementById('rpLogoFile');
+  if(preview) preview.style.display='none';
+  if(img) img.src='';
+  if(btn) btn.style.display='none';
+  if(fi) fi.value='';
+  genReport();
+}
+function initLogoPreview(){
+  var src=localStorage.getItem('scorix_logo');
+  if(src) showLogoPreview(src);
+}
+
+// ═══════════════════════════════════════
+function syncTerms(){
+  var at=activeTerms();
+  var opts=at.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
+  if(!opts) opts='<option value="">No active terms</option>';
+  ['mkTerm','rpTerm','prTerm','anTerm'].forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var cur=el.value;el.innerHTML=opts;
+    if(at.find(function(t){return t.id===cur;})) el.value=cur;
+  });
+}
+function syncAll(){
+  syncTerms();
+  var cl=document.getElementById('stCls');
+  if(cl){cl.innerHTML='<option value="">All Classes</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');}
+  syncClassSelects();
+}
+
+// ═══════════════════════════════════════
+//  INIT — load data then show login
+// ═══════════════════════════════════════
+// ═══════════════════════════════════════
+//  PASSWORD TOGGLE HELPERS
+// ═══════════════════════════════════════
+function toggleLoginPw(btn){
+  var inp=document.getElementById('lpass');
+  if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}
+  else{inp.type='password';btn.textContent='👁';}
+}
+function togglePwField(fieldId,btn){
+  var inp=document.getElementById(fieldId);
+  if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}
+  else{inp.type='password';btn.textContent='👁';}
+}
+
+// ═══════════════════════════════════════
+//  SUPERADMIN PANEL
+// ═══════════════════════════════════════
+function renderSuperPanel(){
+  if(!isSuperAdmin()) return;
+
+  // Populate branding field
+  var nameEl=document.getElementById('sysNameInput');
+  if(nameEl) nameEl.value=sysName();
+  updateBrandPreview();
+
+  var schools=SUPERDB.schools;
+  var total=schools.length;
+  var paused=schools.filter(function(s){return s.paused;}).length;
+  document.getElementById('ss0').textContent=total;
+  document.getElementById('ss1').textContent=total-paused;
+  document.getElementById('ss2').textContent=paused;
+
+  // Schools list
+  var sl=document.getElementById('superSchoolList');
+  if(!schools.length){
+    sl.innerHTML='<div class="empty"><div class="ei">🏫</div><p>No schools yet. Add one to get started.</p></div>';
+  } else {
+    sl.innerHTML=schools.map(function(sc){
+      // Count admins from local storage
+      var admins=0;
+      var lsRaw=localStorage.getItem(schoolDbKey(sc.id));
+      if(lsRaw){try{var d=JSON.parse(lsRaw);admins=(d.users||[]).filter(function(u){return u.role==='admin';}).length;}catch(e){}}
+      return '<div class="super-school-card'+(sc.paused?' paused':'')+'">'
+        +'<div style="flex:1;">'
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<span class="super-school-name">🏫 '+sc.name+'</span>'
+        +(sc.paused?'<span class="pause-pill">⏸ PAUSED</span>':'<span class="active-pill">✅ Active</span>')
+        +'</div>'
+        +'<div class="super-school-meta">ID: '+sc.id+' &nbsp;·&nbsp; '+admins+' admin'+(admins!==1?'s':'')+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        +'<button class="btn sm ghost" onclick="openEditSchool(\''+sc.id+'\')">✏️ Edit</button>'
+        +(sc.paused
+          ?'<button class="btn sm green" onclick="togglePauseSchool(\''+sc.id+'\',false)">▶️ Resume</button>'
+          :'<button class="btn sm red" onclick="togglePauseSchool(\''+sc.id+'\',true)">⏸ Pause</button>')
+        +'<button class="btn sm red" onclick="superDeleteSchool(\''+sc.id+'\')">🗑️</button>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+  }
+
+  // Super users list
+  var ul=document.getElementById('superUserList');
+  ul.innerHTML=SUPERDB.superusers.map(function(u){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;">'
+      +'<div><div style="font-size:.88rem;font-weight:600;">🛡️ '+u.name+'</div>'
+      +'<div style="font-size:.7rem;color:var(--ink3);">@'+u.username+'</div></div>'
+      +(SUPERDB.superusers.length>1?'<button class="btn sm red" onclick="superDeleteSuperUser(\''+u.id+'\')">🗑️</button>':'<span style="font-size:.7rem;color:var(--ink3);">Primary</span>')
+      +'</div>';
+  }).join('');
+}
+
+function updateBrandPreview(){
+  var name=(document.getElementById('sysNameInput')||{}).value||sysName();
+  var prev=document.getElementById('brandPreview');
+  if(prev) prev.innerHTML=brandLogoHtml(name);
+}
+
+async function saveBranding(){
+  var name=(document.getElementById('sysNameInput').value||'').trim();
+  if(!name){ alert('Enter a system name.'); return; }
+  if(!SUPERDB.settings) SUPERDB.settings={};
+  SUPERDB.settings.systemName=name;
+  await superSave();
+  applyBranding();
+  renderSuperPanel();
+}
+
+function togglePauseSchool(sid,pause){
+  var sc=SUPERDB.schools.find(function(s){return s.id===sid;});
+  if(!sc) return;
+  sc.paused=pause;
+  superSave();
+  renderSuperPanel();
+  // If currently logged into this school, show banner
+  if(CURRENT_SCHOOL_ID===sid) refreshPauseBanner();
+}
+
+function superDeleteSchool(sid){
+  if(!confirm('Delete this school and ALL its data? This cannot be undone.')) return;
+  SUPERDB.schools=SUPERDB.schools.filter(function(s){return s.id!==sid;});
+  localStorage.removeItem(schoolDbKey(sid));
+  superSave();
+  renderSuperPanel();
+}
+
+async function openEditSchool(sid){
+  var sc=SUPERDB.schools.find(function(s){return s.id===sid;});
+  if(!sc) return;
+  document.getElementById('esSchoolId').value=sid;
+  document.getElementById('esSchoolName').value=sc.name;
+  // Load admins from Supabase
+  var d=null;
+  try{ var res=await supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single(); if(res.data&&res.data.data) d=res.data.data; }catch(e){}
+  if(!d){ var raw=localStorage.getItem(schoolDbKey(sid)); if(raw) try{d=JSON.parse(raw);}catch(e){} }
+  var admins=d?(d.users||[]).filter(function(u){return u.role==='admin';}) : [];
+  renderEsAdminList(admins,sid);
+  document.getElementById('mEditSchoolAlert').innerHTML='';
+  om('mEditSchool');
+}
+function renderEsAdminList(admins,sid){
+  var el=document.getElementById('esAdminList');
+  if(!admins.length){ el.innerHTML='<div style="font-size:.8rem;color:var(--ink3);padding:6px;">No admins yet.</div>'; return; }
+  el.innerHTML=admins.map(function(u){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;">'
+      +'<div><div style="font-size:.85rem;font-weight:600;">'+u.name+'</div><div style="font-size:.68rem;color:var(--ink3);">@'+u.username+'</div></div>'
+      +'<button class="btn sm red" onclick="superRemoveAdmin(\''+sid+'\',\''+u.id+'\')">🗑️</button>'
+      +'</div>';
+  }).join('');
+}
+async function superRemoveAdmin(sid,uid){
+  // Load from Supabase first
+  var d=null;
+  try{ var res=await supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single(); if(res.data&&res.data.data) d=res.data.data; }catch(e){}
+  if(!d){ var raw=localStorage.getItem(schoolDbKey(sid)); if(raw) try{d=JSON.parse(raw);}catch(e){} }
+  if(!d) return;
+  d.users=(d.users||[]).filter(function(u){return u.id!==uid;});
+  localStorage.setItem(schoolDbKey(sid),JSON.stringify(d));
+  try{ await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid),data:d}); }catch(e){}
+  var admins=d.users.filter(function(u){return u.role==='admin';});
+  renderEsAdminList(admins,sid);
+  rebuildUserIndex();
+  flash('mEditSchoolAlert','ok','Admin removed.');
+}
+async function superAddAdminToSchool(){
+  var sid=document.getElementById('esSchoolId').value;
+  var name=document.getElementById('esNewAdminName').value.trim();
+  var uname=document.getElementById('esNewAdminUser').value.trim();
+  var pass=document.getElementById('esNewAdminPass').value;
+  if(!name||!uname||!pass){ flash('mEditSchoolAlert','warn','Fill all admin fields.'); return; }
+  // Load school data from Supabase first
+  var d=null;
+  try{ var res=await supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single(); if(res.data&&res.data.data) d=res.data.data; }catch(e){}
+  if(!d){ var raw=localStorage.getItem(schoolDbKey(sid)); if(raw) try{d=JSON.parse(raw);}catch(e){} }
+  if(!d) d={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},settings:{grA:80,grB:70,grC:60,grD:50,schoolName:''},activity:[],terms:[{id:'T1',name:'Term 1',type:'term',active:true},{id:'T2',name:'Term 2',type:'term',active:true},{id:'T3',name:'Term 3',type:'term',active:true},{id:'Final',name:'Final Exam',type:'exam',active:true}]};
+  if((d.users||[]).find(function(u){return u.username===uname;})){ flash('mEditSchoolAlert','warn','Username already taken.'); return; }
+  var newAdmin={id:'adm_'+Date.now(),username:uname,password:pass,role:'admin',name:name,schoolId:sid};
+  if(!d.users) d.users=[];
+  d.users.push(newAdmin);
+  localStorage.setItem(schoolDbKey(sid),JSON.stringify(d));
+  try{ await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid),data:d}); }catch(e){}
+  document.getElementById('esNewAdminName').value='';
+  document.getElementById('esNewAdminUser').value='';
+  document.getElementById('esNewAdminPass').value='';
+  var admins=d.users.filter(function(u){return u.role==='admin';});
+  renderEsAdminList(admins,sid);
+  rebuildUserIndex();
+  flash('mEditSchoolAlert','ok','✅ Admin added.');
+}
+async function superSaveSchool(){
+  var sid=document.getElementById('esSchoolId').value;
+  var name=document.getElementById('esSchoolName').value.trim();
+  if(!name){ flash('mEditSchoolAlert','warn','Enter a school name.'); return; }
+  var sc=SUPERDB.schools.find(function(s){return s.id===sid;});
+  if(sc){ sc.name=name; }
+  // Update schoolName in school DB
+  var d=null;
+  try{ var res=await supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single(); if(res.data&&res.data.data) d=res.data.data; }catch(e){}
+  if(!d){ var raw=localStorage.getItem(schoolDbKey(sid)); if(raw) try{d=JSON.parse(raw);}catch(e){} }
+  if(d){ if(!d.settings) d.settings={}; d.settings.schoolName=name; localStorage.setItem(schoolDbKey(sid),JSON.stringify(d)); try{ await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid),data:d}); }catch(e){} }
+  await superSave();
+  cm('mEditSchool');
+  renderSuperPanel();
+}
+
+async function superAddSchool(){
+  var sname=document.getElementById('saSchoolName').value.trim();
+  var aname=document.getElementById('saAdminName').value.trim();
+  var auser=document.getElementById('saAdminUser').value.trim();
+  var apass=document.getElementById('saAdminPass').value;
+  if(!sname||!aname||!auser||!apass){ flash('mAddSchoolAlert','warn','⚠️ Fill all fields.'); return; }
+  // Check duplicate username across all schools
+  var existingIndex=await userIndexLoad();
+  if(existingIndex&&existingIndex[auser]){ flash('mAddSchoolAlert','warn','⚠️ Username "'+auser+'" is already taken. Choose another.'); return; }
+
+  var saveBtn=document.querySelector('#mAddSchool .btn.gold');
+  if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='Creating…'; }
+
+  var sid='school_'+Date.now();
+  SUPERDB.schools.push({id:sid,name:sname,paused:false,adminIds:[auser]});
+  var schoolData={
+    users:[{id:'adm_'+Date.now(),username:auser,password:apass,role:'admin',name:aname,schoolId:sid}],
+    teachers:[],classes:[],subjects:[],students:[],marks:{},
+    settings:{grA:80,grB:70,grC:60,grD:50,schoolName:sname,reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
+    activity:[],
+    terms:[{id:'T1',name:'Term 1',type:'term',active:true},{id:'T2',name:'Term 2',type:'term',active:true},{id:'T3',name:'Term 3',type:'term',active:true},{id:'Final',name:'Final Exam',type:'exam',active:true}]
+  };
+  localStorage.setItem(schoolDbKey(sid),JSON.stringify(schoolData));
+
+  // Save school data + superDB + user index — all in parallel for speed
+  try{
+    await Promise.all([
+      supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid),data:schoolData}),
+      superSave(),
+    ]);
+    // Update user index with new admin
+    var idx=existingIndex||{};
+    idx[auser]={schoolId:sid,password:apass};
+    await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:idx});
+  }catch(e){ console.error(e); flash('mAddSchoolAlert','warn','⚠️ Network error. Try again.'); if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='✅ Create School';} return; }
+
+  document.getElementById('saSchoolName').value='';
+  document.getElementById('saAdminName').value='';
+  document.getElementById('saAdminUser').value='';
+  document.getElementById('saAdminPass').value='';
+  if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent='✅ Create School'; }
+  cm('mAddSchool');
+  renderSuperPanel();
+  flash('schal','ok','✅ School "'+sname+'" created. Admin: @'+auser);
+}
+
+function superAddSuperUser(){
+  var name=document.getElementById('suName').value.trim();
+  var uname=document.getElementById('suUser').value.trim();
+  var pass=document.getElementById('suPass').value;
+  if(!name||!uname||!pass){ flash('mAddSuAlert','warn','Fill all fields.'); return; }
+  if(SUPERDB.superusers.find(function(u){return u.username===uname;})){ flash('mAddSuAlert','warn','Username taken.'); return; }
+  SUPERDB.superusers.push({id:'su_'+Date.now(),username:uname,password:pass,name:name,role:'superadmin'});
+  superSave();
+  document.getElementById('suName').value='';
+  document.getElementById('suUser').value='';
+  document.getElementById('suPass').value='';
+  cm('mAddSuperUser');
+  renderSuperPanel();
+}
+function superDeleteSuperUser(uid){
+  if(SUPERDB.superusers.length<=1){ alert('Cannot delete the only super user.'); return; }
+  if(!confirm('Delete this super user?')) return;
+  SUPERDB.superusers=SUPERDB.superusers.filter(function(u){return u.id!==uid;});
+  superSave();
+  renderSuperPanel();
+}
+
+// ═══════════════════════════════════════
+//  ADMIN PROPAGATION — school name syncs everywhere
+// ═══════════════════════════════════════
+function saveSchool(){
+  var v=document.getElementById('schin').value.trim();
+  if(!v){flash('schal','warn','Enter a school name.');return;}
+  DB.settings.schoolName=v;
+  DB.settings.schoolMotto=(document.getElementById('schmotto')||{}).value||'';
+  DB.settings.schoolAddress=(document.getElementById('schaddr')||{}).value||'';
+  dbSave();applySchool();
+  var dw=document.getElementById('dwelcome');if(dw&&ME)dw.textContent=(v?v+' — ':'')+' Welcome back, '+ME.name;
+  flash('schal','ok','✅ School info saved.');
+}
+
+function showLogin(){
+  document.getElementById('landingWrap').style.display='none';
+  document.getElementById('loginWrap').style.display='flex';
+}
+
+async function initApp(){
+  var overlay=document.createElement('div');
+  overlay.id='loadOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;gap:14px;';
+  overlay.innerHTML='<div id="loadBrand" style="font-family:\'Playfair Display\',serif;font-size:2rem;font-weight:700;">SC<span style="color:var(--gold)">ORIX</span></div>'
+    +'<div style="font-size:.88rem;color:var(--ink3);">Loading data…</div>'
+    +'<div style="width:48px;height:4px;background:var(--s3);border-radius:4px;overflow:hidden;"><div id="loadBar" style="height:100%;width:0%;background:var(--gold);border-radius:4px;transition:width .4s;"></div></div>';
+  document.body.appendChild(overlay);
+  document.getElementById('loadBar').style.width='30%';
+
+  // Load superDB first (controls schools list and system branding)
+  await superLoad();
+  applyBranding();
+  // Rebuild user index in background so login works from any device
+  rebuildUserIndex();
+  document.getElementById('loadBar').style.width='60%';
+
+  document.getElementById('loadBar').style.width='100%';
+  applySchool();
+  setTimeout(function(){
+    overlay.remove();
+    // Show landing page first, user clicks Sign In to go to login
+    document.getElementById('landingWrap').style.display='block';
+  },300);
+}
+
+// Hide login until data is ready — wait for DOM to be fully loaded
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('loginWrap').style.display = 'none';
+    initApp();
+  });
+} else {
+  document.getElementById('loginWrap').style.display = 'none';
+  initApp();
+}
+</script>
+
+<!-- Report Settings Modal -->
+<div class="mbg" id="mrp"><div class="modal" style="max-width:560px;">
+  <div class="mhead"><div class="mtitle">⚙️ Report Card Settings</div><button class="mx" onclick="cm('mrp')">✕</button></div>
+
+  <!-- Merge Terms -->
+  <div class="card" style="margin-bottom:1rem;padding:1rem;">
+    <div class="ctitle" style="margin-bottom:.6rem;">📋 Report Mode</div>
+    <div style="display:flex;flex-direction:column;gap:.5rem;">
+      <label class="chk-item" id="rmode-single" onclick="setReportMode(false)" style="cursor:pointer;">
+        <div class="chk-box" id="rmode-single-box">✓</div>
+        <div><strong>One Term at a Time</strong><div style="font-size:.75rem;color:var(--ink3);margin-top:2px;">Show marks for the selected term only</div></div>
+      </label>
+      <label class="chk-item" id="rmode-merge" onclick="setReportMode(true)" style="cursor:pointer;">
+        <div class="chk-box" id="rmode-merge-box"></div>
+        <div><strong>Merge All Terms</strong><div style="font-size:.75rem;color:var(--ink3);margin-top:2px;">Combine marks from all terms into one report card (weighted average)</div></div>
+      </label>
+    </div>
+  </div>
+
+  <!-- Subject Settings -->
+  <div class="card" style="margin-bottom:1rem;padding:1rem;">
+    <div class="ctitle" style="margin-bottom:.2rem;">📚 Subject Configuration</div>
+    <div style="font-size:.73rem;color:var(--ink3);margin-bottom:.8rem;">Choose which subjects appear on the report, their weight (%), and which ones count for promotion decision.</div>
+    <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:4px;align-items:center;margin-bottom:.5rem;padding:0 4px;">
+      <span style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);">Subject</span>
+      <span style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:center;">Show</span>
+      <span style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:center;">Weight&nbsp;%</span>
+      <span style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:center;">Promotion</span>
+    </div>
+    <div id="rpSubjConfig" style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;"></div>
+  </div>
+
+  <div style="display:flex;gap:8px;">
+    <button class="btn gold" onclick="saveReportSettings()">✅ Save Settings</button>
+    <button class="btn ghost" onclick="cm('mrp')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Quick Assign Classes -->
+<div class="mbg" id="mqc"><div class="modal" style="max-width:420px;">
+  <div class="mhead"><div class="mtitle">🏫 Edit Assigned Classes</div><button class="mx" onclick="cm('mqc')">✕</button></div>
+  <input type="hidden" id="mqcid">
+  <div style="margin-bottom:.8rem;font-size:.82rem;color:var(--ink2);">Teacher: <strong id="mqcname"></strong></div>
+  <div style="font-size:.75rem;color:var(--ink3);margin-bottom:.6rem;">Tap to select / deselect classes</div>
+  <div class="chk-list" id="mqclist"></div>
+  <div style="margin-top:1rem;display:flex;gap:8px;">
+    <button class="btn gold" onclick="saveQuickClasses()">✅ Save</button>
+    <button class="btn ghost" onclick="cm('mqc')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Quick Assign Subjects -->
+<div class="mbg" id="mqs"><div class="modal" style="max-width:420px;">
+  <div class="mhead"><div class="mtitle">📚 Edit Assigned Subjects</div><button class="mx" onclick="cm('mqs')">✕</button></div>
+  <input type="hidden" id="mqsid">
+  <div style="margin-bottom:.8rem;font-size:.82rem;color:var(--ink2);">Teacher: <strong id="mqsname"></strong></div>
+  <div style="font-size:.75rem;color:var(--ink3);margin-bottom:.6rem;">Tap to select / deselect subjects</div>
+  <div class="chk-list" id="mqslist"></div>
+  <div style="margin-top:1rem;display:flex;gap:8px;">
+    <button class="btn gold" onclick="saveQuickSubjects()">✅ Save</button>
+    <button class="btn ghost" onclick="cm('mqs')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Add School Modal -->
+<div class="mbg" id="mAddSchool"><div class="modal" style="max-width:480px;">
+  <div class="mhead"><div class="mtitle">🏫 Add New School</div><button class="mx" onclick="cm('mAddSchool')">✕</button></div>
+  <div id="mAddSchoolAlert"></div>
+  <div style="display:flex;flex-direction:column;gap:.8rem;margin-bottom:1rem;">
+    <div class="fg"><label>School Name</label><input type="text" id="saSchoolName" placeholder="e.g. Greenfield Primary School"></div>
+    <div class="fg"><label>Admin Full Name</label><input type="text" id="saAdminName" placeholder="e.g. John Mwangi"></div>
+    <div class="fg"><label>Admin Username</label><input type="text" id="saAdminUser" placeholder="e.g. john_admin"></div>
+    <div class="fg"><label>Admin Password</label><div class="pw-wrap-modal"><input type="password" id="saAdminPass" placeholder="••••••"><button class="pw-eye-m" type="button" onclick="togglePwField('saAdminPass',this)">👁</button></div></div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn gold" onclick="superAddSchool()">✅ Create School</button>
+    <button class="btn ghost" onclick="cm('mAddSchool')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Edit School Modal -->
+<div class="mbg" id="mEditSchool"><div class="modal" style="max-width:480px;">
+  <div class="mhead"><div class="mtitle">✏️ Edit School</div><button class="mx" onclick="cm('mEditSchool')">✕</button></div>
+  <input type="hidden" id="esSchoolId">
+  <div id="mEditSchoolAlert"></div>
+  <div style="display:flex;flex-direction:column;gap:.8rem;margin-bottom:1rem;">
+    <div class="fg"><label>School Name</label><input type="text" id="esSchoolName" placeholder="School name"></div>
+  </div>
+  <div class="ctitle" style="margin-top:.5rem;">Admins for this school</div>
+  <div id="esAdminList" style="margin-bottom:1rem;display:flex;flex-direction:column;gap:.5rem;max-height:200px;overflow-y:auto;"></div>
+  <div class="card" style="padding:.9rem;margin-bottom:.8rem;">
+    <div class="ctitle" style="margin-bottom:.6rem;font-size:.72rem;">Add New Admin</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.6rem;">
+      <div class="fg"><label>Full Name</label><input type="text" id="esNewAdminName" placeholder="Name"></div>
+      <div class="fg"><label>Username</label><input type="text" id="esNewAdminUser" placeholder="username"></div>
+      <div class="fg"><label>Password</label><input type="password" id="esNewAdminPass" placeholder="••••••"></div>
+    </div>
+    <button class="btn green" style="font-size:.78rem;" onclick="superAddAdminToSchool()">+ Add Admin</button>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn gold" onclick="superSaveSchool()">✅ Save</button>
+    <button class="btn ghost" onclick="cm('mEditSchool')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Add Super User Modal -->
+<div class="mbg" id="mAddSuperUser"><div class="modal" style="max-width:420px;">
+  <div class="mhead"><div class="mtitle">🛡️ Add Super User</div><button class="mx" onclick="cm('mAddSuperUser')">✕</button></div>
+  <div id="mAddSuAlert"></div>
+  <div style="display:flex;flex-direction:column;gap:.8rem;margin-bottom:1rem;">
+    <div class="fg"><label>Full Name</label><input type="text" id="suName" placeholder="Name"></div>
+    <div class="fg"><label>Username</label><input type="text" id="suUser" placeholder="username"></div>
+    <div class="fg"><label>Password</label><div class="pw-wrap-modal"><input type="password" id="suPass" placeholder="••••••"><button class="pw-eye-m" type="button" onclick="togglePwField('suPass',this)">👁</button></div></div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn gold" onclick="superAddSuperUser()">✅ Add</button>
+    <button class="btn ghost" onclick="cm('mAddSuperUser')">Cancel</button>
+  </div>
+</div></div>
+
+</body>
+</html>
