@@ -796,8 +796,8 @@ tr:hover td{background:var(--s2);}
         <div id="term-marks-mode">
           <div class="card">
             <div class="g4" style="margin-bottom:1rem;">
-              <div class="fg"><label>Class</label><select id="mkCls" onchange="onMkTermChange()"><option value="">— Select Class —</option></select></div>
-              <div class="fg"><label>Subject</label><select id="mkSub" onchange="onMkTermChange()"><option value="">— Select Subject —</option></select></div>
+              <div class="fg"><label>Class</label><select id="mkCls" onchange="setupMarksSubjects()"><option value="">— Select Class —</option></select></div>
+              <div class="fg"><label>Subject</label><select id="mkSub" onchange="loadMkTable()"><option value="">— Select Subject —</option></select></div>
               <div class="fg"><label>Term</label><select id="mkTerm" onchange="onMkTermChange()"></select></div>
               <div class="fg"><label>Period</label><select id="mkComp" onchange="loadMkTable()"><option value="">— Select Period —</option></select></div>
             </div>
@@ -1771,7 +1771,14 @@ async function doLogin(){
     me={id:'u_'+Date.now(),username:u,password:p,role:'admin',name:u,schoolId:foundSchoolId};
   }
   ME=me;
-  console.log('[SCORIX] Logged in as:', ME.name, '| role:', ME.role, '| isAdmin:', ME.role==='admin'||ME.role==='superadmin');
+  // Ensure ME has all latest data from DB
+  var dbUser=DB.users.find(function(x){return x.id===ME.id;});
+  if(dbUser){
+    ME.subjects=dbUser.subjects||[];
+    ME.classes=dbUser.classes||[];
+    ME.classTeacher=dbUser.classTeacher||'';
+  }
+  console.log('[SCORIX] Logged in:', ME.name,'| role:',ME.role,'| subjects:',ME.subjects,'| classes:',ME.classes);
   // Apply role class to body for CSS-based permission control
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   if(ME.role==='superadmin') document.body.classList.add('role-admin');
@@ -2734,7 +2741,7 @@ function getMarkValue(studentId, subjectId, termId, sub){
 }
 
 function setupMarks(){
-  // Block director/admin from entering marks — marks are for teachers only
+  // Block director from entering marks
   if(isAdmin()){
     var wrap=document.getElementById('mkWrap');
     if(wrap) wrap.innerHTML='<div class="al warn">⛔ Directors do not enter marks. Please assign a teacher to record marks for each class and subject.</div>';
@@ -2745,20 +2752,43 @@ function setupMarks(){
     return;
   }
 
-  // Teacher: load their assigned classes
-  document.getElementById('mkCls').innerHTML='<option value="">— Select Class —</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  // Step 1: populate classes
+  var classes = myClasses();
+  document.getElementById('mkCls').innerHTML='<option value="">— Select Class —</option>'
+    +classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
 
-  // Teacher: load their assigned subjects — if none assigned, show ALL subjects
-  var subjectsToShow = mySubjects();
-  if(!subjectsToShow||!subjectsToShow.length) subjectsToShow = DB.subjects;
-  var classTeacherId = ME?ME.classTeacher:null;
-  if(classTeacherId){
-    subjectsToShow=[{id:'__overall__',name:'📋 Overall Class View'}].concat(subjectsToShow);
-  }
-  document.getElementById('mkSub').innerHTML='<option value="">— Select Subject —</option>'+subjectsToShow.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+  // Step 2: populate subjects from DB.users record (most reliable source)
+  setupMarksSubjects();
 
+  // Step 3: populate terms
   syncTerms();
   switchMarkMode(_markMode);
+}
+
+// Called when class changes — refresh subject list
+function setupMarksSubjects(){
+  // Get subjects — check ME, then DB.users record
+  var u = DB.users.find(function(x){return x.id===(ME&&ME.id);});
+  var subIds = (u&&u.subjects&&u.subjects.length) ? u.subjects
+             : (ME&&ME.subjects&&ME.subjects.length) ? ME.subjects
+             : [];
+
+  var subjectsToShow = subIds.length
+    ? DB.subjects.filter(function(s){return subIds.indexOf(s.id)>=0;})
+    : DB.subjects; // show all if none assigned
+
+  // Add Overall View for class teachers
+  var classTeacherId = (u&&u.classTeacher) || (ME&&ME.classTeacher);
+  var list = classTeacherId
+    ? [{id:'__overall__',name:'📋 Overall Class View'}].concat(subjectsToShow)
+    : subjectsToShow;
+
+  document.getElementById('mkSub').innerHTML='<option value="">— Select Subject —</option>'
+    +list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+
+  // Reset period and table
+  document.getElementById('mkComp').innerHTML='<option value="">— Select Period —</option>';
+  document.getElementById('mkWrap').innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select subject, term and period to enter marks.</p></div>';
 }
 
 function onMkTermChange(){
@@ -2766,26 +2796,27 @@ function onMkTermChange(){
   var compSel = document.getElementById('mkComp');
   var wrap = document.getElementById('mkWrap');
 
-  // Find the selected term and its components
+  if(!tid){
+    compSel.innerHTML='<option value="">— Select Period —</option>';
+    wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select class, subject, term and period.</p></div>';
+    return;
+  }
+
   var term = DB.terms.find(function(t){ return t.id===tid; });
   var comps = (term&&term.components&&term.components.length) ? term.components : null;
 
   if(comps){
-    // Populate Period dropdown with the term's components
     compSel.innerHTML = '<option value="">— Select Period —</option>'
       + comps.map(function(c){
-          return '<option value="'+c.id+'">'+c.name+' (max: '+c.maxMark+')</option>';
+          return '<option value="'+c.id+'">'+c.name+'</option>';
         }).join('');
-    compSel.parentElement.style.display='';
   } else {
-    // No components — hide period dropdown and load directly
-    compSel.innerHTML='<option value="__single__">Single Mark</option>';
+    compSel.innerHTML='<option value="__single__">Full Term</option>';
     compSel.value='__single__';
-    compSel.parentElement.style.display='none';
+    loadMkTable();
+    return;
   }
-
-  // Reset the marks table
-  wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select period to enter marks.</p></div>';
+  wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Now select Midterm or Exam above.</p></div>';
 }
 
 function loadMkTable(){
@@ -3752,6 +3783,111 @@ function genReport(){
 }
 
 
+
+// ═══════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════
+function setupAnalytics(){
+  // Populate class filter
+  var anCls=document.getElementById('anCls');
+  if(anCls){
+    var cur=anCls.value;
+    anCls.innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    if(cur) anCls.value=cur;
+  }
+  // Populate subject filter
+  var anSub=document.getElementById('anSub');
+  if(anSub){
+    var cur2=anSub.value;
+    anSub.innerHTML='<option value="">All Subjects</option>'+DB.subjects.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+    if(cur2) anSub.value=cur2;
+  }
+  syncTerms();
+  renderAnalytics();
+}
+
+function renderAnalytics(){
+  var cid=document.getElementById('anCls').value;
+  var termRaw=document.getElementById('anTerm').value;
+  var tp=parseTermPeriod(termRaw);
+  var tid=tp.termId;
+  var compId=tp.compId;
+  var sid=document.getElementById('anSub').value;
+  var out=document.getElementById('anOut');
+
+  var students=cid?DB.students.filter(function(s){return s.classId===cid;}):DB.students;
+  var subjects=sid?DB.subjects.filter(function(s){return s.id===sid;}):DB.subjects.filter(function(s){return s.scale!=='letter';});
+
+  if(!students.length||!subjects.length||!tid){
+    out.innerHTML='<div class="empty"><div class="ei">📊</div><p>Select filters above to see analytics.</p></div>';
+    return;
+  }
+
+  var GC={'A':'var(--green)','B':'var(--blue)','C':'var(--gold)','D':'var(--purple)','F':'var(--red)'};
+  var g=DB.settings;
+
+  var html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">';
+
+  subjects.forEach(function(sub){
+    var vals=students.map(function(st){
+      var key=(compId&&compId!=='single')
+        ? st.id+'_'+sub.id+'_'+tid+'_'+compId
+        : st.id+'_'+sub.id+'_'+tid;
+      var v=DB.marks[key];
+      return v!==undefined&&v!==''?parseFloat(v):null;
+    }).filter(function(v){return v!==null;});
+
+    if(!vals.length) return;
+
+    var maxMark=parseFloat(sub.scale)||100;
+    var avg=(vals.reduce(function(a,b){return a+b;},0)/vals.length);
+    var avgPct=(avg/maxMark*100).toFixed(1);
+    var highest=Math.max.apply(null,vals);
+    var lowest=Math.min.apply(null,vals);
+    var passed=vals.filter(function(v){return v>=sub.pass;}).length;
+    var passRate=Math.round((passed/vals.length)*100);
+
+    // Grade distribution
+    var grades={A:0,B:0,C:0,D:0,F:0};
+    vals.forEach(function(v){
+      var pct=(v/maxMark)*100;
+      var gr=pct>=(g.grA||80)?'A':pct>=(g.grB||70)?'B':pct>=(g.grC||60)?'C':pct>=(g.grD||50)?'D':'F';
+      grades[gr]++;
+    });
+
+    var gradeBar=Object.keys(grades).map(function(gr){
+      var pct=vals.length?Math.round((grades[gr]/vals.length)*100):0;
+      return pct>0?'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+        +'<span style="width:14px;font-size:.72rem;font-weight:700;color:'+GC[gr]+';">'+gr+'</span>'
+        +'<div style="flex:1;height:8px;background:var(--bd);border-radius:4px;overflow:hidden;">'
+        +'<div style="width:'+pct+'%;height:100%;background:'+GC[gr]+';border-radius:4px;"></div></div>'
+        +'<span style="font-size:.7rem;color:var(--ink3);width:28px;">'+grades[gr]+'</span>'
+        +'</div>':'';
+    }).join('');
+
+    var avgColor=parseFloat(avgPct)>=(g.grA||80)?'var(--green)':parseFloat(avgPct)>=(g.grC||60)?'var(--gold)':'var(--red)';
+
+    html+='<div class="card" style="padding:1rem;">'
+      +'<div style="font-weight:700;font-size:.9rem;margin-bottom:.7rem;color:var(--ink);">'+sub.name+'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:.6rem;">'
+      +'<div style="text-align:center;"><div style="font-size:1.4rem;font-weight:700;color:'+avgColor+';">'+avgPct+'%</div><div style="font-size:.65rem;color:var(--ink3);">Average</div></div>'
+      +'<div style="text-align:center;"><div style="font-size:1.1rem;font-weight:600;color:var(--green);">'+highest.toFixed(1)+'</div><div style="font-size:.65rem;color:var(--ink3);">Highest</div></div>'
+      +'<div style="text-align:center;"><div style="font-size:1.1rem;font-weight:600;color:var(--red);">'+lowest.toFixed(1)+'</div><div style="font-size:.65rem;color:var(--ink3);">Lowest</div></div>'
+      +'<div style="text-align:center;"><div style="font-size:1.1rem;font-weight:600;color:'+(passRate>=50?'var(--green)':'var(--red)')+';">'+passRate+'%</div><div style="font-size:.65rem;color:var(--ink3);">Pass Rate</div></div>'
+      +'</div>'
+      +'<div style="font-size:.7rem;color:var(--ink3);margin-bottom:4px;">Grade Distribution ('+vals.length+' students)</div>'
+      +gradeBar
+      +'</div>';
+  });
+
+  html+='</div>';
+
+  if(html==='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;"></div>'){
+    out.innerHTML='<div class="empty"><div class="ei">📊</div><p>No marks recorded for selected filters yet.</p></div>';
+  } else {
+    out.innerHTML=html;
+  }
+}
 
 function setupProcl(){
   if(isAdmin()){
