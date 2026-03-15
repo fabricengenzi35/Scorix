@@ -1758,8 +1758,7 @@ function enterApp(){
   addLog('Signed in: '+ME.name);
   if(!isSuperAdmin()) dbSave();
 
-  // Show dashboard first then re-render after short delay to catch Supabase data
-  showPage('dashboard');
+  // Re-render dashboard after Supabase data loads
   setTimeout(function(){ renderDash(); syncAll(); }, 800);
 
   // Show diamond mode switch before entering app
