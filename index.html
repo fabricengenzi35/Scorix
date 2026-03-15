@@ -42,6 +42,7 @@ input,select,textarea,button{font-family:'Outfit',sans-serif;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
@@ -495,6 +496,13 @@ tr:hover td{background:var(--s2);}
     <!-- Hero -->
     <div style="text-align:center;padding:5rem 1.5rem 3rem;max-width:700px;margin:0 auto;">
       <div style="display:inline-block;background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.25);border-radius:20px;padding:4px 14px;font-size:.72rem;font-weight:600;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1.2rem;">School Management System</div>
+
+      <!-- TYPING ANIMATION WELCOME -->
+      <div style="min-height:2.2rem;margin-bottom:1rem;">
+        <span id="landing-typing" style="font-size:1.05rem;font-weight:600;color:var(--gold);letter-spacing:.02em;"></span>
+        <span id="landing-cursor" style="color:var(--gold);font-weight:300;animation:blink 1s step-end infinite;">|</span>
+      </div>
+
       <h1 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,6vw,3.2rem);font-weight:700;line-height:1.15;margin-bottom:1rem;color:var(--ink);">Academic Excellence,<br><span style="color:var(--gold);">Precisely Tracked.</span></h1>
       <p style="font-size:1.05rem;color:var(--ink2);margin-bottom:2rem;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;">The complete marks management platform for schools — enter grades, generate report cards, track performance, and manage multiple schools from one place.</p>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
@@ -572,6 +580,11 @@ tr:hover td{background:var(--s2);}
   <div class="lbox">
     <div class="llogo" id="llogoText">SC<span>ORIX</span></div>
     <div class="lsub" id="lsubText">School Marks Management System</div>
+    <!-- TYPING WELCOME ON LOGIN PAGE -->
+    <div style="text-align:center;min-height:1.6rem;margin:.5rem 0 .3rem;">
+      <span id="login-typing" style="font-size:.82rem;font-weight:600;color:var(--gold);letter-spacing:.02em;"></span>
+      <span id="login-cursor" style="color:var(--gold);animation:blink 1s step-end infinite;">|</span>
+    </div>
     <!-- LANGUAGE TOGGLE -->
     <div style="display:flex;justify-content:center;gap:8px;margin:.7rem 0 .5rem;">
       <button id="lang-en-btn" onclick="setAppLang('en')" style="flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--gold);background:rgba(240,180,41,.15);color:var(--gold);font-weight:700;cursor:pointer;font-size:.82rem;transition:all .2s;">🇬🇧 English</button>
@@ -770,6 +783,39 @@ tr:hover td{background:var(--s2);}
           </div>
           <button class="btn gold" onclick="saveSchool()">💾 Save School Info</button>
         </div>
+
+        <!-- SCHOOL LOGO UPLOAD -->
+        <div class="card" id="logoCard">
+          <div class="ctitle">🖼️ School Logo</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.9rem;">Upload your school logo. It will appear on all report cards.</div>
+          <div style="display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;">
+            <div id="logoPreviewAdmin" style="width:90px;height:90px;border-radius:10px;border:2px dashed var(--bd);background:var(--s2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+              <img id="logoImgAdmin" src="" style="max-width:100%;max-height:100%;object-fit:contain;display:none;">
+              <span id="logoPlaceholder" style="font-size:.65rem;color:var(--ink3);text-align:center;padding:8px;">No logo</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:.6rem;">
+              <button class="btn gold" onclick="document.getElementById('logoFileAdmin').click()">📁 Upload Logo</button>
+              <button class="btn red sm" id="logoRemoveBtn" onclick="removeLogoAdmin()" style="display:none;">✕ Remove Logo</button>
+              <input type="file" id="logoFileAdmin" accept="image/*" style="display:none;" onchange="handleLogoAdmin(event)">
+              <div style="font-size:.7rem;color:var(--ink3);">PNG, JPG or SVG. Max 2MB.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROMOTION PASS MARK -->
+        <div class="card" id="promotionCard">
+          <div class="ctitle">🎯 Promotion Pass Mark</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.9rem;">Set the minimum mark a student needs to be promoted. This applies globally to all subjects.</div>
+          <div id="promal"></div>
+          <div style="display:flex;align-items:flex-end;gap:.9rem;flex-wrap:wrap;">
+            <div class="fg" style="max-width:180px;">
+              <label>Minimum Mark to Pass</label>
+              <input type="number" id="promotionMark" min="0" max="100" placeholder="e.g. 50" style="font-size:1.1rem;font-weight:600;">
+            </div>
+            <button class="btn gold" onclick="savePromotionMark()">💾 Save</button>
+          </div>
+          <div style="margin-top:.7rem;font-size:.72rem;color:var(--ink3);">Students scoring below this mark will be marked as FAIL on their report cards.</div>
+        </div>
         <div class="card" style="max-width:450px;">
           <div class="ctitle">Change My Password</div>
           <div id="pwal"></div>
@@ -781,19 +827,19 @@ tr:hover td{background:var(--s2);}
           <button class="btn gold" onclick="changePw()">Update Password</button>
         </div>
         <div class="card" id="gradeCard">
-          <div class="ctitle">Default Grade Thresholds (%)</div>
-          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.7rem;">These are the global defaults. Each subject can override these in the Subjects page.</div>
+          <div class="ctitle">📊 Grade Thresholds (%)</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.7rem;">Set the minimum % for each grade. These apply to all subjects based on (mark ÷ max mark × 100).</div>
           <div id="gral"></div>
           <div class="g4" style="margin-bottom:.6rem;">
-            <div class="fg"><label>A — from %</label><input type="number" id="grA"></div>
-            <div class="fg"><label>B — from %</label><input type="number" id="grB"></div>
-            <div class="fg"><label>C — from %</label><input type="number" id="grC"></div>
-            <div class="fg"><label>D — from %</label><input type="number" id="grD"></div>
+            <div class="fg"><label>A — Distinction (%+)</label><input type="number" id="grA" min="0" max="100"></div>
+            <div class="fg"><label>B — Merit (%+)</label><input type="number" id="grB" min="0" max="100"></div>
+            <div class="fg"><label>C — Credit (%+)</label><input type="number" id="grC" min="0" max="100"></div>
+            <div class="fg"><label>D — Pass (%+)</label><input type="number" id="grD" min="0" max="100"></div>
           </div>
           <div style="font-size:.72rem;color:var(--ink3);margin-bottom:.8rem;">
-            A = 80%+ &nbsp;|&nbsp; B = 70–79% &nbsp;|&nbsp; C = 60–69% &nbsp;|&nbsp; D = 50–59% &nbsp;|&nbsp; F = below 50%
+            Example: A=80, B=70, C=60, D=50 → below 50% = F (Fail)
           </div>
-          <button class="btn gold" onclick="saveGrades()">Save</button>
+          <button class="btn gold" onclick="saveGrades()">Save Grade Scale</button>
         </div>
         <div class="card" id="dataCard">
           <div class="ctitle" style="color:var(--red);">⚠️ Data Management</div>
@@ -2109,9 +2155,50 @@ function checkPass(v,sub){
   if(sub.scale==='letter')return['A','B','C','D'].indexOf(v)>=0;
   return parseFloat(v)>=sub.pass;
 }
+// Calculate a student's position in a subject for a given class & term
+function getSubjectPosition(studentId, classId, subjectId, termId, students, sub){
+  var scores = students.map(function(s){
+    var v = getMarkValue(s.id, subjectId, termId, sub);
+    return {id:s.id, val:v!==''?parseFloat(v):null};
+  }).filter(function(x){return x.val!==null;});
+  var me = scores.find(function(x){return x.id===studentId;});
+  if(!me) return '—';
+  var pos = scores.filter(function(x){return x.val>me.val;}).length+1;
+  var total = scores.length;
+  var suffix = pos===1?'st':pos===2?'nd':pos===3?'rd':'th';
+  return pos+suffix+' / '+total;
+}
+
+function getMarkValue(studentId, subjectId, termId, sub){
+  // Check if subject has components
+  var term = DB.terms.find(function(t){return t.id===termId;});
+  var comps = (term&&term.components&&term.components.length)?term.components:null;
+  if(comps){
+    var tot = calcCompTotal(studentId, subjectId, termId, comps, null);
+    if(tot===null) return '';
+    var totMax = comps.reduce(function(s,c){return s+c.maxMark;},0);
+    return (tot/totMax*parseFloat(sub.scale)).toFixed(1);
+  }
+  var v = DB.marks[studentId+'_'+subjectId+'_'+termId];
+  return v!==undefined?v:'';
+}
+
 function setupMarks(){
+  var isTeacher=!isAdmin()&&!isSuperAdmin();
+  var classTeacherId=ME?ME.classTeacher:null;
+  // Classes
   document.getElementById('mkCls').innerHTML='<option value="">— Select Class —</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
-  document.getElementById('mkSub').innerHTML='<option value="">— Select Subject —</option>'+mySubjects().map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+  // Subjects — teachers only see their subjects; class teachers also see overall view
+  var subjectsToShow;
+  if(isAdmin()||isSuperAdmin()){
+    subjectsToShow=DB.subjects;
+  } else {
+    subjectsToShow=mySubjects();
+    if(classTeacherId){
+      subjectsToShow=[{id:'__overall__',name:'📋 Overall Class View'}].concat(subjectsToShow);
+    }
+  }
+  document.getElementById('mkSub').innerHTML='<option value="">— Select Subject —</option>'+subjectsToShow.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
   syncTerms();
 }
 
@@ -2121,6 +2208,39 @@ function loadMkTable(){
   var tid  = document.getElementById('mkTerm').value;
   var wrap = document.getElementById('mkWrap');
   if(!cid||!sid){ wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select class and subject to enter marks.</p></div>'; return; }
+
+  // ── OVERALL CLASS VIEW for class teachers ──
+  if(sid==='__overall__'){
+    var students2=DB.students.filter(function(s){return s.classId===cid;});
+    if(!students2.length){wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>';return;}
+    var thead2='<tr><th>#</th><th>Student</th>'+DB.subjects.map(function(s){return'<th style="text-align:center;font-size:.7rem;">'+s.name+'</th>';}).join('')+'<th style="text-align:center;">Average</th><th style="text-align:center;">Position</th></tr>';
+    var rows2=students2.map(function(s,i){
+      var tot=0,cnt=0;
+      var cells=DB.subjects.map(function(sub){
+        var v=DB.marks[s.id+'_'+sub.id+'_'+tid]||'';
+        if(v!==''&&sub.scale!=='letter'){tot+=(parseFloat(v)/parseFloat(sub.scale))*100;cnt++;}
+        var pct=v!==''&&sub.scale!=='letter'?((parseFloat(v)/parseFloat(sub.scale))*100).toFixed(0)+'%':'—';
+        return'<td style="text-align:center;font-size:.8rem;">'+pct+'</td>';
+      }).join('');
+      var avg2=cnt?(tot/cnt).toFixed(1):'—';
+      return'<tr><td>'+(i+1)+'</td><td><strong>'+s.name+'</strong></td>'+cells+'<td style="text-align:center;font-weight:700;color:var(--gold);">'+(avg2!=='—'?avg2+'%':'—')+'</td><td style="text-align:center;" id="ov_'+s.id+'">—</td></tr>';
+    });
+    // Calculate positions
+    var scored2=students2.map(function(s){
+      var t=0,c=0;
+      DB.subjects.forEach(function(sub){var v=DB.marks[s.id+'_'+sub.id+'_'+tid]||'';if(v!==''&&sub.scale!=='letter'){t+=(parseFloat(v)/parseFloat(sub.scale))*100;c++;}});
+      return{id:s.id,avg:c?t/c:null};
+    });
+    rows2=rows2.map(function(r,i){
+      var me=scored2[i];
+      if(!me||me.avg===null) return r;
+      var pos=scored2.filter(function(x){return x.avg!==null&&x.avg>me.avg;}).length+1;
+      var suffix=pos===1?'st':pos===2?'nd':pos===3?'rd':'th';
+      return r.replace('id="ov_'+me.id+'">'+'—','id="ov_'+me.id+'"><strong style="color:var(--blue);">'+pos+suffix+'</strong>');
+    });
+    wrap.innerHTML='<div class="al info" style="margin-bottom:.9rem;">👁️ Read-only overall view for class teacher</div><div class="tw"><table><thead>'+thead2+'</thead><tbody>'+rows2.join('')+'</tbody></table></div>';
+    return;
+  }
 
   var students = DB.students.filter(function(s){ return s.classId===cid; });
   var sub      = DB.subjects.find(function(s){ return s.id===sid; });
@@ -2149,7 +2269,7 @@ function loadMkTable(){
   } else {
     thead+='<th style="text-align:center;">Mark'+(isL?'':' /'+sub.scale)+'</th>';
   }
-  thead+='<th style="text-align:center;">Grade</th><th style="text-align:center;">Status</th></tr>';
+  thead+='<th style="text-align:center;">Grade</th><th style="text-align:center;">Position</th></tr>';
 
   // ── Build rows ──
   var rows = students.map(function(s,i){
@@ -2177,7 +2297,7 @@ function loadMkTable(){
       var ps = checkPass(syntheticV, sub);
       row+='<td style="text-align:center;"><span id="mktot_'+s.id+'" style="font-weight:700;font-size:.9rem;">'+(tot!==null?tot:'—')+'</span></td>';
       row+='<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>';
-      row+='<td style="text-align:center;" id="ps_'+s.id+'">'+(syntheticV!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—')+'</td>';
+      row+='<td style="text-align:center;" id="ps_'+s.id+'"><span style="font-size:.78rem;font-weight:600;color:var(--blue);">'+getSubjectPosition(s.id,cid,sid,tid,students,sub)+'</span></td>';
     } else {
       // Single mark input
       var key = s.id+'_'+sid+'_'+tid;
@@ -2189,7 +2309,7 @@ function loadMkTable(){
         :'<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+sub.scale+'" step="0.5" value="'+val+'" oninput="prevMark(\''+s.id+'\',\''+sid+'\')">';
       row+='<td style="text-align:center;">'+inp+'</td>';
       row+='<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>';
-      row+='<td style="text-align:center;" id="ps_'+s.id+'">'+(val!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—')+'</td>';
+      row+='<td style="text-align:center;" id="ps_'+s.id+'"><span style="font-size:.78rem;font-weight:600;color:var(--blue);">'+getSubjectPosition(s.id,cid,sid,tid,students,sub)+'</span></td>';
     }
     return row+'</tr>';
   }).join('');
@@ -2224,7 +2344,13 @@ function prevMarkComp(stid, subid, tid){
   var grEl = document.getElementById('gr_'+stid);
   var psEl = document.getElementById('ps_'+stid);
   if(grEl) grEl.innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
-  if(psEl) psEl.innerHTML = syntheticV!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—';
+  // Refresh all positions in the table after mark change
+  var cid=document.getElementById('mkCls').value;
+  var students=DB.students.filter(function(s){return s.classId===cid;});
+  students.forEach(function(st){
+    var psEl2=document.getElementById('ps_'+st.id);
+    if(psEl2) psEl2.innerHTML='<span style="font-size:.78rem;font-weight:600;color:var(--blue);">'+getSubjectPosition(st.id,cid,subid,tid,students,sub)+'</span>';
+  });
 }
 
 function prevMark(stid,subid){
@@ -2405,12 +2531,33 @@ function genReport(){
   var avgStr=avg!==null?avg.toFixed(1)+'%':'—';
   var promAvgStr=promAvg!==null?promAvg.toFixed(1)+'%':'—';
 
+  // ── Grade thresholds from director settings ──
   var GC={'A':'#1a7a4a','B':'#1a4a8a','C':'#7a5a00','D':'#5a3a7a','F':'#8a1a1a','—':'#888'};
   var GL={'A':'Distinction','B':'Merit','C':'Credit','D':'Pass','F':'Fail','—':''};
   var overallGrade=avg!==null?(avg>=g.grA?'A':avg>=g.grB?'B':avg>=g.grC?'C':avg>=g.grD?'D':'F'):'—';
   var promGrade=promAvg!==null?(promAvg>=g.grA?'A':promAvg>=g.grB?'B':promAvg>=g.grC?'C':promAvg>=g.grD?'D':'F'):'—';
-  var promotion=promFails>0?'REFERRED FOR REVIEW':promPasses>0?'PROMOTED':filled.length>0?'PROMOTED':'NO MARKS';
-  var promColor=promotion==='PROMOTED'?'#1a5c30':'#7a1a1a';
+
+  // ── Promotion decision based on OVERALL AVERAGE vs director's promotion mark ──
+  var promotionMark = DB.settings.promotionMark!=null ? DB.settings.promotionMark : DB.settings.grD || 50;
+  var promoted = promAvg!==null && promAvg>=promotionMark;
+  var promotion = promAvg===null ? 'NO MARKS' : (promoted ? 'PROMOTED' : 'NOT PROMOTED');
+  var promColor = promoted ? '#1a5c30' : '#7a1a1a';
+
+  // ── Subject positions in class ──
+  var classmates = cls ? DB.students.filter(function(s){return s.classId===st.classId;}) : [];
+  function getSubjectPos(subId, scale){
+    if(!classmates.length) return '—';
+    var myV = DB.marks[stid+'_'+subId+'_'+term];
+    if(myV===undefined||myV==='') return '—';
+    var myPct = (parseFloat(myV)/parseFloat(scale))*100;
+    var scores = classmates.map(function(s){
+      var v=DB.marks[s.id+'_'+subId+'_'+term];
+      return v!==undefined&&v!==''?(parseFloat(v)/parseFloat(scale))*100:null;
+    }).filter(function(x){return x!==null;});
+    var pos = scores.filter(function(x){return x>myPct;}).length+1;
+    var suffix = pos===1?'st':pos===2?'nd':pos===3?'rd':'th';
+    return pos+suffix+'/'+scores.length;
+  }
 
   // ── Class positions (computed from all students in same class & term) ──
   function calcClassPositions(){
@@ -2451,7 +2598,7 @@ function genReport(){
   function posClr(p){return p<=3?'#b8920a':p<=10?'#1a5c30':'#3a3228';}
 
   // ── Logo ──
-  var logoSrc=localStorage.getItem('scorix_logo')||'';
+  var logoSrc=DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var logoHtml=logoSrc
     ?'<div style="margin-bottom:10px;"><img src="'+logoSrc+'" style="max-height:80px;max-width:180px;object-fit:contain;display:block;margin:0 auto;"></div>'
     :'<div style="width:76px;height:76px;border-radius:50%;background:#f0ece0;border:2px dashed #c8b88a;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:.6rem;color:#aaa;text-align:center;padding:8px;line-height:1.3;">SCHOOL<br>LOGO</div>';
@@ -2500,26 +2647,28 @@ function genReport(){
   +'<th style="padding:9px 11px;text-align:left;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Subject</th>'
   +(mergeTerms?'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Terms</th>':'')
   +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Mark</th>'
-  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Out of</th>'
+  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Max</th>'
   +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">%</th>'
   +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Grade</th>'
   +'<th style="padding:9px 11px;text-align:left;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Performance</th>'
-  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Result</th>'
+  +'<th style="padding:9px 11px;text-align:center;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Position</th>'
   +'</tr></thead><tbody>'
   +rows.map(function(r,i){
     var pct=r.v!==''&&r.sub.scale!=='letter'?((parseFloat(r.v)/parseFloat(r.sub.scale))*100).toFixed(1):'—';
     var gc=GC[r.gr]||'#888';
     var forProm=!r.cfg||r.cfg.forPromotion!==false;
     var bg=i%2===0?'#faf8f4':'#f4f0e6';
+    var subPos = r.sub.scale!=='letter' ? getSubjectPos(r.sub.id, r.sub.scale) : '—';
+    var posColor = subPos==='1st/'+classmates.length?'#b8920a':subPos==='2nd/'+classmates.length||subPos==='3rd/'+classmates.length?'#1a5c30':'#3a3228';
     return'<tr style="background:'+bg+';">'
       +'<td style="padding:8px 11px;font-weight:500;color:#1a1612;">'+r.sub.name+(forProm?'<span style="color:#b8920a;font-size:.65rem;margin-left:4px;" title="Counts for promotion">★</span>':'')+'</td>'
       +(mergeTerms?'<td style="padding:8px 11px;text-align:center;font-size:.68rem;color:#888;">'+(r.displayVals||'—')+'</td>':'')
       +'<td style="padding:8px 11px;text-align:center;font-weight:700;color:#1a1612;">'+(r.v||'—')+'</td>'
       +'<td style="padding:8px 11px;text-align:center;color:#888;">'+(r.sub.scale==='letter'?'Letter':r.sub.scale)+'</td>'
-      +'<td style="padding:8px 11px;text-align:center;">'+(pct==='—'?'—':pct+'%')+'</td>'
+      +'<td style="padding:8px 11px;text-align:center;font-weight:600;">'+(pct==='—'?'—':'<span style="background:'+(pct>=g.grA?'#1a7a4a22':pct>=g.grB?'#1a4a8a22':pct>=g.grC?'#b8920a22':pct>=g.grD?'#5a3a7a22':'#8a1a1a22')+';padding:2px 6px;border-radius:6px;">'+pct+'%</span>')+'</td>'
       +'<td style="padding:8px 11px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:10px;font-weight:700;font-size:.78rem;background:'+gc+'22;color:'+gc+';border:1px solid '+gc+'44;">'+r.gr+'</span></td>'
       +'<td style="padding:8px 11px;">'+miniBar(r.v,r.sub.scale)+'</td>'
-      +'<td style="padding:8px 11px;text-align:center;font-weight:700;font-size:.8rem;color:'+(r.v!==''?(r.ps?'#1a5c30':'#8a1a1a'):'#aaa')+'">'+(r.v!==''?(r.ps?'PASS':'FAIL'):'—')+'</td>'
+      +'<td style="padding:8px 11px;text-align:center;font-weight:700;font-size:.82rem;color:'+posColor+';">'+subPos+'</td>'
       +'</tr>';
   }).join('')
   +'</tbody></table>'
@@ -2567,10 +2716,10 @@ function genReport(){
   +'</div>'
 
   // Bottom row: Promotion Decision (full width)
-  +'<div style="grid-column:span 4;padding:12px;text-align:center;background:'+(promotion==='PROMOTED'?'#eef7f2':'#fdf0f0')+';">'
+  +'<div style="grid-column:span 4;padding:12px;text-align:center;background:'+(promoted?'#eef7f2':'#fdf0f0')+';">'
   +'<div style="font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Promotion Decision</div>'
   +'<div style="font-size:1rem;font-weight:800;color:'+promColor+';letter-spacing:.06em;">'+promotion+'</div>'
-  +'<div style="font-size:.62rem;color:#aaa;margin-top:2px;">Based on ★ subjects</div>'
+  +'<div style="font-size:.62rem;color:#aaa;margin-top:2px;">Promotion avg: '+promAvgStr+' | Required: '+promotionMark+'% | Based on ★ subjects</div>'
   +'</div>'
   +'</div>'
 
@@ -2578,6 +2727,12 @@ function genReport(){
   +'<div style="margin-bottom:1.3rem;padding:8px 13px;background:#ede8da;border:1px solid #ddd4b8;border-radius:3px;font-size:.7rem;color:#6b5e50;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">'
   +'<strong style="color:#1a1612;margin-right:4px;">Grade Scale:</strong>'
   +'<span><strong style="color:#1a7a4a;">A</strong> = '+g.grA+'%+ (Distinction)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#1a4a8a;">B</strong> = '+g.grB+'–'+(g.grA-1)+'% (Merit)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#b8920a;">C</strong> = '+g.grC+'–'+(g.grB-1)+'% (Credit)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#5a3a7a;">D</strong> = '+g.grD+'–'+(g.grC-1)+'% (Pass)</span>&nbsp;&nbsp;'
+  +'<span><strong style="color:#8a1a1a;">F</strong> = Below '+g.grD+'% (Fail)</span>&nbsp;&nbsp;'
+  +'<span style="margin-left:auto;color:#b8920a;font-weight:600;">★ Promotion: '+promotionMark+'%+</span>'
+  +'</div>'
   +'<span><strong style="color:#1a4a8a;">B</strong> = '+g.grB+'–'+(g.grA-1)+'% (Merit)</span>&nbsp;&nbsp;'
   +'<span><strong style="color:#7a6008;">C</strong> = '+g.grC+'–'+(g.grB-1)+'% (Credit)</span>&nbsp;&nbsp;'
   +'<span><strong style="color:#5a3a7a;">D</strong> = '+g.grD+'–'+(g.grC-1)+'% (Pass)</span>&nbsp;&nbsp;'
@@ -2809,6 +2964,8 @@ function genProcl(){
 function setupSettings(){
   var admin=isAdmin();
   document.getElementById('schoolCard').style.display=admin?'block':'none';
+  document.getElementById('logoCard').style.display=admin?'block':'none';
+  document.getElementById('promotionCard').style.display=admin?'block':'none';
   document.getElementById('gradeCard').style.display=admin?'block':'none';
   document.getElementById('dataCard').style.display=admin?'block':'none';
   document.getElementById('schin').value=DB.settings.schoolName||'';
@@ -2818,6 +2975,65 @@ function setupSettings(){
   document.getElementById('grB').value=DB.settings.grB;
   document.getElementById('grC').value=DB.settings.grC;
   document.getElementById('grD').value=DB.settings.grD;
+  // Load promotion mark
+  var pmEl=document.getElementById('promotionMark');
+  if(pmEl) pmEl.value=DB.settings.promotionMark||50;
+  // Load logo
+  initLogoAdminPreview();
+}
+
+function savePromotionMark(){
+  var val=parseInt(document.getElementById('promotionMark').value);
+  if(isNaN(val)||val<0||val>100){flash('promal','warn','❌ Enter a valid mark between 0 and 100.');return;}
+  DB.settings.promotionMark=val;
+  // Update pass mark on all subjects to match
+  DB.subjects.forEach(function(s){ s.pass=val; });
+  dbSave();
+  flash('promal','ok','✅ Promotion pass mark set to '+val+'.');
+}
+
+function handleLogoAdmin(e){
+  var file=e.target.files[0]; if(!file)return;
+  if(file.size>2*1024*1024){alert('File too large. Max 2MB.');return;}
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var src=ev.target.result;
+    DB.settings.schoolLogo=src;
+    localStorage.setItem('scorix_logo',src);
+    dbSave();
+    showLogoAdminPreview(src);
+    genReport(); // refresh report preview if open
+  };
+  reader.readAsDataURL(file);
+}
+
+function showLogoAdminPreview(src){
+  var img=document.getElementById('logoImgAdmin');
+  var ph=document.getElementById('logoPlaceholder');
+  var btn=document.getElementById('logoRemoveBtn');
+  if(img){ img.src=src; img.style.display='block'; }
+  if(ph) ph.style.display='none';
+  if(btn) btn.style.display='inline-flex';
+}
+
+function removeLogoAdmin(){
+  DB.settings.schoolLogo='';
+  localStorage.removeItem('scorix_logo');
+  dbSave();
+  var img=document.getElementById('logoImgAdmin');
+  var ph=document.getElementById('logoPlaceholder');
+  var btn=document.getElementById('logoRemoveBtn');
+  var fi=document.getElementById('logoFileAdmin');
+  if(img){ img.src=''; img.style.display='none'; }
+  if(ph) ph.style.display='block';
+  if(btn) btn.style.display='none';
+  if(fi) fi.value='';
+  genReport();
+}
+
+function initLogoAdminPreview(){
+  var src=DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
+  if(src) showLogoAdminPreview(src);
 }
 function saveGrades(){
   DB.settings.grA=+document.getElementById('grA').value;
@@ -3323,6 +3539,7 @@ function saveSchool(){
 function showLogin(){
   document.getElementById('landingWrap').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
+  setTimeout(function(){ startTypingAnimation('login-typing','login-cursor'); }, 300);
 }
 
 async function initApp(){
@@ -3348,11 +3565,128 @@ async function initApp(){
     overlay.remove();
     // Show landing page first, user clicks Sign In to go to login
     document.getElementById('landingWrap').style.display='block';
+    // Start typing animation on landing page
+    setTimeout(function(){ startTypingAnimation('landing-typing','landing-cursor'); }, 500);
   },300);
 }
 
 // ═══════════════════════════════════════
-//  LANGUAGE SYSTEM
+//  TYPING SOUND (Web Audio API)
+// ═══════════════════════════════════════
+var _audioCtx = null;
+var _audioUnlocked = false;
+
+function unlockAudio(){
+  if(_audioUnlocked) return;
+  try{
+    _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    // Play silent buffer to unlock
+    var buf = _audioCtx.createBuffer(1,1,22050);
+    var src = _audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(_audioCtx.destination);
+    src.start(0);
+    _audioUnlocked = true;
+  }catch(e){}
+}
+
+// Unlock audio on ANY user interaction
+['click','touchstart','keydown','mousemove'].forEach(function(evt){
+  document.addEventListener(evt, unlockAudio, {once:true});
+});
+
+function playTypeSound(){
+  if(!_audioCtx) return;
+  try{
+    if(_audioCtx.state==='suspended') _audioCtx.resume();
+    var osc = _audioCtx.createOscillator();
+    var gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.frequency.value = 800 + Math.random()*400;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.08, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, _audioCtx.currentTime+0.05);
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime+0.05);
+  }catch(e){}
+}
+
+function playDeleteSound(){
+  if(!_audioCtx) return;
+  try{
+    if(_audioCtx.state==='suspended') _audioCtx.resume();
+    var osc = _audioCtx.createOscillator();
+    var gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.frequency.value = 300 + Math.random()*100;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.04, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, _audioCtx.currentTime+0.04);
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime+0.04);
+  }catch(e){}
+}
+var _typingMessages = [
+  '🎉 Welcome! Manage your school marks with ease! 🏆',
+  '✨ Track student performance effortlessly! 🌟',
+  '🎓 Generate beautiful report cards instantly! 📄',
+  '🏅 Celebrate academic excellence! 🥇🥈🥉',
+  '🌍 Access your school data from anywhere! 🚀',
+  '🎊 Congratulations on choosing SCORIX! 🎉',
+];
+var _typingIdx = 0;
+var _typingPos = 0;
+var _typingDir = 1; // 1=typing, -1=deleting
+var _typingTimer = null;
+
+function startTypingAnimation(elId, cursorId){
+  var el = document.getElementById(elId);
+  var cursor = document.getElementById(cursorId);
+  if(!el) return;
+  _typingIdx = 0; _typingPos = 0; _typingDir = 1;
+  clearInterval(_typingTimer);
+
+  function tick(){
+    var msg = _typingMessages[_typingIdx % _typingMessages.length];
+    if(_typingDir === 1){
+      // Typing forward
+      _typingPos++;
+      el.textContent = msg.slice(0, _typingPos);
+      playTypeSound(); // 🔊 typing sound
+      if(_typingPos >= msg.length){
+        _typingDir = -1;
+        clearInterval(_typingTimer);
+        setTimeout(function(){
+          _typingTimer = setInterval(tick, 40);
+        }, 2000);
+        return;
+      }
+    } else {
+      // Deleting
+      _typingPos--;
+      el.textContent = msg.slice(0, _typingPos);
+      playDeleteSound(); // 🔊 delete sound
+      if(_typingPos <= 0){
+        // Move to next message
+        _typingIdx++;
+        _typingDir = 1;
+        clearInterval(_typingTimer);
+        setTimeout(function(){
+          _typingTimer = setInterval(tick, 60);
+        }, 400);
+        return;
+      }
+    }
+  }
+  _typingTimer = setInterval(tick, 60);
+}
+
+// Start typing on landing page
+document.addEventListener('DOMContentLoaded', function(){
+  // Will be triggered when pages become visible
+});
 //  UI fully translates EN/FR
 //  Report cards always stay in English
 // ═══════════════════════════════════════
@@ -3582,6 +3916,20 @@ if(document.readyState === 'loading'){
   document.getElementById('loginWrap').style.display = 'none';
   initApp();
 }
+
+// Start typing on login page if shown directly (after session check fails)
+document.addEventListener('DOMContentLoaded', function(){
+  // Observe loginWrap visibility to start typing when it appears
+  var loginObs = new MutationObserver(function(mutations){
+    mutations.forEach(function(m){
+      if(m.target.style.display==='flex'){
+        setTimeout(function(){ startTypingAnimation('login-typing','login-cursor'); },400);
+      }
+    });
+  });
+  var lw = document.getElementById('loginWrap');
+  if(lw) loginObs.observe(lw, {attributes:true, attributeFilter:['style']});
+});
 </script>
 
 <!-- Report Settings Modal -->
