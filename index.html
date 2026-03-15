@@ -750,7 +750,7 @@ tr:hover td{background:var(--s2);}
       <div class="page" id="p-terms">
         <div class="ph"><div><div class="phtitle">Terms &amp; Periods</div><div class="phsub">Manage assessment periods &amp; mark components</div></div>
         <div class="phact admin-only"><button class="btn gold" onclick="om('mterm')">+ Add Term</button></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Components</th><th>Active</th><th>Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Components</th><th>Active</th><th class="admin-only">Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
       </div>
 
       <!-- SUBJECTS -->
@@ -1472,10 +1472,18 @@ var DB = {
     reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
   activity:[],
   terms:[
-    {id:'T1',name:'Term 1',type:'term',active:true},
-    {id:'T2',name:'Term 2',type:'term',active:true},
-    {id:'T3',name:'Term 3',type:'term',active:true},
-    {id:'Final',name:'Final Exam',type:'exam',active:true}
+    {id:'T1',name:'Term 1',type:'term',active:true,components:[
+      {id:'T1_mid',name:'Midterm 1',maxMark:50},
+      {id:'T1_exam',name:'Exam Term 1',maxMark:50}
+    ]},
+    {id:'T2',name:'Term 2',type:'term',active:true,components:[
+      {id:'T2_mid',name:'Midterm 2',maxMark:50},
+      {id:'T2_exam',name:'Exam Term 2',maxMark:50}
+    ]},
+    {id:'T3',name:'Term 3',type:'term',active:true,components:[
+      {id:'T3_mid',name:'Midterm 3',maxMark:50},
+      {id:'T3_exam',name:'Exam Term 3',maxMark:50}
+    ]}
   ]
 };
 var ME = null;
@@ -1533,6 +1541,17 @@ async function supabaseLoad(sid){
     if(d.settings&&typeof d.settings==='object')   DB.settings=Object.assign(DB.settings,d.settings);
     if(Array.isArray(d.activity))                  DB.activity=d.activity;
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
+    // Ensure all terms have components (upgrade old data)
+    var defaultComps = {
+      'T1':[{id:'T1_mid',name:'Midterm 1',maxMark:50},{id:'T1_exam',name:'Exam Term 1',maxMark:50}],
+      'T2':[{id:'T2_mid',name:'Midterm 2',maxMark:50},{id:'T2_exam',name:'Exam Term 2',maxMark:50}],
+      'T3':[{id:'T3_mid',name:'Midterm 3',maxMark:50},{id:'T3_exam',name:'Exam Term 3',maxMark:50}]
+    };
+    DB.terms.forEach(function(t){
+      if((!t.components||!t.components.length)&&defaultComps[t.id]){
+        t.components=defaultComps[t.id];
+      }
+    });
     return true;
   }
   return false;
@@ -1750,7 +1769,11 @@ function doLogout(){
   DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],
-    terms:[{id:'T1',name:'Term 1',type:'term',active:true},{id:'T2',name:'Term 2',type:'term',active:true},{id:'T3',name:'Term 3',type:'term',active:true},{id:'Final',name:'Final Exam',type:'exam',active:true}]
+    terms:[
+      {id:'T1',name:'Term 1',type:'term',active:true,components:[{id:'T1_mid',name:'Midterm 1',maxMark:50},{id:'T1_exam',name:'Exam Term 1',maxMark:50}]},
+      {id:'T2',name:'Term 2',type:'term',active:true,components:[{id:'T2_mid',name:'Midterm 2',maxMark:50},{id:'T2_exam',name:'Exam Term 2',maxMark:50}]},
+      {id:'T3',name:'Term 3',type:'term',active:true,components:[{id:'T3_mid',name:'Midterm 3',maxMark:50},{id:'T3_exam',name:'Exam Term 3',maxMark:50}]}
+    ]
   };
   document.getElementById('appWrap').style.display='none';
   document.getElementById('loginWrap').style.display='none';
@@ -2277,15 +2300,15 @@ function renderTerms(){
   tb.innerHTML=DB.terms.map(function(t,i){
     var comps=t.components&&t.components.length
       ?t.components.map(function(c){
-          return'<span class="tbadge" style="color:var(--ink2);margin:1px;">'+c.name+' /'+c.maxMark+'</span>';
-        }).join(' ')
+          return'<span class="tbadge" style="background:rgba(74,143,255,.12);color:var(--blue);border:1px solid rgba(74,143,255,.2);border-radius:8px;padding:2px 8px;margin:2px;font-size:.75rem;">'+c.name+' <strong>/'+c.maxMark+'</strong></span>';
+        }).join('')
       :'<span style="font-size:.75rem;color:var(--ink3);">Single mark</span>';
     return'<tr><td>'+(i+1)+'</td><td><strong>'+t.name+'</strong></td>'
     +'<td><span class="tbadge" style="color:'+(TCLR[t.type]||'var(--ink2)')+';">'+(TLBL[t.type]||t.type)+'</span></td>'
     +'<td style="font-size:.78rem;">'+comps+'</td>'
     +'<td><label style="display:flex;align-items:center;gap:7px;cursor:pointer;"><input type="checkbox" '+(t.active?'checked':'')
     +' onchange="toggleTerm(\''+t.id+'\')" style="accent-color:var(--gold);width:15px;height:15px;"><span style="font-size:.81rem;color:'+(t.active?'var(--green)':'var(--ink3)')+';">'+(t.active?'Active':'Hidden')+'</span></label></td>'
-    +'<td><div class="brow"><button class="btn sm ghost" onclick="openEditTerm(\''+t.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delTerm(\''+t.id+'\')">Delete</button></div></td></tr>';
+    +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditTerm(\''+t.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delTerm(\''+t.id+'\')">Delete</button></div></td></tr>';
   }).join('');
 }
 
