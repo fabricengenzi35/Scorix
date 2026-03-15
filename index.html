@@ -703,6 +703,8 @@ tr:hover td{background:var(--s2);}
         </div>
         <!-- QUICK ACTIONS — Admin only -->
         <div id="dash-quickactions"></div>
+        <!-- APPROVAL STATUS — Teacher only -->
+        <div id="dash-approval"></div>
         <div class="card admin-only"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
       </div>
 
@@ -899,28 +901,48 @@ tr:hover td{background:var(--s2);}
 
       <!-- REPORTS -->
       <div class="page" id="p-reports">
-        <div class="ph"><div><div class="phtitle">Report Cards</div><div class="phsub">Official Academic Bridge report card</div></div><div class="phact"><button class="btn ghost" onclick="openReportSettings()">⚙️ Report Settings</button><button class="btn ghost" onclick="window.print()">&#128438; Print</button></div></div>
-        <div class="card noprint">
-          <div class="g3">
-            <div class="fg"><label>Student</label><select id="rpSt" onchange="genReport()"><option value="">&#8212; Select Student &#8212;</option></select></div>
-            <div class="fg"><label>Term</label><select id="rpTerm" onchange="genReport()"></select></div>
-            <div class="fg"><label>Class Teacher Remarks</label><input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term&#8230;" oninput="genReport()"></div>
+        <div class="ph"><div><div class="phtitle">Report Cards</div><div class="phsub">Official Academic Bridge report card</div></div>
+        <div class="phact">
+          <button class="btn ghost" onclick="openReportSettings()">⚙️ Report Settings</button>
+          <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
+        </div></div>
+
+        <!-- DIRECTOR filters -->
+        <div class="card noprint" id="rpDirectorCard" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
+            <div class="fg"><label>Class</label><select id="rpCls" onchange="rpLoadStudents()"><option value="">— Select Class —</option></select></div>
+            <div class="fg"><label>Student</label><select id="rpSt" onchange="genReport()"><option value="">— Select Student —</option></select></div>
+            <div class="fg"><label>Term / Period</label><select id="rpTerm" onchange="genReport()"></select></div>
           </div>
-          <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--bd);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <div class="fg" style="flex:1;min-width:200px;">
-              <label>🖼️ School Logo <span style="color:var(--ink3);font-weight:400;">(optional — appears on report card)</span></label>
-              <input type="file" id="rpLogoFile" accept="image/*" onchange="handleLogoUpload(event)" style="padding:6px 10px;font-size:.82rem;">
+          <!-- Approval status for selected class -->
+          <div id="rpApprovalStatus"></div>
+        </div>
+
+        <!-- TEACHER filters -->
+        <div class="card noprint" id="rpTeacherCard" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
+            <div class="fg"><label>Student</label><select id="rpSt2" onchange="genReport()"><option value="">— Select Student —</option></select></div>
+            <div class="fg"><label>Term / Period</label><select id="rpTerm" onchange="genReport()"></select></div>
+            <div class="fg"><label>Class Teacher Remarks</label><input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term…" oninput="genReport()"></div>
+          </div>
+          <!-- Teacher Approval Button -->
+          <div id="rpTeacherApproval"></div>
+        </div>
+
+        <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--bd);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;" class="noprint">
+          <div class="fg" style="flex:1;min-width:200px;">
+            <label>🖼️ School Logo <span style="color:var(--ink3);font-weight:400;">(optional)</span></label>
+            <input type="file" id="rpLogoFile" accept="image/*" onchange="handleLogoUpload(event)" style="padding:6px 10px;font-size:.82rem;">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div id="rpLogoPreview" style="display:none;width:56px;height:56px;border-radius:8px;border:1px solid var(--bd);overflow:hidden;background:var(--s2);display:flex;align-items:center;justify-content:center;">
+              <img id="rpLogoImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;">
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <div id="rpLogoPreview" style="display:none;width:56px;height:56px;border-radius:8px;border:1px solid var(--bd);overflow:hidden;background:var(--s2);display:flex;align-items:center;justify-content:center;">
-                <img id="rpLogoImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;">
-              </div>
-              <button class="btn sm red" id="rpLogoRemove" style="display:none;" onclick="removeLogo()">✕ Remove</button>
-            </div>
+            <button class="btn sm red" id="rpLogoRemove" style="display:none;" onclick="removeLogo()">✕ Remove</button>
           </div>
         </div>
         <div id="rpSettingsFlash"></div>
-        <div id="rpOut"><div class="empty"><div class="ei">&#128196;</div><p>Select a student to preview their report card.</p></div></div>
+        <div id="rpOut"><div class="empty"><div class="ei">📄</div><p>Select a student to preview their report card.</p></div></div>
       </div>
 
       <!-- ANALYTICS -->
@@ -1167,48 +1189,70 @@ tr:hover td{background:var(--s2);}
 </div></div>
 
 <!-- Add Term -->
-<div class="mbg" id="mterm"><div class="modal" style="max-width:520px;">
-  <div class="mhead"><div class="mtitle">Add Term / Period</div><button class="mx" onclick="cm('mterm')">✕</button></div>
-  <div class="g2" style="margin-bottom:.9rem;">
-    <div class="fg"><label>Term Name</label><input type="text" id="mtrn" placeholder="e.g. Term 1, Mid Term…"></div>
-    <div class="fg"><label>Type</label><select id="mtrt">
-      <option value="term">Term</option><option value="period">Period</option><option value="midterm">Mid Term</option>
-      <option value="exam">Exam</option><option value="trimester">Trimester</option><option value="semester">Semester</option><option value="other">Other</option>
-    </select></div>
+<div class="mbg" id="mterm"><div class="modal" style="max-width:480px;">
+  <div class="mhead"><div class="mtitle">📅 Add Assessment Period</div><button class="mx" onclick="cm('mterm')">✕</button></div>
+  <div style="font-size:.78rem;color:var(--ink3);margin-bottom:1rem;">Define an assessment period teachers will use to record marks.</div>
+  <div style="display:flex;flex-direction:column;gap:.8rem;margin-bottom:1rem;">
+    <div class="fg">
+      <label>📆 Academic Year</label>
+      <input type="text" id="mtrYear" placeholder="e.g. 2025-2026" style="font-size:1rem;font-weight:600;max-width:180px;">
+    </div>
+    <div class="fg">
+      <label>📚 Term</label>
+      <select id="mtrTerm" style="max-width:180px;">
+        <option value="Term 1">Term 1</option>
+        <option value="Term 2">Term 2</option>
+        <option value="Term 3">Term 3</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>📝 Period Type</label>
+      <select id="mtrPeriod" style="max-width:220px;">
+        <option value="Midterm">Midterm</option>
+        <option value="Exam">Exam</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>📊 Max Mark</label>
+      <input type="number" id="mtrMax" value="50" min="1" max="100" style="max-width:120px;">
+      <div style="font-size:.7rem;color:var(--ink3);margin-top:3px;">Maximum mark teachers can enter for this period</div>
+    </div>
   </div>
-  <!-- Mark Components -->
-  <div class="ctitle" style="margin-bottom:.5rem;">📋 Mark Components <span style="font-size:.7rem;font-weight:400;color:var(--ink3);">(optional — breakdown of how the total mark is made up)</span></div>
-  <div style="font-size:.73rem;color:var(--ink3);margin-bottom:.7rem;">e.g. Unit Test: 30, Mid Term: 30, End of Term: 40 — must add up to the subject's max mark</div>
-  <div id="mtCompList" style="display:flex;flex-direction:column;gap:5px;margin-bottom:.7rem;"></div>
-  <div style="display:flex;gap:7px;margin-bottom:1rem;">
-    <input type="text" id="mtCompName" placeholder="Component name (e.g. Unit 1)" style="flex:1;padding:7px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;">
-    <input type="number" id="mtCompMax" placeholder="Max" min="1" style="width:72px;padding:7px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;text-align:center;">
-    <button class="btn ghost" style="font-size:.78rem;" onclick="addTermComp('mt')">+ Add</button>
-  </div>
-  <button class="btn gold" onclick="addTerm()">Add Term</button>
+  <div id="mterm-preview" style="padding:8px 12px;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.2);border-radius:7px;font-size:.84rem;color:var(--gold);margin-bottom:1rem;"></div>
+  <button class="btn gold" onclick="addTermNew()">✅ Add Period</button>
 </div></div>
 
 <!-- Edit Term -->
-<div class="mbg" id="meterm"><div class="modal" style="max-width:520px;">
-  <div class="mhead"><div class="mtitle">✏️ Edit Term</div><button class="mx" onclick="cm('meterm')">✕</button></div>
+<div class="mbg" id="meterm"><div class="modal" style="max-width:480px;">
+  <div class="mhead"><div class="mtitle">✏️ Edit Assessment Period</div><button class="mx" onclick="cm('meterm')">✕</button></div>
   <input type="hidden" id="metrmid">
   <div style="margin-bottom:.8rem;padding:9px 12px;background:var(--s2);border-radius:7px;font-size:.86rem;color:var(--ink2);">Editing: <strong id="metrmname" style="color:var(--ink);"></strong></div>
-  <div class="g2" style="margin-bottom:.9rem;">
-    <div class="fg"><label>Term Name</label><input type="text" id="metrn" placeholder="e.g. Mid Term, Period 1…"></div>
-    <div class="fg"><label>Type</label><select id="metrt">
-      <option value="term">Term</option><option value="period">Period</option><option value="midterm">Mid Term</option>
-      <option value="exam">Exam</option><option value="trimester">Trimester</option><option value="semester">Semester</option><option value="other">Other</option>
-    </select></div>
+  <div style="display:flex;flex-direction:column;gap:.8rem;margin-bottom:1rem;">
+    <div class="fg">
+      <label>📆 Academic Year</label>
+      <input type="text" id="metrYear" placeholder="e.g. 2025-2026" style="max-width:180px;">
+    </div>
+    <div class="fg">
+      <label>📚 Term</label>
+      <select id="metrTerm" style="max-width:180px;">
+        <option value="Term 1">Term 1</option>
+        <option value="Term 2">Term 2</option>
+        <option value="Term 3">Term 3</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>📝 Period Type</label>
+      <select id="metrPeriod" style="max-width:220px;">
+        <option value="Midterm">Midterm</option>
+        <option value="Exam">Exam</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>📊 Max Mark</label>
+      <input type="number" id="metrMax" value="50" min="1" max="100" style="max-width:120px;">
+    </div>
   </div>
-  <!-- Mark Components -->
-  <div class="ctitle" style="margin-bottom:.5rem;">📋 Mark Components</div>
-  <div id="meCompList" style="display:flex;flex-direction:column;gap:5px;margin-bottom:.7rem;"></div>
-  <div style="display:flex;gap:7px;margin-bottom:1rem;">
-    <input type="text" id="meCompName" placeholder="Component name" style="flex:1;padding:7px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;">
-    <input type="number" id="meCompMax" placeholder="Max" min="1" style="width:72px;padding:7px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.84rem;outline:none;text-align:center;">
-    <button class="btn ghost" style="font-size:.78rem;" onclick="addTermComp('me')">+ Add</button>
-  </div>
-  <button class="btn gold" onclick="saveEditTerm()">Save Changes</button>
+  <button class="btn gold" onclick="saveEditTermNew()">✅ Save Changes</button>
 </div></div>
 
 <!-- Add Subject -->
@@ -1547,6 +1591,7 @@ async function supabaseLoad(sid){
     if(d.settings&&typeof d.settings==='object')   DB.settings=Object.assign(DB.settings,d.settings);
     if(Array.isArray(d.activity))                  DB.activity=d.activity;
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
+    if(d.approvals&&typeof d.approvals==='object') DB.approvals=d.approvals;
     // Always enforce correct 6-period term structure
     // Replace old terms (Final Exam, Exam etc) with the 3-term + midterm/exam structure
     var correctTermIds = ['T1','T2','T3'];
@@ -2079,8 +2124,37 @@ function renderDash(){
   var actTitle=document.getElementById('dact-title');
   if(actTitle) actTitle.textContent=L('recentActivity');
 
-  // Recent activity — admin only
-  if(!isAdmin()) return;
+  // Teacher approval widget on dashboard
+  var da=document.getElementById('dash-approval');
+  if(da){
+    if(!isAdmin()&&ME&&ME.classTeacher){
+      var ct=ME.classTeacher;
+      var cls=DB.classes.find(function(c){return c.id===ct;});
+      var at=activeTerms();
+      if(at.length){
+        var html='<div class="card" style="margin-bottom:.9rem;">'
+          +'<div class="ctitle" style="margin-bottom:.8rem;">📋 Marks Approval Status</div>'
+          +'<div style="display:flex;flex-direction:column;gap:.6rem;">';
+        at.forEach(function(t){
+          var progress=calcProgress(ct,t.id);
+          var approval=getApproval(ct,t.id);
+          var approved=approval&&approval.approved;
+          var color=approved?'var(--green)':progress<100?'var(--red)':'var(--gold)';
+          html+='<div style="display:flex;align-items:center;gap:10px;padding:.6rem .9rem;background:var(--s2);border-radius:8px;border:1px solid var(--bd);">'
+            +'<div style="flex:1;">'
+            +'<div style="font-size:.8rem;font-weight:600;">'+t.name+'</div>'
+            +'<div style="width:100%;height:5px;background:var(--bd);border-radius:3px;margin-top:4px;overflow:hidden;">'
+            +'<div style="width:'+progress+'%;height:100%;background:'+color+';border-radius:3px;"></div></div>'
+            +'</div>'
+            +'<div style="font-size:.8rem;font-weight:700;color:'+color+';white-space:nowrap;">'
+            +(approved?'✅ Approved':progress+'%')+'</div>'
+            +'</div>';
+        });
+        html+='</div></div>';
+        da.innerHTML=html;
+      } else { da.innerHTML=''; }
+    } else { da.innerHTML=''; }
+  }
 
   if(!DB.activity.length){
     el.innerHTML='<div class="empty"><div class="ei">📋</div><p>'+L('noActivity')+'</p></div>';return;
@@ -2400,35 +2474,52 @@ function openEditTerm(id){
   var t=DB.terms.find(function(x){return x.id===id;});if(!t)return;
   document.getElementById('metrmid').value=id;
   document.getElementById('metrmname').textContent=t.name;
-  document.getElementById('metrn').value=t.name;
-  document.getElementById('metrt').value=t.type;
-  _termComps.me = t.components ? JSON.parse(JSON.stringify(t.components)) : [];
-  renderTermCompList('me');
-  document.getElementById('meCompName').value='';
-  document.getElementById('meCompMax').value='';
+  // Parse stored name back to year/term/period
+  document.getElementById('metrYear').value=t.academicYear||'';
+  document.getElementById('metrTerm').value=t.termLabel||'Term 1';
+  document.getElementById('metrPeriod').value=t.periodType||'Midterm';
+  document.getElementById('metrMax').value=t.maxMark||50;
   document.getElementById('meterm').classList.add('open');
 }
 
-function saveEditTerm(){
+function saveEditTermNew(){
   var id=document.getElementById('metrmid').value;
   var t=DB.terms.find(function(x){return x.id===id;});if(!t)return;
-  var name=document.getElementById('metrn').value.trim();
-  if(!name){alert('Enter a term name.');return;}
-  t.name=name; t.type=document.getElementById('metrt').value;
-  t.components=_termComps.me.slice();
-  addLog('Updated term: '+name);dbSave();renderTerms();syncTerms();cm('meterm');
+  var year=document.getElementById('metrYear').value.trim();
+  var term=document.getElementById('metrTerm').value;
+  var period=document.getElementById('metrPeriod').value;
+  var maxMark=parseInt(document.getElementById('metrMax').value)||50;
+  if(!year){alert('Enter the academic year (e.g. 2025-2026)');return;}
+  var name=year+' | '+period+' '+term.replace('Term ','');
+  t.name=name; t.academicYear=year; t.termLabel=term; t.periodType=period;
+  t.maxMark=maxMark; t.type=period==='Midterm'?'midterm':'exam';
+  // Update component to match new maxMark
+  t.components=[{id:t.id+'_comp',name:period+' '+term,maxMark:maxMark}];
+  addLog('Updated period: '+name);dbSave();renderTerms();syncTerms();cm('meterm');
 }
 
-function addTerm(){
-  var name=document.getElementById('mtrn').value.trim();
-  if(!name){alert('Enter a term name.');return;}
-  for(var i=0;i<DB.terms.length;i++) if(DB.terms[i].name.toLowerCase()===name.toLowerCase()){alert('Term already exists.');return;}
-  DB.terms.push({id:'TR'+Date.now(),name:name,type:document.getElementById('mtrt').value,active:true,components:_termComps.mt.slice()});
-  addLog('Added term: '+name);dbSave();renderTerms();syncTerms();cm('mterm');
-  document.getElementById('mtrn').value='';
-  _termComps.mt=[];
-  renderTermCompList('mt');
+function addTermNew(){
+  var year=document.getElementById('mtrYear').value.trim();
+  var term=document.getElementById('mtrTerm').value;
+  var period=document.getElementById('mtrPeriod').value;
+  var maxMark=parseInt(document.getElementById('mtrMax').value)||50;
+  if(!year){alert('Enter the academic year (e.g. 2025-2026)');return;}
+  var name=year+' | '+period+' '+term.replace('Term ','');
+  for(var i=0;i<DB.terms.length;i++) if(DB.terms[i].name===name){alert('This period already exists.');return;}
+  var id='TR'+Date.now();
+  DB.terms.push({
+    id:id, name:name, academicYear:year, termLabel:term, periodType:period,
+    maxMark:maxMark, type:period==='Midterm'?'midterm':'exam', active:true,
+    components:[{id:id+'_comp',name:period+' '+term,maxMark:maxMark}]
+  });
+  addLog('Added period: '+name);dbSave();renderTerms();syncTerms();cm('mterm');
+  document.getElementById('mtrYear').value='';
+  document.getElementById('mtrMax').value='50';
 }
+
+// Keep addTerm as alias for addTermNew
+function addTerm(){ addTermNew(); }
+function saveEditTerm(){ saveEditTermNew(); }
 
 function toggleTerm(id){
   for(var i=0;i<DB.terms.length;i++) if(DB.terms[i].id===id){DB.terms[i].active=!DB.terms[i].active;break;}
@@ -2716,6 +2807,20 @@ function loadMkTable(){
       wrap.innerHTML='<div class="al warn">⛔ You are not assigned to this subject.</div>';
       return;
     }
+    // ── APPROVAL LOCK ── If class teacher has approved, block all mark editing
+    var approval=getApproval(cid, tid);
+    if(approval&&approval.approved){
+      var isClassTeacher = ME&&ME.classTeacher===cid;
+      wrap.innerHTML='<div style="padding:1.2rem;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:10px;text-align:center;">'
+        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">✅</div>'
+        +'<div style="font-weight:700;color:var(--green);font-size:.95rem;margin-bottom:.4rem;">Marks Approved — Locked for Editing</div>'
+        +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:.9rem;">The class teacher has approved these marks for printing. No changes are allowed.</div>'
+        +(isClassTeacher
+          ?'<button class="btn red" onclick="unapproveReports(\''+cid+'\',\''+tid+'\')">🔓 Unapprove to Edit Again</button>'
+          :'<div style="font-size:.75rem;color:var(--ink3);">Ask the class teacher to unapprove if changes are needed.</div>')
+        +'</div>';
+      return;
+    }
   }
 
   // ── OVERALL CLASS VIEW for class teachers ──
@@ -2882,6 +2987,15 @@ function saveAllMarks(){
   var compId= document.getElementById('mkComp').value;
   if(!cid||!sid||!tid){ alert('Select class, subject and term first.'); return; }
 
+  // Block saving if approved
+  if(!isAdmin()){
+    var approval=getApproval(cid,tid);
+    if(approval&&approval.approved){
+      alert('⛔ Marks are locked. The class teacher has approved this term. Ask them to unapprove first.');
+      return;
+    }
+  }
+
   var students = DB.students.filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
   var allComps = (term&&term.components&&term.components.length) ? term.components : null;
   var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
@@ -2947,31 +3061,161 @@ function processCSV(text){
 //  REPORTS
 // ═══════════════════════════════════════
 function setupReports(){
-  var list;
   if(isAdmin()){
-    list=DB.students;
+    // Director panel
+    document.getElementById('rpDirectorCard').style.display='block';
+    document.getElementById('rpTeacherCard').style.display='none';
+    // Populate class dropdown
+    var clsSel=document.getElementById('rpCls');
+    clsSel.innerHTML='<option value="">— Select Class —</option>'+
+      DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    syncTerms();
+    renderApprovalStatus();
   } else {
-    // Teacher only sees report cards for students in their ONE class teacher class
+    // Teacher panel — only their class teacher class
+    document.getElementById('rpDirectorCard').style.display='none';
+    document.getElementById('rpTeacherCard').style.display='block';
     var ct=ME.classTeacher;
     if(!ct){
-      document.getElementById('rpSt').innerHTML='<option value="">— No class assigned —</option>';
+      document.getElementById('rpSt2').innerHTML='<option value="">— No class assigned —</option>';
       document.getElementById('rpOut').innerHTML='<div class="empty"><div class="ei">🔒</div><p>You are not assigned as a class teacher of any class.</p></div>';
-      syncTerms();return;
+      syncTerms(); return;
     }
-    list=DB.students.filter(function(s){return s.classId===ct;});
+    var list=DB.students.filter(function(s){return s.classId===ct;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+    document.getElementById('rpSt2').innerHTML='<option value="">— Select Student —</option>'+
+      list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+    syncTerms();
+    renderTeacherApprovalBtn();
   }
-  list = list.slice().sort(function(a,b){return a.name.localeCompare(b.name);});
-  document.getElementById('rpSt').innerHTML='<option value="">— Select Student —</option>'+list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
-  syncTerms();
   initLogoPreview();
+}
+
+// Load students when director selects a class
+function rpLoadStudents(){
+  var cid=document.getElementById('rpCls').value;
+  var stSel=document.getElementById('rpSt');
+  if(!cid){ stSel.innerHTML='<option value="">— Select Student —</option>'; genReport(); return; }
+  var list=DB.students.filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  stSel.innerHTML='<option value="">— Select Student —</option>'+
+    list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+  renderApprovalStatus();
   genReport();
 }
+
+// ── APPROVAL SYSTEM ──
+// DB.approvals = { classId_termId: { teacherId, approved, progress, timestamp } }
+
+function getApproval(classId, termId){
+  if(!DB.approvals) DB.approvals={};
+  return DB.approvals[classId+'_'+termId]||null;
+}
+
+function calcProgress(classId, termId){
+  var students=DB.students.filter(function(s){return s.classId===classId;});
+  var subjects=DB.subjects;
+  if(!students.length||!subjects.length) return 0;
+  var total=students.length*subjects.length;
+  var filled=0;
+  students.forEach(function(st){
+    subjects.forEach(function(sub){
+      // Check if any mark exists for this student+subject+term
+      var hasMarkTerm = Object.keys(DB.marks).some(function(k){
+        return k.startsWith(st.id+'_'+sub.id+'_'+termId);
+      });
+      if(hasMarkTerm) filled++;
+    });
+  });
+  return total>0?Math.round((filled/total)*100):0;
+}
+
+function renderApprovalStatus(){
+  var el=document.getElementById('rpApprovalStatus');
+  if(!el||!isAdmin()) return;
+  var cid=document.getElementById('rpCls').value;
+  var termRaw=document.getElementById('rpTerm').value;
+  var tp=parseTermPeriod(termRaw);
+  var tid=tp.termId;
+  if(!cid||!tid){ el.innerHTML=''; return; }
+  var approval=getApproval(cid,tid);
+  var cls=DB.classes.find(function(c){return c.id===cid;});
+  var teacher=DB.users.find(function(u){return u.classTeacher===cid&&u.role==='teacher';});
+  var progress=calcProgress(cid,tid);
+  var approved=approval&&approval.approved;
+  var color=approved?'var(--green)':progress<50?'var(--red)':'var(--gold)';
+  el.innerHTML='<div style="display:flex;align-items:center;gap:12px;padding:.7rem 1rem;background:var(--s2);border-radius:8px;border:1px solid var(--bd);margin-top:.5rem;">'
+    +'<div style="flex:1;">'
+    +'<div style="font-size:.78rem;font-weight:600;color:var(--ink2);">Class Teacher Approval — '+(cls?cls.name:'')+'</div>'
+    +'<div style="font-size:.72rem;color:var(--ink3);margin-top:2px;">Teacher: '+(teacher?teacher.name:'Not assigned')+'</div>'
+    +'</div>'
+    +'<div style="text-align:center;">'
+    +'<div style="font-size:1.1rem;font-weight:700;color:'+color+';">'+(approved?'✅ APPROVED':'🔴 '+progress+'%')+'</div>'
+    +'<div style="font-size:.65rem;color:var(--ink3);">'+(approved?'Ready to print':progress+'% marks entered')+'</div>'
+    +'</div>'
+    +'</div>';
+}
+
+function renderTeacherApprovalBtn(){
+  var el=document.getElementById('rpTeacherApproval');
+  if(!el||isAdmin()) return;
+  var ct=ME&&ME.classTeacher;
+  if(!ct){ el.innerHTML=''; return; }
+  var termRaw=(document.getElementById('rpTerm')||{}).value||'';
+  var tp=parseTermPeriod(termRaw);
+  var tid=tp.termId;
+  if(!tid){ el.innerHTML=''; return; }
+  var progress=calcProgress(ct,tid);
+  var approval=getApproval(ct,tid);
+  var approved=approval&&approval.approved;
+  var color=approved?'#1a7a4a':progress<100?'#8a1a1a':'#7a5a00';
+  var bgColor=approved?'rgba(62,207,142,.12)':progress<100?'rgba(224,82,82,.1)':'rgba(240,180,41,.12)';
+  var borderColor=approved?'rgba(62,207,142,.3)':progress<100?'rgba(224,82,82,.25)':'rgba(240,180,41,.3)';
+  el.innerHTML='<div style="display:flex;align-items:center;gap:12px;padding:.8rem 1rem;background:'+bgColor+';border:1px solid '+borderColor+';border-radius:8px;margin-top:.5rem;">'
+    +'<div style="flex:1;">'
+    +'<div style="font-size:.82rem;font-weight:600;color:var(--ink);">Marks Completion: <strong style="color:'+color+';">'+progress+'%</strong></div>'
+    +'<div style="width:100%;height:6px;background:var(--bd);border-radius:3px;margin-top:5px;overflow:hidden;">'
+    +'<div style="width:'+progress+'%;height:100%;background:'+color+';border-radius:3px;transition:width .3s;"></div>'
+    +'</div>'
+    +'<div style="font-size:.7rem;color:var(--ink3);margin-top:3px;">'+(approved?'Director can now print report cards':'Complete all marks then approve for the director to print')+'</div>'
+    +'</div>'
+    +(progress===100&&!approved?'<button class="btn green" onclick="approveReports()" style="font-size:.82rem;">✅ Approve for Printing</button>':'')
+    +(approved?'<div style="font-size:.82rem;font-weight:700;color:var(--green);">✅ APPROVED</div>':'')
+    +'</div>';
+}
+
+function approveReports(){
+  var ct=ME&&ME.classTeacher;
+  if(!ct) return;
+  var termRaw=(document.getElementById('rpTerm')||{}).value||'';
+  var tp=parseTermPeriod(termRaw);
+  var tid=tp.termId;
+  if(!tid){ alert('Select a term first.'); return; }
+  if(!DB.approvals) DB.approvals={};
+  DB.approvals[ct+'_'+tid]={teacherId:ME.id,teacherName:ME.name,approved:true,timestamp:new Date().toISOString()};
+  addLog('✅ '+ME.name+' approved reports for printing');
+  dbSave();
+  renderTeacherApprovalBtn();
+  renderDash();
+}
+
+function unapproveReports(classId, termId){
+  if(!confirm('Unapprove marks? This will unlock editing for all teachers in this class.')) return;
+  if(!DB.approvals) DB.approvals={};
+  DB.approvals[classId+'_'+termId]={approved:false,timestamp:new Date().toISOString()};
+  addLog('🔓 '+ME.name+' unapproved marks for editing');
+  dbSave();
+  renderTeacherApprovalBtn();
+  renderDash();
+  loadMkTable(); // refresh marks table to show inputs again
+}
 function genReport(){
-  var stid=document.getElementById('rpSt').value;
-  var selectedTermRaw=document.getElementById('rpTerm').value;
+  var stid = isAdmin()
+    ? (document.getElementById('rpSt')||{}).value||''
+    : (document.getElementById('rpSt2')||{}).value||'';
+  var selectedTermRaw=(document.getElementById('rpTerm')||{}).value||'';
   var tp=parseTermPeriod(selectedTermRaw);
-  var selectedTerm=tp.termId; // just the termId for report logic
+  var selectedTerm=tp.termId;
   var out=document.getElementById('rpOut');
+  if(isAdmin()) renderApprovalStatus(); else renderTeacherApprovalBtn();
   if(!stid){out.innerHTML='<div class="empty"><div class="ei">&#128196;</div><p>Select a student to preview their report card.</p></div>';return;}
   var st=DB.students.find(function(s){return s.id===stid;});
   if(!st){out.innerHTML='';return;}
