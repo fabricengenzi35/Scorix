@@ -1758,6 +1758,10 @@ function enterApp(){
   addLog('Signed in: '+ME.name);
   if(!isSuperAdmin()) dbSave();
 
+  // Show dashboard first then re-render after short delay to catch Supabase data
+  showPage('dashboard');
+  setTimeout(function(){ renderDash(); syncAll(); }, 800);
+
   // Show diamond mode switch before entering app
   showDiamondSwitch();
 }
@@ -1999,10 +2003,36 @@ function renderDash(){
   var schoolName=DB.settings&&DB.settings.schoolName?DB.settings.schoolName:'';
   var dw=document.getElementById('dwelcome');
   if(dw&&ME) dw.textContent=(schoolName?schoolName+' — ':'')+' '+L('welcomeBack')+', '+ME.name;
-  document.getElementById('ds0').textContent = DB.students.length;
-  document.getElementById('ds1').textContent = DB.classes.length;
-  document.getElementById('ds2').textContent = DB.subjects.length;
-  document.getElementById('ds3').textContent = Object.keys(DB.marks).length;
+
+  // For teachers: show students in their assigned classes, their assigned subjects/classes
+  var studentCount, classCount, subjectCount, marksCount;
+  if(isAdmin()){
+    studentCount = DB.students.length;
+    classCount   = DB.classes.length;
+    subjectCount = DB.subjects.length;
+    marksCount   = Object.keys(DB.marks).length;
+  } else {
+    var myClsList = myClasses();
+    var mySubsList = mySubjects();
+    studentCount = DB.students.filter(function(s){
+      return myClsList.some(function(c){return c.id===s.classId;});
+    }).length;
+    classCount   = myClsList.length;
+    subjectCount = mySubsList.length;
+    marksCount   = Object.keys(DB.marks).filter(function(k){
+      // count marks belonging to students in teacher's classes
+      var sid = k.split('_')[0];
+      return DB.students.some(function(st){
+        return st.id===sid && myClsList.some(function(c){return c.id===st.classId;});
+      });
+    }).length;
+  }
+
+  document.getElementById('ds0').textContent = studentCount;
+  document.getElementById('ds1').textContent = classCount;
+  document.getElementById('ds2').textContent = subjectCount;
+  document.getElementById('ds3').textContent = marksCount;
+
   // Update stat labels
   var labels=['totalStudents','totalClasses','totalSubjects','recentActivity'];
   ['dsl0','dsl1','dsl2','dsl3'].forEach(function(id,i){
