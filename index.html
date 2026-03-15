@@ -1821,8 +1821,13 @@ function enterApp(){
   addLog('Signed in: '+ME.name);
   if(!isSuperAdmin()) dbSave();
 
-  // Re-render dashboard after Supabase data loads
-  setTimeout(function(){ renderDash(); syncAll(); }, 800);
+  // Re-render after Supabase data loads
+  setTimeout(function(){
+    renderDash();
+    syncAll();
+    var ovPage=document.getElementById('p-overview');
+    if(ovPage&&ovPage.classList.contains('on')) renderOverview();
+  }, 1200);
 
   // Show diamond mode switch before entering app
   showDiamondSwitch();
@@ -2244,6 +2249,16 @@ function saveEditTeacher(){
 }
 function renderOverview(){
   if(!isAdmin()) return;
+
+  // If data not loaded yet, show loading and retry
+  if(!DB.users||!DB.classes){
+    var tEl=document.getElementById('ov-teachers');
+    var sEl=document.getElementById('ov-students');
+    if(tEl) tEl.innerHTML='<div class="empty"><div class="ei">⏳</div><p>Loading data...</p></div>';
+    if(sEl) sEl.innerHTML='';
+    setTimeout(function(){ renderOverview(); }, 1500);
+    return;
+  }
 
   // ── TEACHERS TABLE ──
   var teachers = DB.users.filter(function(u){return u.role==='teacher';}).sort(function(a,b){return a.name.localeCompare(b.name);});
