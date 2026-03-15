@@ -752,7 +752,7 @@ tr:hover td{background:var(--s2);}
       <div class="page" id="p-terms">
         <div class="ph"><div><div class="phtitle">Terms &amp; Periods</div><div class="phsub">Manage assessment periods &amp; mark components</div></div>
         <div class="phact admin-only"><button class="btn gold" onclick="om('mterm')">+ Add Term</button></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Components</th><th>Active</th><th class="admin-only">Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Academic Year</th><th>Term</th><th>Period Type</th><th>Max Mark</th><th>Active</th><th class="admin-only">Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
       </div>
 
       <!-- SUBJECTS -->
@@ -922,7 +922,7 @@ tr:hover td{background:var(--s2);}
         <div class="card noprint" id="rpTeacherCard" style="display:none;">
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
             <div class="fg"><label>Student</label><select id="rpSt2" onchange="genReport()"><option value="">— Select Student —</option></select></div>
-            <div class="fg"><label>Term / Period</label><select id="rpTerm" onchange="genReport()"></select></div>
+            <div class="fg"><label>Term / Period</label><select id="rpTerm2" onchange="genReport()"></select></div>
             <div class="fg"><label>Class Teacher Remarks</label><input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term…" oninput="genReport()"></div>
           </div>
           <!-- Teacher Approval Button -->
@@ -2044,7 +2044,11 @@ function om(id){
     buildChkList('mtc-chk', DB.classes, [], 'classes');
     buildChkList('mts-chk', DB.subjects, [], 'subjects');
   }
-  if(id==='mterm'){ _termComps.mt=[]; renderTermCompList('mt'); }
+  if(id==='mterm'){
+    // Pre-fill academic year from settings if available
+    var ayEl=document.getElementById('mtrYear');
+    if(ayEl&&!ayEl.value&&DB.settings&&DB.settings.academicYear) ayEl.value=DB.settings.academicYear;
+  }
   if(id==='mst') document.getElementById('mstcls').innerHTML='<option value="">— Select Class —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
   document.getElementById(id).classList.add('open');
 }
@@ -2242,28 +2246,29 @@ function renderOverview(){
   if(!isAdmin()) return;
 
   // ── TEACHERS TABLE ──
-  var teachers = DB.users.filter(function(u){return u.role==='teacher';});
+  var teachers = DB.users.filter(function(u){return u.role==='teacher';}).sort(function(a,b){return a.name.localeCompare(b.name);});
   var tEl = document.getElementById('ov-teachers');
   if(tEl){
     if(!teachers.length){
       tEl.innerHTML='<div class="empty"><div class="ei">👨‍🏫</div><p>No teachers yet.</p></div>';
     } else {
       tEl.innerHTML='<div class="tw"><table>'
-        +'<thead><tr><th>#</th><th>Name</th><th>Username</th><th>Classes</th><th>Subjects</th></tr></thead><tbody>'
+        +'<thead><tr><th>#</th><th>Teacher</th><th>Username</th><th>⭐ Class Teacher Of</th><th>Assigned Classes</th><th>Assigned Subjects</th></tr></thead><tbody>'
         +teachers.map(function(t,i){
+          var classTeacherCls = t.classTeacher ? DB.classes.find(function(c){return c.id===t.classTeacher;}) : null;
           var classes=(t.classes||[]).map(function(cid){
             var c=DB.classes.find(function(x){return x.id===cid;});
-            return c?c.name:'';
-          }).filter(Boolean).join(', ')||'—';
+            return c?'<span style="background:rgba(74,143,255,.12);color:var(--blue);border-radius:6px;padding:1px 7px;font-size:.75rem;margin:1px;display:inline-block;">'+c.name+'</span>':'';
+          }).filter(Boolean).join(' ')||'<span style="color:var(--ink3);font-size:.78rem;">None</span>';
           var subjects=(t.subjects||[]).map(function(sid){
             var s=DB.subjects.find(function(x){return x.id===sid;});
-            return s?s.name:'';
-          }).filter(Boolean).join(', ')||'All';
-          var isClassTeacher = t.classTeacher ? DB.classes.find(function(c){return c.id===t.classTeacher;}) : null;
+            return s?'<span style="background:rgba(62,207,142,.1);color:var(--green);border-radius:6px;padding:1px 7px;font-size:.75rem;margin:1px;display:inline-block;">'+s.name+'</span>':'';
+          }).filter(Boolean).join(' ')||'<span style="color:var(--ink3);font-size:.78rem;">All subjects</span>';
           return'<tr>'
             +'<td>'+(i+1)+'</td>'
-            +'<td><strong>'+t.name+'</strong>'+(isClassTeacher?'<span style="font-size:.65rem;color:var(--gold);margin-left:5px;">★ Class Teacher: '+isClassTeacher.name+'</span>':'')+'</td>'
-            +'<td style="font-family:monospace;font-size:.82rem;">'+t.username+'</td>'
+            +'<td><strong>'+t.name+'</strong></td>'
+            +'<td style="font-family:monospace;font-size:.82rem;color:var(--ink3);">'+t.username+'</td>'
+            +'<td>'+(classTeacherCls?'<span style="background:rgba(240,180,41,.15);color:var(--gold);border-radius:6px;padding:2px 9px;font-size:.78rem;font-weight:600;">⭐ '+classTeacherCls.name+'</span>':'<span style="color:var(--ink3);font-size:.78rem;">—</span>')+'</td>'
             +'<td>'+classes+'</td>'
             +'<td>'+subjects+'</td>'
             +'</tr>';
@@ -2272,7 +2277,7 @@ function renderOverview(){
     }
   }
 
-  // ── STUDENTS TABLE ──
+  // ── STUDENTS BY CLASS ──
   var q=(document.getElementById('ov-search')||{}).value||'';
   var cf=(document.getElementById('ov-class')||{}).value||'';
 
@@ -2283,35 +2288,54 @@ function renderOverview(){
     clsSel.innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'"'+(c.id===cur?' selected':'')+'>'+c.name+'</option>';}).join('');
   }
 
-  var students=DB.students.filter(function(s){
-    var matchQ=!q||s.name.toLowerCase().includes(q.toLowerCase())||s.sid.includes(q);
-    var matchC=!cf||s.classId===cf;
-    return matchQ&&matchC;
+  var sEl=document.getElementById('ov-students');
+  if(!sEl) return;
+
+  var classesToShow = cf ? DB.classes.filter(function(c){return c.id===cf;}) : DB.classes;
+
+  if(!classesToShow.length){
+    sEl.innerHTML='<div class="empty"><div class="ei">👨‍🎓</div><p>No classes yet.</p></div>';
+    return;
+  }
+
+  var html='';
+  classesToShow.forEach(function(cls){
+    var classTeacher=DB.users.find(function(u){return u.role==='teacher'&&u.classTeacher===cls.id;});
+    var students=DB.students.filter(function(s){
+      var matchCls=s.classId===cls.id;
+      var matchQ=!q||s.name.toLowerCase().includes(q.toLowerCase())||s.sid.includes(q);
+      return matchCls&&matchQ;
+    }).sort(function(a,b){return a.name.localeCompare(b.name);});
+
+    html+='<div style="margin-bottom:1.2rem;">'
+      +'<div style="display:flex;align-items:center;gap:10px;padding:.6rem .9rem;background:var(--s2);border-radius:8px;border:1px solid var(--bd);margin-bottom:.5rem;">'
+      +'<span style="font-size:1rem;">🏫</span>'
+      +'<strong style="font-size:.9rem;">'+cls.name+'</strong>'
+      +(classTeacher?'<span style="font-size:.73rem;color:var(--gold);margin-left:4px;">⭐ '+classTeacher.name+'</span>':'')
+      +'<span style="margin-left:auto;font-size:.75rem;color:var(--ink3);">'+students.length+' student'+(students.length!==1?'s':'')+'</span>'
+      +'</div>';
+
+    if(!students.length){
+      html+='<div style="padding:.5rem 1rem;font-size:.8rem;color:var(--ink3);">No students in this class.</div>';
+    } else {
+      html+='<div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>Student No.</th></tr></thead><tbody>'
+        +students.map(function(s,i){
+          return'<tr><td>'+(i+1)+'</td><td><strong>'+s.name+'</strong></td><td style="font-family:monospace;font-size:.82rem;color:var(--ink3);">'+s.sid+'</td></tr>';
+        }).join('')
+        +'</tbody></table></div>';
+    }
+    html+='</div>';
   });
 
-  var sEl=document.getElementById('ov-students');
-  if(sEl){
-    if(!students.length){
-      sEl.innerHTML='<div class="empty"><div class="ei">👨‍🎓</div><p>No students found.</p></div>';
-    } else {
-      sEl.innerHTML='<div class="tw"><table>'
-        +'<thead><tr><th>#</th><th>Name</th><th>Student No.</th><th>Class</th><th>Marks Recorded</th></tr></thead><tbody>'
-        +students.map(function(s,i){
-          var cls=DB.classes.find(function(c){return c.id===s.classId;});
-          var marksCount=Object.keys(DB.marks).filter(function(k){return k.startsWith(s.id+'_');}).length;
-          return'<tr>'
-            +'<td>'+(i+1)+'</td>'
-            +'<td><strong>'+s.name+'</strong></td>'
-            +'<td style="font-family:monospace;font-size:.82rem;">'+s.sid+'</td>'
-            +'<td>'+(cls?cls.name:'—')+'</td>'
-            +'<td><span style="color:var(--blue);font-weight:600;">'+marksCount+'</span></td>'
-            +'</tr>';
-        }).join('')
-        +'</tbody></table></div>'
-        +'<div style="font-size:.75rem;color:var(--ink3);margin-top:.5rem;">Showing '+students.length+' of '+DB.students.length+' students</div>';
-    }
-  }
+  sEl.innerHTML=html;
 }
+
+  // Populate class filter
+  var clsSel=document.getElementById('ov-class');
+  if(clsSel){
+    var cur=clsSel.value;
+    clsSel.innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'"'+(c.id===cur?' selected':'')+'>'+c.name+'</option>';}).join('');
+  }
 
 function renderTeachers(){
   var tb=document.getElementById('tbt');
@@ -2421,53 +2445,21 @@ function syncClassSelects(){
 // ═══════════════════════════════════════
 function renderTerms(){
   var tb=document.getElementById('tbterm');
-  if(!DB.terms.length){tb.innerHTML='<tr><td colspan="6"><div class="empty"><p>No terms yet.</p></div></td></tr>';return;}
+  if(!DB.terms.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><p>No terms yet. Click <strong>+ Add Term</strong> to add your first assessment period.</p></div></td></tr>';return;}
   tb.innerHTML=DB.terms.map(function(t,i){
-    var comps=t.components&&t.components.length
-      ?t.components.map(function(c){
-          return'<span class="tbadge" style="background:rgba(74,143,255,.12);color:var(--blue);border:1px solid rgba(74,143,255,.2);border-radius:8px;padding:2px 8px;margin:2px;font-size:.75rem;">'+c.name+' <strong>/'+c.maxMark+'</strong></span>';
-        }).join('')
-      :'<span style="font-size:.75rem;color:var(--ink3);">Single mark</span>';
-    return'<tr><td>'+(i+1)+'</td><td><strong>'+t.name+'</strong></td>'
-    +'<td><span class="tbadge" style="color:'+(TCLR[t.type]||'var(--ink2)')+';">'+(TLBL[t.type]||t.type)+'</span></td>'
-    +'<td style="font-size:.78rem;">'+comps+'</td>'
-    +'<td><label style="display:flex;align-items:center;gap:7px;cursor:pointer;"><input type="checkbox" '+(t.active?'checked':'')
-    +' onchange="toggleTerm(\''+t.id+'\')" style="accent-color:var(--gold);width:15px;height:15px;"><span style="font-size:.81rem;color:'+(t.active?'var(--green)':'var(--ink3)')+';">'+(t.active?'Active':'Hidden')+'</span></label></td>'
-    +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditTerm(\''+t.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delTerm(\''+t.id+'\')">Delete</button></div></td></tr>';
+    var periodColor = t.periodType==='Midterm'?'var(--blue)':'var(--gold)';
+    var periodIcon  = t.periodType==='Midterm'?'📝':'📋';
+    return'<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td><strong style="color:var(--gold);">'+(t.academicYear||'—')+'</strong></td>'
+      +'<td>'+(t.termLabel||t.name||'—')+'</td>'
+      +'<td><span style="background:rgba(74,143,255,.12);color:'+periodColor+';border:1px solid rgba(74,143,255,.2);border-radius:8px;padding:2px 10px;font-size:.78rem;font-weight:600;">'+periodIcon+' '+(t.periodType||'—')+'</span></td>'
+      +'<td><strong>'+(t.maxMark||50)+'</strong></td>'
+      +'<td><label style="display:flex;align-items:center;gap:7px;cursor:pointer;"><input type="checkbox" '+(t.active?'checked':'')
+      +' onchange="toggleTerm(\''+t.id+'\')" style="accent-color:var(--gold);width:15px;height:15px;"><span style="font-size:.81rem;color:'+(t.active?'var(--green)':'var(--ink3)')+';">'+(t.active?'Active':'Hidden')+'</span></label></td>'
+      +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditTerm(\''+t.id+'\')">✏️</button><button class="btn sm red" onclick="delTerm(\''+t.id+'\')">🗑️</button></div></td>'
+      +'</tr>';
   }).join('');
-}
-
-// ── Term component helpers ──
-var _termComps = { mt:[], me:[] }; // temporary storage while modal is open
-
-function renderTermCompList(prefix){
-  var list = _termComps[prefix];
-  var el = document.getElementById(prefix+'CompList');
-  if(!list.length){ el.innerHTML='<div style="font-size:.76rem;color:var(--ink3);padding:4px 0;">No components — teacher enters a single mark per subject.</div>'; return; }
-  var total = list.reduce(function(s,c){return s+c.maxMark;},0);
-  el.innerHTML = list.map(function(c,i){
-    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;">'
-      +'<span style="flex:1;font-size:.85rem;font-weight:500;">'+c.name+'</span>'
-      +'<span class="tbadge" style="color:var(--gold);">/ '+c.maxMark+'</span>'
-      +'<button class="btn sm red" onclick="removeTermComp(\''+prefix+'\','+i+')">✕</button>'
-      +'</div>';
-  }).join('')
-  +'<div style="font-size:.72rem;color:var(--ink3);margin-top:5px;text-align:right;">Total: <strong style="color:var(--gold);">'+total+'</strong></div>';
-}
-
-function addTermComp(prefix){
-  var name = document.getElementById(prefix+'CompName').value.trim();
-  var max  = parseInt(document.getElementById(prefix+'CompMax').value)||0;
-  if(!name||max<1){ alert('Enter component name and max mark.'); return; }
-  _termComps[prefix].push({id:'C'+Date.now()+Math.random(),name:name,maxMark:max});
-  document.getElementById(prefix+'CompName').value='';
-  document.getElementById(prefix+'CompMax').value='';
-  renderTermCompList(prefix);
-}
-
-function removeTermComp(prefix,idx){
-  _termComps[prefix].splice(idx,1);
-  renderTermCompList(prefix);
 }
 
 function openEditTerm(id){
@@ -3159,7 +3151,7 @@ function renderTeacherApprovalBtn(){
   if(!el||isAdmin()) return;
   var ct=ME&&ME.classTeacher;
   if(!ct){ el.innerHTML=''; return; }
-  var termRaw=(document.getElementById('rpTerm')||{}).value||'';
+  var termRaw=(document.getElementById('rpTerm2')||{}).value||'';
   var tp=parseTermPeriod(termRaw);
   var tid=tp.termId;
   if(!tid){ el.innerHTML=''; return; }
@@ -3185,7 +3177,7 @@ function renderTeacherApprovalBtn(){
 function approveReports(){
   var ct=ME&&ME.classTeacher;
   if(!ct) return;
-  var termRaw=(document.getElementById('rpTerm')||{}).value||'';
+  var termRaw=(document.getElementById('rpTerm2')||{}).value||'';
   var tp=parseTermPeriod(termRaw);
   var tid=tp.termId;
   if(!tid){ alert('Select a term first.'); return; }
@@ -3211,7 +3203,9 @@ function genReport(){
   var stid = isAdmin()
     ? (document.getElementById('rpSt')||{}).value||''
     : (document.getElementById('rpSt2')||{}).value||'';
-  var selectedTermRaw=(document.getElementById('rpTerm')||{}).value||'';
+  var selectedTermRaw = isAdmin()
+    ? (document.getElementById('rpTerm')||{}).value||''
+    : (document.getElementById('rpTerm2')||{}).value||'';
   var tp=parseTermPeriod(selectedTermRaw);
   var selectedTerm=tp.termId;
   var out=document.getElementById('rpOut');
@@ -4176,7 +4170,7 @@ function syncTerms(){
   if(!periodOpts) periodOpts='<option value="">No active terms</option>';
 
   // Apply to all term selectors EXCEPT mkTerm (marks page has its own 2-step selector)
-  ['rpTerm','prTerm','anTerm','qzTerm','qpTerm'].forEach(function(id){
+  ['rpTerm','rpTerm2','prTerm','anTerm','qzTerm','qpTerm'].forEach(function(id){
     var el=document.getElementById(id);if(!el)return;
     var cur=el.value; el.innerHTML=periodOpts;
     if(cur) el.value=cur;
