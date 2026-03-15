@@ -2202,7 +2202,10 @@ function renderClasses(){
   document.getElementById('clsacth').textContent=admin?'Action':'';
   var tb=document.getElementById('tbc');
   var list=myClasses();
-  if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes yet.</p></div></td></tr>';return;}
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes yet. Click <strong>+ Add Class</strong> to get started.</p></div></td></tr>';
+    return;
+  }
   tb.innerHTML=list.map(function(c,i){
     var cnt=DB.students.filter(function(s){return s.classId===c.id;}).length;
     var actions=admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div>':'—';
@@ -2363,7 +2366,10 @@ function renderSubjects(){
   document.getElementById('subjbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'ms\')">+ Add Subject</button>':'';
   document.getElementById('subacth').textContent=admin?'Actions':'';
   var tb=document.getElementById('tbs');
-  if(!DB.subjects.length){tb.innerHTML='<tr><td colspan="6"><div class="empty"><p>No subjects yet.</p></div></td></tr>';return;}
+  if(!DB.subjects.length){
+    tb.innerHTML='<tr><td colspan="6"><div class="empty"><p>No subjects yet. Click <strong>+ Add Subject</strong> to get started.</p></div></td></tr>';
+    return;
+  }
   tb.innerHTML=DB.subjects.map(function(s,i){
     var isL=s.scale==='letter';
     var gradeInfo=isL?'—':'A≥'+s.grA+'% B≥'+s.grB+'% C≥'+s.grC+'% D≥'+s.grD+'%';
@@ -2453,7 +2459,10 @@ function renderStudents(){
   if(q) list=list.filter(function(s){return s.name.toLowerCase().includes(q)||s.sid.includes(q);});
   if(cf) list=list.filter(function(s){return s.classId===cf;});
   var tb=document.getElementById('tbst');
-  if(!list.length){tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>'+L('noStudents')+'</p></div></td></tr>';return;}
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>'+(admin?'No students yet. Click <strong>+ Add Student</strong> to get started.':L('noStudents'))+'</p></div></td></tr>';
+    return;
+  }
   tb.innerHTML=list.map(function(s,i){
     var c=DB.classes.find(function(x){return x.id===s.classId;});
     return'<tr><td>'+(i+1)+'</td><td><strong>'+s.name+'</strong></td><td>'+s.sid+'</td><td>'+(c?c.name:'—')+'</td>'
