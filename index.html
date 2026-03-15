@@ -1275,7 +1275,153 @@ tr:hover td{background:var(--s2);}
 // ===== SUPABASE CONNECTION =====
 const SUPABASE_URL = "https://zabdtormeyrucjwjipzl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphYmR0b3JtZXlydWNqd2ppcHpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NTkzODUsImV4cCI6MjA4OTAzNTM4NX0.Rs-puu3GLuQBJzpVdYfgP63GNnb8AxU8XFcvGEpwHPw";
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  realtime: { params: { eventsPerSecond: 2 } },
+  global: { headers: { 'x-client-info': 'scorix/1.0' } }
+});
+
+// ═══════════════════════════════════════
+//  NETWORK RESILIENCE LAYER
+//  – Exponential backoff retry for all Supabase calls
+//  – Request deduplication (no double saves)
+//  – Offline queue that drains when connection returns
+//  – 5s aggressive timeout (not 10s)
+// ═══════════════════════════════════════
+
+// Retry a fn up to maxTries with exponential backoff (200ms → 400ms → 800ms…)
+async function _withRetry(fn, maxTries, label){
+  maxTries = maxTries || 3;
+  label    = label    || 'op';
+  var delay = 200;
+  for(var attempt=1; attempt<=maxTries; attempt++){
+    try{
+      return await fn();
+    }catch(e){
+      if(attempt===maxTries){ console.warn('[SCORIX] '+label+' failed after '+maxTries+' tries:', e); throw e; }
+      await new Promise(function(r){ setTimeout(r, delay * attempt); });
+    }
+  }
+}
+
+// Race a promise against a timeout
+function _withTimeout(promise, ms){
+  var tout = new Promise(function(_,rej){
+    setTimeout(function(){ rej(new Error('timeout_'+ms)); }, ms);
+  });
+  return Promise.race([promise, tout]);
+}
+
+// Offline queue — saves that failed get stored and retried automatically
+var _offlineQueue = [];
+var _draining     = false;
+var _isOnline     = navigator.onLine !== false;
+
+window.addEventListener('online',  function(){ _isOnline=true;  _drainQueue(); });
+window.addEventListener('offline', function(){ _isOnline=false; });
+
+function _enqueueWrite(key, data){
+  // Remove any pending write for same key (superseded)
+  _offlineQueue = _offlineQueue.filter(function(q){ return q.key!==key; });
+  _offlineQueue.push({key:key, data:data, ts:Date.now()});
+  // Always persist queue to localStorage so it survives page refresh
+  try{ localStorage.setItem('scorix_offq', JSON.stringify(_offlineQueue)); }catch(e){}
+}
+
+function _loadOfflineQueue(){
+  try{
+    var raw = localStorage.getItem('scorix_offq');
+    if(raw) _offlineQueue = JSON.parse(raw)||[];
+  }catch(e){ _offlineQueue=[]; }
+}
+
+async function _drainQueue(){
+  if(_draining || !_isOnline || !_offlineQueue.length) return;
+  _draining = true;
+  var remaining = [];
+  for(var i=0;i<_offlineQueue.length;i++){
+    var item = _offlineQueue[i];
+    try{
+      await _withTimeout(
+        supabaseClient.from('epaza_data').upsert({id:item.key, data:item.data}),
+        5000
+      );
+      // success — don't keep it
+    }catch(e){
+      remaining.push(item); // keep for next drain
+    }
+  }
+  _offlineQueue = remaining;
+  try{ localStorage.setItem('scorix_offq', JSON.stringify(_offlineQueue)); }catch(e){}
+  _draining = false;
+}
+
+// Deduplicated write — merges rapid saves into one network call
+var _pendingWrites = {}; // key → {data, timer}
+var WRITE_DEBOUNCE = 400; // ms
+
+function _scheduleWrite(key, data){
+  // Always update local cache immediately — instant for offline reads
+  try{ localStorage.setItem(key, JSON.stringify(data)); }catch(e){}
+
+  if(_pendingWrites[key]) clearTimeout(_pendingWrites[key].timer);
+  _pendingWrites[key] = {
+    data: data,
+    timer: setTimeout(function(){
+      var snapshot = _pendingWrites[key] ? _pendingWrites[key].data : data;
+      delete _pendingWrites[key];
+      _flushWrite(key, snapshot);
+    }, WRITE_DEBOUNCE)
+  };
+}
+
+async function _flushWrite(key, data){
+  if(!_isOnline){
+    _enqueueWrite(key, data);
+    showSyncStatus('offline');
+    return;
+  }
+  showSyncStatus('saving');
+  try{
+    await _withRetry(function(){
+      return _withTimeout(
+        supabaseClient.from('epaza_data').upsert({id:key, data:data}),
+        5000
+      );
+    }, 3, 'write:'+key);
+    showSyncStatus('saved');
+    // Drain any queued writes now we know we're online
+    _drainQueue();
+  }catch(e){
+    // Network failed — queue for later
+    _enqueueWrite(key, data);
+    showSyncStatus('error');
+    console.warn('[SCORIX] Write failed, queued:', key);
+  }
+}
+
+async function _resilientRead(key, timeoutMs){
+  timeoutMs = timeoutMs || 5000;
+  // 1. Try Supabase with fast timeout
+  try{
+    var res = await _withTimeout(
+      supabaseClient.from('epaza_data').select('data').eq('id',key).single(),
+      timeoutMs
+    );
+    if(res && res.data && res.data.data){
+      // Freshen localStorage cache
+      try{ localStorage.setItem(key, JSON.stringify(res.data.data)); }catch(e){}
+      return res.data.data;
+    }
+  }catch(e){
+    console.warn('[SCORIX] Read failed for', key, '— falling back to localStorage');
+  }
+  // 2. localStorage fallback — works 100% offline
+  try{
+    var raw = localStorage.getItem(key);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
 
 // ═══════════════════════════════════════
 //  SUPERADMIN DB  (stored separately)
@@ -1293,44 +1439,18 @@ var SUPERDB = {
 };
 
 async function superSave(){
-  showSyncStatus('saving');
-  try{
-    await supabaseClient.from('epaza_data').upsert({id:'superdb',data:SUPERDB});
-    try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(e){}
-    showSyncStatus('saved');
-  }catch(e){
-    console.error('superSave failed, saving locally:',e);
-    try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(ex){}
-    showSyncStatus('error');
-  }
+  try{ localStorage.setItem('scorix_superDB', JSON.stringify(SUPERDB)); }catch(e){}
+  _scheduleWrite('superdb', SUPERDB);
 }
-async function superLoad(){
-  // PRIMARY: Load from Supabase
-  try{
-    var res = await supabaseClient.from('epaza_data').select('*').eq('id','superdb').single();
-    if(res.data && res.data.data){
-      var r = res.data.data;
-      if(Array.isArray(r.superusers)&&r.superusers.length) SUPERDB.superusers=r.superusers;
-      if(Array.isArray(r.schools)) SUPERDB.schools=r.schools;
-      if(r.settings&&typeof r.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,r.settings);
-      // Update local backup
-      try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(e){}
-      return;
-    }
-  }catch(e){ console.log('superLoad from Supabase failed, trying local backup'); }
 
-  // FALLBACK: Use localStorage and push to Supabase
-  try{
-    var raw=localStorage.getItem('scorix_superDB');
-    if(raw){
-      var d=JSON.parse(raw);
-      if(Array.isArray(d.superusers)&&d.superusers.length) SUPERDB.superusers=d.superusers;
-      if(Array.isArray(d.schools)) SUPERDB.schools=d.schools;
-      if(d.settings&&typeof d.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,d.settings);
-      // Push to Supabase to sync
-      try{ await supabaseClient.from('epaza_data').upsert({id:'superdb',data:SUPERDB}); }catch(ex){}
-    }
-  }catch(e){ console.log('No superdb in localStorage either'); }
+async function superLoad(){
+  var d = await _resilientRead('superdb', 5000);
+  if(d){
+    if(Array.isArray(d.superusers)&&d.superusers.length) SUPERDB.superusers=d.superusers;
+    if(Array.isArray(d.schools))  SUPERDB.schools=d.schools;
+    if(d.settings&&typeof d.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,d.settings);
+    try{ localStorage.setItem('scorix_superDB', JSON.stringify(SUPERDB)); }catch(e){}
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1359,71 +1479,52 @@ function schoolDbKey(sid){ return 'epaza_school_'+sid; }
 async function supabaseSave(){
   if(!CURRENT_SCHOOL_ID) return;
   if(!DB.users||DB.users.length===0) return;
-  // PRIMARY: Save to Supabase FIRST (real database — syncs across all devices)
-  try{
-    await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(CURRENT_SCHOOL_ID),data:DB});
-    // Also update user index
-    var idx={};
-    (DB.users||[]).forEach(function(u){ idx[u.username]={schoolId:CURRENT_SCHOOL_ID,password:u.password}; });
-    try{
-      var existing=await userIndexLoad();
-      if(existing){
-        Object.keys(existing).forEach(function(uname){ if(existing[uname].schoolId!==CURRENT_SCHOOL_ID) idx[uname]=existing[uname]; });
-      }
-      await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:idx});
-    }catch(e){}
-    // SECONDARY: Also cache locally as backup
-    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
-  }catch(e){
-    console.error('supabaseSave error — saving locally as fallback:',e);
-    // Fallback to localStorage if Supabase fails
-    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(ex){}
+  var key = schoolDbKey(CURRENT_SCHOOL_ID);
+  // Trim activity log to last 60 entries before saving (keeps payload small)
+  if(DB.activity && DB.activity.length>60) DB.activity = DB.activity.slice(-60);
+  // Write school data (debounced + offline-queued automatically)
+  _scheduleWrite(key, DB);
+  // Update user index in memory only — background sync, no await
+  _syncUserIndexEntry(CURRENT_SCHOOL_ID, DB.users);
+}
+
+// Lightweight: only update the entries for THIS school in the user index
+// Avoids fetching all other schools on every save
+var _userIndexCache = null;
+async function _syncUserIndexEntry(schoolId, users){
+  var myEntries = {};
+  (users||[]).forEach(function(u){
+    myEntries[u.username] = {schoolId:schoolId, password:u.password};
+  });
+  // Load current index (cached to avoid repeated round-trips)
+  if(!_userIndexCache){
+    _userIndexCache = await _resilientRead('epaza_users', 4000) || {};
   }
+  // Merge: keep other schools' entries, replace this school's entries
+  var merged = {};
+  Object.keys(_userIndexCache).forEach(function(uname){
+    if(_userIndexCache[uname].schoolId !== schoolId) merged[uname] = _userIndexCache[uname];
+  });
+  Object.assign(merged, myEntries);
+  _userIndexCache = merged;
+  _scheduleWrite('epaza_users', merged);
 }
 
 async function supabaseLoad(sid){
-  // PRIMARY: Load from Supabase (real database — source of truth for ALL devices)
-  try{
-    var fetchP = supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single();
-    var tout   = new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},10000);});
-    var res    = await Promise.race([fetchP,tout]);
-    if(res.data && res.data.data){
-      var r=res.data.data;
-      if(Array.isArray(r.users)&&r.users.length)     DB.users=r.users;
-      if(Array.isArray(r.teachers))                  DB.teachers=r.teachers;
-      if(Array.isArray(r.classes))                   DB.classes=r.classes;
-      if(Array.isArray(r.subjects))                  DB.subjects=r.subjects;
-      if(Array.isArray(r.students))                  DB.students=r.students;
-      if(r.marks&&typeof r.marks==='object')         DB.marks=r.marks;
-      if(r.settings&&typeof r.settings==='object')   DB.settings=Object.assign(DB.settings,r.settings);
-      if(Array.isArray(r.activity))                  DB.activity=r.activity;
-      if(Array.isArray(r.terms)&&r.terms.length)     DB.terms=r.terms;
-      // Update local cache as backup
-      try{ localStorage.setItem(schoolDbKey(sid),JSON.stringify(DB)); }catch(e){}
-      return true;
-    }
-  }catch(e){ console.log('Supabase load failed, trying local cache as backup'); }
-
-  // FALLBACK: Use localStorage only if Supabase completely fails
-  try{
-    var raw=localStorage.getItem(schoolDbKey(sid));
-    if(raw){
-      var d=JSON.parse(raw);
-      if(d){
-        if(Array.isArray(d.users)&&d.users.length)   DB.users=d.users;
-        if(Array.isArray(d.teachers))                DB.teachers=d.teachers;
-        if(Array.isArray(d.classes))                 DB.classes=d.classes;
-        if(Array.isArray(d.subjects))                DB.subjects=d.subjects;
-        if(Array.isArray(d.students))                DB.students=d.students;
-        if(d.marks&&typeof d.marks==='object')       DB.marks=d.marks;
-        if(d.settings&&typeof d.settings==='object') DB.settings=Object.assign(DB.settings,d.settings);
-        if(Array.isArray(d.activity))                DB.activity=d.activity;
-        if(Array.isArray(d.terms)&&d.terms.length)   DB.terms=d.terms;
-        // Push local cache to Supabase to sync it
-        try{ await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid),data:DB}); }catch(ex){}
-      }
-    }
-  }catch(e){}
+  var key = schoolDbKey(sid);
+  var d = await _resilientRead(key, 5000);
+  if(d){
+    if(Array.isArray(d.users)&&d.users.length)     DB.users=d.users;
+    if(Array.isArray(d.teachers))                  DB.teachers=d.teachers;
+    if(Array.isArray(d.classes))                   DB.classes=d.classes;
+    if(Array.isArray(d.subjects))                  DB.subjects=d.subjects;
+    if(Array.isArray(d.students))                  DB.students=d.students;
+    if(d.marks&&typeof d.marks==='object')         DB.marks=d.marks;
+    if(d.settings&&typeof d.settings==='object')   DB.settings=Object.assign(DB.settings,d.settings);
+    if(Array.isArray(d.activity))                  DB.activity=d.activity;
+    if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
+    return true;
+  }
   return false;
 }
 
@@ -1439,47 +1540,60 @@ function dbSave(){
   _doSave();
 }
 function showSyncStatus(state){
-  // state: 'saving' | 'saved' | 'error'
-  var el = document.getElementById('sync-status');
+  var el  = document.getElementById('sync-status');
   var dot = document.getElementById('sync-dot');
   var txt = document.getElementById('sync-text');
   if(!el) return;
   el.style.display = 'flex';
-  if(state === 'saving'){
-    dot.style.background = 'var(--gold)';
-    dot.style.animation = 'spin .8s linear infinite';
-    el.style.borderColor = 'rgba(240,180,41,.3)';
-    txt.textContent = APP_LANG==='fr' ? '☁️ Sync…' : '☁️ Syncing…';
-  } else if(state === 'saved'){
-    dot.style.background = 'var(--green)';
-    dot.style.animation = 'none';
-    el.style.borderColor = 'rgba(62,207,142,.3)';
-    txt.textContent = APP_LANG==='fr' ? '✅ Sauvegardé sur Supabase' : '✅ Saved to Supabase';
-    setTimeout(function(){
-      el.style.display = 'none';
-    }, 3000);
-  } else if(state === 'error'){
-    dot.style.background = 'var(--red)';
-    dot.style.animation = 'none';
-    el.style.borderColor = 'rgba(224,82,82,.3)';
-    txt.textContent = APP_LANG==='fr' ? '⚠️ Sauvegarde locale' : '⚠️ Saved locally only';
-    setTimeout(function(){
-      el.style.display = 'none';
-    }, 4000);
+  if(state==='saving'){
+    dot.style.background='var(--gold)'; dot.style.animation='spin .8s linear infinite';
+    el.style.borderColor='rgba(240,180,41,.3)';
+    txt.textContent = APP_LANG==='fr'?'☁️ Sync…':'☁️ Syncing…';
+  } else if(state==='saved'){
+    dot.style.background='var(--green)'; dot.style.animation='none';
+    el.style.borderColor='rgba(62,207,142,.3)';
+    txt.textContent = APP_LANG==='fr'?'✅ Sauvegardé':'✅ Saved';
+    setTimeout(function(){ el.style.display='none'; }, 2500);
+  } else if(state==='error'){
+    dot.style.background='var(--red)'; dot.style.animation='none';
+    el.style.borderColor='rgba(224,82,82,.3)';
+    txt.textContent = APP_LANG==='fr'?'⚠️ Local seulement':'⚠️ Saved locally';
+    setTimeout(function(){ el.style.display='none'; }, 4000);
+  } else if(state==='offline'){
+    dot.style.background='var(--ink3)'; dot.style.animation='none';
+    el.style.borderColor='rgba(90,99,128,.3)';
+    txt.textContent = APP_LANG==='fr'?'📵 Hors ligne — en attente':'📵 Offline — queued';
+    // Don't auto-hide — stays visible until connection restored
   }
 }
 
 function _doSave(){
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(function(){
-    showSyncStatus('saving');
-    supabaseSave().then(function(){
-      showSyncStatus('saved');
-    }).catch(function(){
-      try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
-      showSyncStatus('error');
-    });
-  },350);
+  // _doSave is now just a thin wrapper — actual debounce+retry is in supabaseSave
+  supabaseSave();
+}
+
+async function userIndexLoad(){
+  if(_userIndexCache) return _userIndexCache;
+  var d = await _resilientRead('epaza_users', 4000);
+  if(d){ _userIndexCache = d; return d; }
+  return null;
+}
+
+// rebuildUserIndex: only rebuild from Supabase if really needed (login fallback)
+// Under heavy load we skip the full scan — use the incremental _syncUserIndexEntry instead
+async function rebuildUserIndex(){
+  if(!SUPERDB.schools.length) return;
+  _userIndexCache = null; // invalidate cache
+  var index={};
+  var fetches=SUPERDB.schools.map(function(sc){
+    return _resilientRead(schoolDbKey(sc.id), 4000)
+      .then(function(d){
+        if(d)(d.users||[]).forEach(function(u){ index[u.username]={schoolId:sc.id,password:u.password}; });
+      }).catch(function(){});
+  });
+  await Promise.all(fetches);
+  _userIndexCache = index;
+  _scheduleWrite('epaza_users', index);
 }
 
 // ═══════════════════════════════════════
@@ -1499,48 +1613,6 @@ document.getElementById('resetBtn').addEventListener('click', function(){
 //  stored as epaza_users in Supabase
 //  {username: {schoolId, passwordHash}}
 // ═══════════════════════════════════════
-async function userIndexSave(){
-  // Rebuild full index from all schools in localStorage + SUPERDB
-  var index={};
-  for(var i=0;i<SUPERDB.schools.length;i++){
-    var sc=SUPERDB.schools[i];
-    var raw=localStorage.getItem(schoolDbKey(sc.id));
-    if(!raw) continue;
-    try{
-      var d=JSON.parse(raw);
-      (d.users||[]).forEach(function(u){
-        index[u.username]={schoolId:sc.id,password:u.password};
-      });
-    }catch(e){}
-  }
-  try{ await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:index}); }catch(e){}
-}
-async function userIndexLoad(){
-  try{
-    var res=await supabaseClient.from('epaza_data').select('*').eq('id','epaza_users').single();
-    if(res.data&&res.data.data) return res.data.data;
-  }catch(e){}
-  return null;
-}
-// Call this whenever a user is added/edited/deleted
-async function rebuildUserIndex(){
-  if(!SUPERDB.schools.length) return;
-  var index={};
-  // Fetch all schools in PARALLEL — much faster than sequential loop
-  var fetches=SUPERDB.schools.map(function(sc){
-    return supabaseClient.from('epaza_data').select('data').eq('id',schoolDbKey(sc.id)).single()
-      .then(function(res){
-        var schoolData=res.data&&res.data.data?res.data.data:null;
-        if(!schoolData){ var raw=localStorage.getItem(schoolDbKey(sc.id)); if(raw) try{schoolData=JSON.parse(raw);}catch(e){} }
-        if(schoolData)(schoolData.users||[]).forEach(function(u){ index[u.username]={schoolId:sc.id,password:u.password}; });
-      }).catch(function(){
-        var raw=localStorage.getItem(schoolDbKey(sc.id));
-        if(raw) try{ var d=JSON.parse(raw); (d.users||[]).forEach(function(u){ index[u.username]={schoolId:sc.id,password:u.password}; }); }catch(e){}
-      });
-  });
-  await Promise.all(fetches);
-  try{ await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:index}); }catch(e){}
-}
 
 async function doLogin(){
   var u=document.getElementById('luser').value.trim();
@@ -1550,54 +1622,53 @@ async function doLogin(){
 
   if(!u||!p){ err.style.display='flex'; err.textContent='❌ Please enter username and password.'; return; }
 
-  // Show loading state
   btn.disabled=true; btn.textContent='Signing in…';
   err.style.display='none';
 
   try{
 
-  // 1. Check superadmin (local — instant)
+  // 1. Superadmin check — always local, instant, no network needed
   var su=SUPERDB.superusers.find(function(x){return x.username===u&&x.password===p;});
-  if(su){
-    ME=su; CURRENT_SCHOOL_ID='__super__';
-    enterApp(); return;
-  }
+  if(su){ ME=su; CURRENT_SCHOOL_ID='__super__'; enterApp(); return; }
 
-  // 2. Fast lookup via user index (single Supabase call)
-  var index=await userIndexLoad();
-  var foundSchoolId=null;
+  // 2. Fast lookup via cached user index (single network call or local cache)
+  var index = await userIndexLoad();
+  var foundSchoolId = null;
 
-  if(index&&index[u]){
-    var entry=index[u];
+  if(index && index[u]){
+    var entry = index[u];
     if(entry.password===p){
-      foundSchoolId=entry.schoolId;
+      foundSchoolId = entry.schoolId;
     } else {
       err.style.display='flex'; err.textContent='❌ Invalid username or password.'; return;
     }
   }
 
-  // 3. Fallback — search all schools directly (covers new schools not yet indexed)
-  if(!foundSchoolId){
-    for(var si=0;si<SUPERDB.schools.length;si++){
-      var sc=SUPERDB.schools[si];
-      var schoolData=null;
-      // Try localStorage cache first (fast), then Supabase
-      var lsRaw=localStorage.getItem(schoolDbKey(sc.id));
-      if(lsRaw){ try{ schoolData=JSON.parse(lsRaw); }catch(e){} }
-      if(!schoolData){
-        try{
-          var res=await supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sc.id)).single();
-          if(res.data&&res.data.data) schoolData=res.data.data;
-        }catch(e){}
-      }
-      if(!schoolData||!schoolData.users) continue;
-      var candidate=schoolData.users.find(function(x){return x.username===u&&x.password===p;});
-      if(candidate){ foundSchoolId=sc.id; break; }
+  // 3. Fallback — scan schools (only runs if index missing; uses resilient parallel reads)
+  if(!foundSchoolId && SUPERDB.schools.length){
+    var found = null;
+    var scanResults = await Promise.all(SUPERDB.schools.map(function(sc){
+      return _resilientRead(schoolDbKey(sc.id), 3000)
+        .then(function(d){
+          if(!d||!d.users) return null;
+          var c=d.users.find(function(x){return x.username===u&&x.password===p;});
+          return c ? sc.id : null;
+        }).catch(function(){ return null; });
+    }));
+    for(var si=0;si<scanResults.length;si++){
+      if(scanResults[si]){ foundSchoolId=scanResults[si]; break; }
     }
   }
 
   if(!foundSchoolId){
-    err.style.display='flex'; err.textContent='❌ Invalid username or password.'; return;
+    // If we had no network at all, give a helpful offline message
+    if(!_isOnline){
+      err.style.display='flex';
+      err.textContent='📵 No network connection. Your data is saved locally — please reconnect and try again.';
+    } else {
+      err.style.display='flex'; err.textContent='❌ Invalid username or password.';
+    }
+    return;
   }
 
   // Check pause
@@ -1608,20 +1679,18 @@ async function doLogin(){
     return;
   }
 
-  // Load school DB from Supabase
+  // Load school data
   CURRENT_SCHOOL_ID=foundSchoolId;
   await supabaseLoad(CURRENT_SCHOOL_ID);
 
-  // Find the user in the loaded DB
   var me=DB.users.find(function(x){return x.username===u&&x.password===p;});
   if(!me){
-    // User exists in index but DB load failed — create minimal session
     me={id:'u_'+Date.now(),username:u,password:p,role:'admin',name:u,schoolId:foundSchoolId};
   }
   ME=me;
 
-  // Update user index in background (keep it fresh)
-  rebuildUserIndex();
+  // Update user index in background — no await, doesn't block login
+  setTimeout(function(){ rebuildUserIndex(); }, 2000);
 
   enterApp();
 
@@ -1634,6 +1703,9 @@ function enterApp(){
   document.getElementById('loginWrap').style.display='none';
   clearInterval(_typingTimer);
   _typingTimer = null;
+
+  // Stop the voice immediately — user is now inside the app
+  stopSpeech();
 
   var initials=ME.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
   var av=document.getElementById('uav');
@@ -1657,6 +1729,7 @@ function enterApp(){
 
 function doLogout(){
   ME=null; CURRENT_SCHOOL_ID=null; _markMode='term';
+  _userIndexCache = null; // force fresh login lookup next time
   DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],
@@ -1668,6 +1741,10 @@ function doLogout(){
   document.getElementById('luser').value='';document.getElementById('lpass').value='';
   var tmb=document.getElementById('topbar-mode-btn');if(tmb) tmb.style.display='none';
   var pb=document.getElementById('pauseBanner');if(pb) pb.remove();
+  // Restart voice welcome on landing page after logout
+  setTimeout(function(){
+    startTypingAnimation('landing-typing','landing-cursor', true);
+  }, 400);
 }
 
 function isSuperAdmin(){ return ME&&ME.role==='superadmin'; }
@@ -4165,10 +4242,17 @@ function saveSchool(){
 function showLogin(){
   document.getElementById('landingWrap').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
-  setTimeout(function(){ startTypingAnimation('login-typing','login-cursor', true); }, 300);
+  // Keep speech running — just restart the visual animation for login page
+  setTimeout(function(){
+    startTypingAnimation('login-typing','login-cursor', true);
+  }, 300);
 }
 
 async function initApp(){
+  // Load any queued writes from previous sessions (offline work)
+  _loadOfflineQueue();
+  if(_isOnline && _offlineQueue.length) _drainQueue();
+
   var overlay=document.createElement('div');
   overlay.id='loadOverlay';
   overlay.style.cssText='position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;gap:14px;';
@@ -4191,8 +4275,10 @@ async function initApp(){
     overlay.remove();
     // Show landing page first, user clicks Sign In to go to login
     document.getElementById('landingWrap').style.display='block';
-    // Start typing animation on landing page
-    setTimeout(function(){ startTypingAnimation('landing-typing','landing-cursor', false); }, 500);
+    // Start typing animation + voice on landing page
+    setTimeout(function(){
+      startTypingAnimation('landing-typing','landing-cursor', true);
+    }, 500);
   },300);
 }
 
@@ -4429,50 +4515,138 @@ function playDeleteSound(){
   _playKeyClick(0.11, -5 + (Math.random()*2));
 }
 var _typingMessages = [
-  '🎉 Welcome! Manage your school marks with ease! 🏆',
-  '✨ Track student performance effortlessly! 🌟',
-  '🎓 Generate beautiful report cards instantly! 📄',
-  '🏅 Celebrate academic excellence! 🥇🥈🥉',
-  '🌍 Access your school data from anywhere! 🚀',
-  '🎊 Congratulations on choosing SCORIX! 🎉',
+  'Welcome! Manage your school marks with ease!',
+  'Track student performance effortlessly!',
+  'Generate beautiful report cards instantly!',
+  'Celebrate academic excellence!',
+  'Access your school data from anywhere!',
+  'Congratulations on choosing SCORIX!',
 ];
 var _typingIdx = 0;
 var _typingPos = 0;
-var _typingDir = 1; // 1=typing, -1=deleting
+var _typingDir = 1;
 var _typingTimer = null;
+
+// ═══════════════════════════════════════
+//  SPEECH — Web Speech API
+//  A real human-like voice reads each welcome message aloud.
+//  Stops immediately when the user logs in.
+// ═══════════════════════════════════════
+var _speechActive = false;   // true while on login/landing pages
+var _speechUtter  = null;    // current utterance (so we can cancel it)
+var _speechLang   = 'en-US'; // default; switches with APP_LANG
+
+function _getBestVoice(lang){
+  if(!window.speechSynthesis) return null;
+  var voices = window.speechSynthesis.getVoices();
+  // Prefer: Google voices > Microsoft > Apple > any matching language
+  var preferred = voices.filter(function(v){
+    return v.lang.startsWith(lang.split('-')[0]);
+  });
+  // Sort: named "Google" or "Microsoft" natural voices first
+  preferred.sort(function(a,b){
+    var aScore = /google/i.test(a.name)?3:/microsoft/i.test(a.name)?2:/apple/i.test(a.name)?1:0;
+    var bScore = /google/i.test(b.name)?3:/microsoft/i.test(b.name)?2:/apple/i.test(b.name)?1:0;
+    return bScore - aScore;
+  });
+  return preferred[0] || voices[0] || null;
+}
+
+function _speakMessage(text){
+  if(!window.speechSynthesis || !_speechActive) return;
+  // Cancel any currently speaking utterance first
+  window.speechSynthesis.cancel();
+
+  var utter = new SpeechSynthesisUtterance(text);
+  _speechUtter = utter;
+
+  // Pick the best available voice
+  var voice = _getBestVoice(_speechLang);
+  if(voice) utter.voice = voice;
+  utter.lang  = _speechLang;
+  utter.rate  = 0.96;   // slightly slower than default — clear, natural pace
+  utter.pitch = 1.05;   // slightly warm
+  utter.volume = 0.92;
+
+  // When this message finishes speaking, wait a moment then
+  // speak the next message (cycling through the list)
+  utter.onend = function(){
+    if(!_speechActive) return;
+    _speechUtter = null;
+    setTimeout(function(){
+      if(!_speechActive) return;
+      _typingIdx = (_typingIdx + 1) % _typingMessages.length;
+      _speakMessage(_typingMessages[_typingIdx]);
+    }, 1800);
+  };
+
+  utter.onerror = function(){
+    _speechUtter = null;
+  };
+
+  window.speechSynthesis.speak(utter);
+}
+
+function stopSpeech(){
+  _speechActive = false;
+  _speechUtter  = null;
+  if(window.speechSynthesis){
+    window.speechSynthesis.cancel();
+  }
+}
+
+function startSpeech(){
+  if(!window.speechSynthesis) return;
+  _speechActive = true;
+  _typingIdx    = 0;
+
+  // Voices may not be loaded yet on first call — wait for them
+  var voices = window.speechSynthesis.getVoices();
+  if(voices.length){
+    _speakMessage(_typingMessages[0]);
+  } else {
+    window.speechSynthesis.onvoiceschanged = function(){
+      window.speechSynthesis.onvoiceschanged = null;
+      if(_speechActive) _speakMessage(_typingMessages[0]);
+    };
+  }
+}
 
 function startTypingAnimation(elId, cursorId, withSound){
   var el = document.getElementById(elId);
-  var cursor = document.getElementById(cursorId);
   if(!el) return;
   _typingIdx = 0; _typingPos = 0; _typingDir = 1;
   clearInterval(_typingTimer);
+
+  // Update speech language to match current app language
+  _speechLang = (typeof APP_LANG !== 'undefined' && APP_LANG === 'fr') ? 'fr-FR' : 'en-US';
+
+  // Start voice reading (only once per session opening)
+  if(withSound) startSpeech();
 
   function tick(){
     var msg = _typingMessages[_typingIdx % _typingMessages.length];
     if(_typingDir === 1){
       _typingPos++;
       el.textContent = msg.slice(0, _typingPos);
-      if(withSound) playTypeSound();
       if(_typingPos >= msg.length){
         _typingDir = -1;
         clearInterval(_typingTimer);
         setTimeout(function(){
-          _typingTimer = setInterval(tick, 40);
-        }, 2000);
+          _typingTimer = setInterval(tick, 38);
+        }, 2200);
         return;
       }
     } else {
       _typingPos--;
       el.textContent = msg.slice(0, _typingPos);
-      if(withSound) playDeleteSound();
       if(_typingPos <= 0){
-        _typingIdx++;
+        _typingIdx = (_typingIdx + 1) % _typingMessages.length;
         _typingDir = 1;
         clearInterval(_typingTimer);
         setTimeout(function(){
           _typingTimer = setInterval(tick, 60);
-        }, 400);
+        }, 350);
         return;
       }
     }
