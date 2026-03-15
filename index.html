@@ -692,12 +692,14 @@ tr:hover td{background:var(--s2);}
       <div class="page" id="p-dashboard">
         <div class="ph"><div><div class="phtitle">Dashboard</div><div class="phsub" id="dwelcome"></div></div></div>
         <div class="sgrid">
-          <div class="scard gold"><div class="snum" id="ds0">0</div><div class="slbl">Students</div></div>
-          <div class="scard blue"><div class="snum" id="ds1">0</div><div class="slbl">Classes</div></div>
-          <div class="scard green"><div class="snum" id="ds2">0</div><div class="slbl">Subjects</div></div>
+          <div class="scard gold" style="cursor:pointer;" onclick="showPage('students')"><div class="snum" id="ds0">0</div><div class="slbl">Students</div></div>
+          <div class="scard blue" style="cursor:pointer;" onclick="showPage('classes')"><div class="snum" id="ds1">0</div><div class="slbl">Classes</div></div>
+          <div class="scard green" style="cursor:pointer;" onclick="showPage('subjects')"><div class="snum" id="ds2">0</div><div class="slbl">Subjects</div></div>
           <div class="scard purple"><div class="snum" id="ds3">0</div><div class="slbl">Marks Recorded</div></div>
         </div>
-        <div class="card"><div class="ctitle">Recent Activity</div><div id="dact"></div></div>
+        <!-- QUICK ACTIONS — Admin only -->
+        <div id="dash-quickactions"></div>
+        <div class="card"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
       </div>
 
       <!-- DIRECTOR OVERVIEW -->
@@ -735,8 +737,8 @@ tr:hover td{background:var(--s2);}
 
       <!-- CLASSES -->
       <div class="page" id="p-classes">
-        <div class="ph"><div><div class="phtitle">Classes</div><div class="phsub">Manage class groups</div></div><div class="phact" id="clsbtn"></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Class Name</th><th>Students</th><th id="clsacth"></th></tr></thead><tbody id="tbc"></tbody></table></div></div>
+        <div class="ph"><div><div class="phtitle">Classes</div><div class="phsub">Manage class groups</div></div><div class="phact" id="clsbtn"><button class="btn gold" onclick="om('mc')">+ Add Class</button></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Class Name</th><th>Students</th><th id="clsacth">Action</th></tr></thead><tbody id="tbc"></tbody></table></div></div>
       </div>
 
       <!-- TERMS -->
@@ -747,18 +749,18 @@ tr:hover td{background:var(--s2);}
 
       <!-- SUBJECTS -->
       <div class="page" id="p-subjects">
-        <div class="ph"><div><div class="phtitle">Subjects</div><div class="phsub">Manage subjects &amp; grading scales</div></div><div class="phact" id="subjbtn"></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Subject</th><th>Scale</th><th>Promotion Mark</th><th>Grade Thresholds</th><th id="subacth"></th></tr></thead><tbody id="tbs"></tbody></table></div></div>
+        <div class="ph"><div><div class="phtitle">Subjects</div><div class="phsub">Manage subjects &amp; grading scales</div></div><div class="phact" id="subjbtn"><button class="btn gold" onclick="om('ms')">+ Add Subject</button></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Subject</th><th>Scale</th><th>Promotion Mark</th><th>Grade Thresholds</th><th id="subacth">Actions</th></tr></thead><tbody id="tbs"></tbody></table></div></div>
       </div>
 
       <!-- STUDENTS -->
       <div class="page" id="p-students">
-        <div class="ph"><div><div class="phtitle">Students</div><div class="phsub">Student roster</div></div><div class="phact" id="stbtn"></div></div>
+        <div class="ph"><div><div class="phtitle">Students</div><div class="phsub">Student roster</div></div><div class="phact" id="stbtn"><button class="btn gold" onclick="om('mst')">+ Add Student</button></div></div>
         <div class="srow">
           <input type="text" id="stSearch" placeholder="Search by name or number…" oninput="renderStudents()">
           <select id="stCls" onchange="renderStudents()"><option value="">All Classes</option></select>
         </div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>No.</th><th>Class</th><th id="stacth"></th></tr></thead><tbody id="tbst"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>No.</th><th>Class</th><th id="stacth">Action</th></tr></thead><tbody id="tbst"></tbody></table></div></div>
       </div>
 
       <!-- MARKS -->
@@ -1961,6 +1963,26 @@ function renderDash(){
   ['dsl0','dsl1','dsl2','dsl3'].forEach(function(id,i){
     var el=document.getElementById(id); if(el) el.textContent=L(labels[i]);
   });
+
+  // ── QUICK ACTIONS for Admin/Director only ──
+  var qa = document.getElementById('dash-quickactions');
+  if(qa){
+    if(isAdmin()){
+      qa.innerHTML = '<div class="card" style="margin-bottom:.9rem;">'
+        +'<div class="ctitle" style="margin-bottom:.8rem;">⚡ Quick Actions</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:10px;">'
+        +'<button class="btn gold" onclick="dashQuickAdd(\'student\')">👨‍🎓 Add Student</button>'
+        +'<button class="btn ghost" onclick="dashQuickAdd(\'class\')">🏫 Add Class</button>'
+        +'<button class="btn ghost" onclick="dashQuickAdd(\'teacher\')">👩‍🏫 Add Teacher</button>'
+        +'<button class="btn ghost" onclick="dashQuickAdd(\'subject\')">📚 Add Subject</button>'
+        +'<button class="btn ghost" onclick="dashQuickAdd(\'term\')">📅 Add Term</button>'
+        +'</div>'
+        +'</div>';
+    } else {
+      qa.innerHTML='';
+    }
+  }
+
   var el = document.getElementById('dact');
   var actTitle=document.getElementById('dact-title');
   if(actTitle) actTitle.textContent=L('recentActivity');
@@ -1970,6 +1992,14 @@ function renderDash(){
   el.innerHTML = DB.activity.slice(-8).reverse().map(function(a){
     return'<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);"><span style="font-family:monospace;font-size:.7rem;color:var(--ink3);white-space:nowrap;">'+a.time+'</span><span style="font-size:.84rem;">'+a.text+'</span></div>';
   }).join('');
+}
+
+// Navigate to the right page and open the add modal
+function dashQuickAdd(type){
+  var pageMap = {student:'students', class:'classes', teacher:'teachers', subject:'subjects', term:'terms'};
+  var modalMap = {student:'mst', class:'mc', teacher:'mt', subject:'ms', term:'mterm'};
+  showPage(pageMap[type]);
+  setTimeout(function(){ om(modalMap[type]); }, 120);
 }
 
 // ═══════════════════════════════════════
@@ -2166,15 +2196,14 @@ function delTeacher(id){
 //  CLASSES
 // ═══════════════════════════════════════
 function renderClasses(){
-  var admin=isAdmin();
-  document.getElementById('clsbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mc\')">+ Add Class</button>':'';
-  document.getElementById('clsacth').textContent=admin?'Action':'';
+  document.getElementById('clsacth').textContent='Action';
   var tb=document.getElementById('tbc');
   var list=myClasses();
   if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes yet.</p></div></td></tr>';return;}
   tb.innerHTML=list.map(function(c,i){
     var cnt=DB.students.filter(function(s){return s.classId===c.id;}).length;
-    return'<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td>'+cnt+'</td><td>'+(admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div>':'—')+'</td></tr>';
+    var actions=isAdmin()?'<div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div>':'—';
+    return'<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td>'+cnt+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
 function openEditClass(id){
@@ -2409,9 +2438,6 @@ function delSubject(id){
 //  STUDENTS
 // ═══════════════════════════════════════
 function setupStudents(){
-  var admin=isAdmin();
-  document.getElementById('stbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mst\')">'+L('addStudent')+'</button>':'';
-  document.getElementById('stacth').textContent=admin?L('action'):'';
   document.getElementById('stSearch').placeholder=L('searchStudents');
   var cl=document.getElementById('stCls');
   cl.innerHTML='<option value="">'+L('allClasses')+'</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
