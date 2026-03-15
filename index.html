@@ -920,10 +920,13 @@ tr:hover td{background:var(--s2);}
 
         <!-- TEACHER filters -->
         <div class="card noprint" id="rpTeacherCard" style="display:none;">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
             <div class="fg"><label>Student</label><select id="rpSt2" onchange="genReport()"><option value="">— Select Student —</option></select></div>
             <div class="fg"><label>Term / Period</label><select id="rpTerm2" onchange="genReport()"></select></div>
-            <div class="fg"><label>Class Teacher Remarks</label><input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term…" oninput="genReport()"></div>
+          </div>
+          <div class="fg" style="margin-bottom:.8rem;">
+            <label>💬 Class Teacher Remarks for this student</label>
+            <input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term, keep it up…" oninput="genReport()">
           </div>
           <!-- Teacher Approval Button -->
           <div id="rpTeacherApproval"></div>
@@ -4141,43 +4144,49 @@ function initLogoPreview(){
 // ═══════════════════════════════════════
 function syncTerms(){
   var at=activeTerms();
-  // Use director's saved academic year, fallback to auto-calculated
   var academicYear = (DB.settings&&DB.settings.academicYear) ? DB.settings.academicYear : (function(){
     var now=new Date(); var yr=now.getFullYear(); var mo=now.getMonth()+1;
     return mo<=7?(yr-1)+'-'+yr:yr+'-'+(yr+1);
   })();
 
-  // Build flat list of ALL components across all terms
-  // Each option value = termId__compId so we can split it later
+  // Build flat list of ALL periods
+  // If term already has name like "2025-2026 | Midterm 1" — use it directly
+  // Otherwise build it from academicYear + component name
   var periodOpts = '';
   at.forEach(function(t){
-    if(t.components && t.components.length){
+    // Check if name already contains the year (new format terms)
+    var alreadyFormatted = t.name && t.name.indexOf('|') >= 0;
+    if(alreadyFormatted){
+      // Use term name directly — it's already "2025-2026 | Midterm 1"
+      periodOpts += '<option value="'+t.id+'__'+(t.components&&t.components.length?t.components[0].id:'single')+'">'+t.name+'</option>';
+    } else if(t.components && t.components.length){
+      // Old format term with components — build label from year + component
       t.components.forEach(function(c){
         periodOpts += '<option value="'+t.id+'__'+c.id+'">'+academicYear+' | '+c.name+'</option>';
       });
     } else {
-      // Term with no components — show as single entry
+      // Old format term no components
       periodOpts += '<option value="'+t.id+'__single">'+academicYear+' | '+t.name+'</option>';
     }
   });
-  if(!periodOpts) periodOpts='<option value="">No active terms</option>';
+  if(!periodOpts) periodOpts='<option value="">No periods set — ask director to add terms</option>';
 
-  // Apply to all term selectors EXCEPT mkTerm (marks page has its own 2-step selector)
   ['rpTerm','rpTerm2','prTerm','anTerm','qzTerm','qpTerm'].forEach(function(id){
     var el=document.getElementById(id);if(!el)return;
     var cur=el.value; el.innerHTML=periodOpts;
     if(cur) el.value=cur;
   });
 
-  // mkTerm stays as Term 1/2/3 — period is chosen separately via mkComp
+  // mkTerm — show term names for 2-step selector
   var termOpts = at.map(function(t){
-    return '<option value="'+t.id+'">'+academicYear+' | '+t.name+'</option>';
+    var label = t.name && t.name.indexOf('|')>=0 ? t.name : academicYear+' | '+t.name;
+    return '<option value="'+t.id+'">'+label+'</option>';
   }).join('');
   if(!termOpts) termOpts='<option value="">No active terms</option>';
   var mkT=document.getElementById('mkTerm');
   if(mkT){ var cur=mkT.value; mkT.innerHTML=termOpts; if(cur) mkT.value=cur; }
 
-  // Quiz class: teacher can only enter quiz for their OWN class teacher class
+  // Quiz class restriction
   var isTeacher=!isAdmin()&&!isSuperAdmin();
   var qzClsOpts, qpClsOpts;
   if(isTeacher){
