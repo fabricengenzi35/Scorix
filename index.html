@@ -850,6 +850,13 @@ tr:hover td{background:var(--s2);}
         </div>
       </div>
 
+      <!-- PERMANENT FOOTER CREDIT — shows on every page except reports -->
+      <div class="noprint" id="footer-credit" style="text-align:center;margin-top:2rem;padding:.8rem;border-top:1px solid var(--bd);">
+        <span style="font-size:.72rem;color:var(--ink3);letter-spacing:.04em;">
+          Designed &amp; Developed by <strong style="color:var(--gold);">NGENZI Fabrice</strong> &nbsp;✦&nbsp; Powered by <strong style="color:var(--blue);">SCORIX</strong>
+        </span>
+      </div>
+
     </div><!-- /main -->
   </div><!-- /layout -->
 </div><!-- /appWrap -->
@@ -1526,6 +1533,9 @@ function showPage(id){
     super:renderSuperPanel
   };
   if(fns[id]) fns[id]();
+  // Hide credit on reports page, show on all others
+  var credit = document.getElementById('footer-credit');
+  if(credit) credit.style.display = (id==='reports' || id==='proclamation') ? 'none' : 'block';
   // Always apply language after rendering
   translatePageElements();
 }
@@ -3107,6 +3117,12 @@ function renderSuperPanel(){
       +(SUPERDB.superusers.length>1?'<button class="btn sm red" onclick="superDeleteSuperUser(\''+u.id+'\')">🗑️</button>':'<span style="font-size:.7rem;color:var(--ink3);">Primary</span>')
       +'</div>';
   }).join('');
+
+  // Creator credit
+  var creditEl = document.getElementById('super-credit');
+  if(creditEl){
+    creditEl.innerHTML = 'Designed & Developed by <strong style="color:var(--gold);">NGENZI Fabrice</strong> &nbsp;✦&nbsp; Powered by <strong style="color:var(--blue);">SCORIX</strong>';
+  }
 }
 
 function updateBrandPreview(){
