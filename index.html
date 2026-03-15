@@ -39,6 +39,8 @@ body.light .theme-toggle .tt-icon{transform:rotate(180deg);}
 /* ── ROLE-BASED VISIBILITY ── */
 body.role-teacher .admin-only { display: none !important; }
 body.role-admin .admin-only { display: flex !important; }
+body.role-admin .teacher-only { display: none !important; }
+body.role-teacher .teacher-only { display: flex !important; }
 
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
@@ -902,10 +904,14 @@ tr:hover td{background:var(--s2);}
       <!-- REPORTS -->
       <div class="page" id="p-reports">
         <div class="ph"><div><div class="phtitle">Report Cards</div><div class="phsub">Official Academic Bridge report card</div></div>
-        <div class="phact">
+        <div class="phact admin-only">
           <button class="btn ghost" onclick="openReportSettings()">⚙️ Report Settings</button>
           <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
-        </div></div>
+        </div>
+        <div class="phact teacher-only">
+          <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
+        </div>
+        </div>
 
         <!-- DIRECTOR filters -->
         <div class="card noprint" id="rpDirectorCard" style="display:none;">
@@ -914,36 +920,41 @@ tr:hover td{background:var(--s2);}
             <div class="fg"><label>Student</label><select id="rpSt" onchange="genReport()"><option value="">— Select Student —</option></select></div>
             <div class="fg"><label>Term / Period</label><select id="rpTerm" onchange="genReport()"></select></div>
           </div>
-          <!-- Approval status for selected class -->
+          <!-- School Logo for director only -->
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding-top:.7rem;border-top:1px solid var(--bd);margin-top:.5rem;">
+            <div class="fg" style="flex:1;min-width:200px;">
+              <label>🖼️ School Logo <span style="color:var(--ink3);font-weight:400;">(optional)</span></label>
+              <input type="file" id="rpLogoFile" accept="image/*" onchange="handleLogoUpload(event)" style="padding:6px 10px;font-size:.82rem;">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="rpLogoPreview" style="display:none;width:56px;height:56px;border-radius:8px;border:1px solid var(--bd);overflow:hidden;background:var(--s2);display:flex;align-items:center;justify-content:center;">
+                <img id="rpLogoImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;">
+              </div>
+              <button class="btn sm red" id="rpLogoRemove" style="display:none;" onclick="removeLogo()">✕ Remove</button>
+            </div>
+          </div>
           <div id="rpApprovalStatus"></div>
         </div>
 
         <!-- TEACHER filters -->
         <div class="card noprint" id="rpTeacherCard" style="display:none;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
-            <div class="fg"><label>Student</label><select id="rpSt2" onchange="genReport()"><option value="">— Select Student —</option></select></div>
-            <div class="fg"><label>Term / Period</label><select id="rpTerm2" onchange="genReport()"></select></div>
+            <div class="fg"><label>👨‍🎓 Student</label><select id="rpSt2" onchange="genReport()"><option value="">— Select Student —</option></select></div>
+            <div class="fg"><label>📅 Term / Period</label><select id="rpTerm2" onchange="genReport()"></select></div>
           </div>
-          <div class="fg" style="margin-bottom:.8rem;">
-            <label>💬 Class Teacher Remarks for this student</label>
-            <input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term, keep it up…" oninput="genReport()">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
+            <div class="fg">
+              <label>💬 Class Teacher Remarks</label>
+              <input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term…" oninput="genReport()">
+            </div>
+            <div class="fg">
+              <label>📋 Discipline Note</label>
+              <input type="text" id="rpDiscipline" placeholder="e.g. Good conduct, respectful…" oninput="genReport()">
+            </div>
           </div>
-          <!-- Teacher Approval Button -->
           <div id="rpTeacherApproval"></div>
         </div>
 
-        <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--bd);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;" class="noprint">
-          <div class="fg" style="flex:1;min-width:200px;">
-            <label>🖼️ School Logo <span style="color:var(--ink3);font-weight:400;">(optional)</span></label>
-            <input type="file" id="rpLogoFile" accept="image/*" onchange="handleLogoUpload(event)" style="padding:6px 10px;font-size:.82rem;">
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div id="rpLogoPreview" style="display:none;width:56px;height:56px;border-radius:8px;border:1px solid var(--bd);overflow:hidden;background:var(--s2);display:flex;align-items:center;justify-content:center;">
-              <img id="rpLogoImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;">
-            </div>
-            <button class="btn sm red" id="rpLogoRemove" style="display:none;" onclick="removeLogo()">✕ Remove</button>
-          </div>
-        </div>
         <div id="rpSettingsFlash"></div>
         <div id="rpOut"><div class="empty"><div class="ei">📄</div><p>Select a student to preview their report card.</p></div></div>
       </div>
@@ -2165,8 +2176,15 @@ function dashQuickAdd(type){
 // ═══════════════════════════════════════
 function mySubjects(){
   if(isAdmin()) return DB.subjects;
-  if(!ME.subjects||!ME.subjects.length) return DB.subjects; // if no restriction, see all
-  return DB.subjects.filter(function(s){ return ME.subjects.indexOf(s.id)>=0; });
+  // Get subjects from ME (logged in user object)
+  var subs = ME&&ME.subjects&&ME.subjects.length ? ME.subjects : [];
+  // Also check DB.users record
+  if(!subs.length){
+    var u=DB.users.find(function(x){return x.id===(ME&&ME.id);});
+    subs = u&&u.subjects&&u.subjects.length ? u.subjects : [];
+  }
+  if(!subs.length) return DB.subjects; // fallback: show all
+  return DB.subjects.filter(function(s){ return subs.indexOf(s.id)>=0; });
 }
 function addTeacher(){
   var name=document.getElementById('mtn').value.trim();
@@ -3675,10 +3693,11 @@ function genReport(){
   html+='<td style="'+tdS+'"></td>';
   html+='</tr>';
 
-  // ── COMMENT ROW ──
+  // ── COMMENT & DISCIPLINE ROW ──
   var remark=document.getElementById('rpRemark')?document.getElementById('rpRemark').value:'';
+  var discipline=document.getElementById('rpDiscipline')?document.getElementById('rpDiscipline').value:'';
   html+='<tr style="background:#f4f0e6;">';
-  html+='<td style="'+tdSL+'font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6b5e50;">Comment</td>';
+  html+='<td style="'+tdSL+'font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6b5e50;">Remarks</td>';
   html+='<td colspan="'+maxEmptyCols+'" style="'+tdS+'"></td>';
   termsToShow.forEach(function(t,ti){
     var comps=termCompsList[ti];
@@ -3688,6 +3707,12 @@ function genReport(){
   });
   html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-style:italic;color:#6b5e50;font-size:.75rem;">'+(remark||'')+'</td>';
   html+='</tr>';
+  if(discipline){
+    html+='<tr style="background:#f4f0e6;">';
+    html+='<td style="'+tdSL+'font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6b5e50;">Discipline</td>';
+    html+='<td colspan="'+(maxEmptyCols)+'" style="'+tdS+'font-style:italic;color:#6b5e50;font-size:.75rem;">'+discipline+'</td>';
+    html+='</tr>';
+  }
 
   html+='</tbody></table>';
 
@@ -4177,9 +4202,12 @@ function syncTerms(){
     if(cur) el.value=cur;
   });
 
-  // mkTerm — show term names for 2-step selector
+  // mkTerm — show clean term names only (no year since period dropdown handles detail)
   var termOpts = at.map(function(t){
-    var label = t.name && t.name.indexOf('|')>=0 ? t.name : academicYear+' | '+t.name;
+    // If term already has year in name, use it; otherwise use just the term label
+    var label = t.termLabel || t.name || 'Term';
+    // Strip year prefix if present to avoid duplication
+    if(label.indexOf('|')>=0) label = label.split('|')[1].trim();
     return '<option value="'+t.id+'">'+label+'</option>';
   }).join('');
   if(!termOpts) termOpts='<option value="">No active terms</option>';
