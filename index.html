@@ -703,7 +703,7 @@ tr:hover td{background:var(--s2);}
         </div>
         <!-- QUICK ACTIONS — Admin only -->
         <div id="dash-quickactions"></div>
-        <div class="card"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
+        <div class="card admin-only"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
       </div>
 
       <!-- DIRECTOR OVERVIEW -->
@@ -791,12 +791,13 @@ tr:hover td{background:var(--s2);}
         <!-- TERM MARKS MODE -->
         <div id="term-marks-mode">
           <div class="card">
-            <div class="g3" style="margin-bottom:1rem;">
-              <div class="fg"><label>Class</label><select id="mkCls" onchange="loadMkTable()"><option value="">— Select Class —</option></select></div>
-              <div class="fg"><label>Subject</label><select id="mkSub" onchange="loadMkTable()"><option value="">— Select Subject —</option></select></div>
-              <div class="fg"><label>Term</label><select id="mkTerm" onchange="loadMkTable()"></select></div>
+            <div class="g4" style="margin-bottom:1rem;">
+              <div class="fg"><label>Class</label><select id="mkCls" onchange="onMkTermChange()"><option value="">— Select Class —</option></select></div>
+              <div class="fg"><label>Subject</label><select id="mkSub" onchange="onMkTermChange()"><option value="">— Select Subject —</option></select></div>
+              <div class="fg"><label>Term</label><select id="mkTerm" onchange="onMkTermChange()"></select></div>
+              <div class="fg"><label>Period</label><select id="mkComp" onchange="loadMkTable()"><option value="">— Select Period —</option></select></div>
             </div>
-            <div id="mkWrap"><div class="empty"><div class="ei">✏️</div><p>Select class and subject to enter marks.</p></div></div>
+            <div id="mkWrap"><div class="empty"><div class="ei">✏️</div><p>Select class, subject, term and period to enter marks.</p></div></div>
           </div>
         </div>
 
@@ -957,6 +958,11 @@ tr:hover td{background:var(--s2);}
             <div class="fg span2"><label>School Name</label><input type="text" id="schin" placeholder="e.g. Greenfield Primary School"></div>
             <div class="fg span2"><label>School Motto <span style="color:var(--ink3);font-weight:400;">(appears on report cards)</span></label><input type="text" id="schmotto" placeholder="e.g. Excellence in Education"></div>
             <div class="fg span2"><label>School Address / Location <span style="color:var(--ink3);font-weight:400;">(optional)</span></label><input type="text" id="schaddr" placeholder="e.g. P.O. Box 123, Kigali"></div>
+            <div class="fg span2">
+              <label>📅 Academic Year <span style="color:var(--ink3);font-weight:400;">(used on all term dropdowns)</span></label>
+              <input type="text" id="schAcadYear" placeholder="e.g. 2025-2026" style="font-size:1rem;font-weight:600;max-width:220px;">
+              <div style="font-size:.7rem;color:var(--ink3);margin-top:4px;">This year will appear on all Midterm/Exam selections for teachers.</div>
+            </div>
           </div>
           <button class="btn gold" onclick="saveSchool()">💾 Save School Info</button>
         </div>
@@ -2072,6 +2078,10 @@ function renderDash(){
   var el = document.getElementById('dact');
   var actTitle=document.getElementById('dact-title');
   if(actTitle) actTitle.textContent=L('recentActivity');
+
+  // Recent activity — admin only
+  if(!isAdmin()) return;
+
   if(!DB.activity.length){
     el.innerHTML='<div class="empty"><div class="ei">📋</div><p>'+L('noActivity')+'</p></div>';return;
   }
@@ -2525,9 +2535,11 @@ function renderStudents(){
   var admin=isAdmin();
   var q=document.getElementById('stSearch').value.toLowerCase();
   var cf=document.getElementById('stCls').value;
-  var list=admin?DB.students:DB.students.filter(function(s){return myClasses().some(function(c){return c.id===s.classId;});});
+  var list=admin?DB.students.slice():DB.students.filter(function(s){return myClasses().some(function(c){return c.id===s.classId;});});
   if(q) list=list.filter(function(s){return s.name.toLowerCase().includes(q)||s.sid.includes(q);});
   if(cf) list=list.filter(function(s){return s.classId===cf;});
+  // Sort A to Z
+  list.sort(function(a,b){return a.name.localeCompare(b.name);});
   var tb=document.getElementById('tbst');
   if(!list.length){
     tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>'+L('noStudents')+'</p></div></td></tr>';
@@ -2652,12 +2664,59 @@ function setupMarks(){
   switchMarkMode(_markMode);
 }
 
-function loadMkTable(){
-  var cid  = document.getElementById('mkCls').value;
-  var sid  = document.getElementById('mkSub').value;
-  var tid  = document.getElementById('mkTerm').value;
+function onMkTermChange(){
+  var tid = document.getElementById('mkTerm').value;
+  var compSel = document.getElementById('mkComp');
   var wrap = document.getElementById('mkWrap');
-  if(!cid||!sid){ wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select class and subject to enter marks.</p></div>'; return; }
+
+  // Find the selected term and its components
+  var term = DB.terms.find(function(t){ return t.id===tid; });
+  var comps = (term&&term.components&&term.components.length) ? term.components : null;
+
+  if(comps){
+    // Populate Period dropdown with the term's components
+    compSel.innerHTML = '<option value="">— Select Period —</option>'
+      + comps.map(function(c){
+          return '<option value="'+c.id+'">'+c.name+' (max: '+c.maxMark+')</option>';
+        }).join('');
+    compSel.parentElement.style.display='';
+  } else {
+    // No components — hide period dropdown and load directly
+    compSel.innerHTML='<option value="__single__">Single Mark</option>';
+    compSel.value='__single__';
+    compSel.parentElement.style.display='none';
+  }
+
+  // Reset the marks table
+  wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select period to enter marks.</p></div>';
+}
+
+function loadMkTable(){
+  var cid   = document.getElementById('mkCls').value;
+  var sid   = document.getElementById('mkSub').value;
+  var tid   = document.getElementById('mkTerm').value;
+  var compId= document.getElementById('mkComp').value;
+  var wrap  = document.getElementById('mkWrap');
+
+  if(!cid||!sid||!tid||!compId){
+    wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Select class, subject, term and period to enter marks.</p></div>';
+    return;
+  }
+
+  // Block teacher from accessing class not assigned to them
+  if(!isAdmin()){
+    var allowed=myClasses().some(function(c){return c.id===cid;});
+    if(!allowed){
+      wrap.innerHTML='<div class="al warn">⛔ You are not assigned to this class.</div>';
+      return;
+    }
+    // Block teacher from accessing subject not assigned to them
+    var allowedSub=mySubjects().some(function(s){return s.id===sid;});
+    if(!allowedSub&&sid!=='__overall__'){
+      wrap.innerHTML='<div class="al warn">⛔ You are not assigned to this subject.</div>';
+      return;
+    }
+  }
 
   // ── OVERALL CLASS VIEW for class teachers ──
   if(sid==='__overall__'){
@@ -2692,80 +2751,61 @@ function loadMkTable(){
     return;
   }
 
-  var students = DB.students.filter(function(s){ return s.classId===cid; });
+  var students = DB.students.filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
   var sub      = DB.subjects.find(function(s){ return s.id===sid; });
   var term     = DB.terms.find(function(t){ return t.id===tid; });
   if(!students.length){ wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>'; return; }
+  if(!sub){ wrap.innerHTML='<div class="empty"><p>Subject not found.</p></div>'; return; }
 
-  var comps = (term&&term.components&&term.components.length) ? term.components : null;
-  var isL   = sub.scale==='letter';
+  // Find the selected component (period)
+  var allComps = (term&&term.components&&term.components.length) ? term.components : null;
+  var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
+  var isL = sub.scale==='letter';
 
-  // ── Build component info banner ──
-  var compBanner = '';
-  if(comps){
-    var total = comps.reduce(function(s,c){return s+c.maxMark;},0);
-    compBanner = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:.9rem;padding:.7rem 1rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
-      +'<span style="font-size:.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-right:4px;">Components:</span>'
-      +comps.map(function(c){return'<span class="tbadge" style="color:var(--gold);">'+c.name+' <span style="opacity:.6;">/'+c.maxMark+'</span></span>';}).join('')
-      +'<span style="margin-left:auto;font-size:.75rem;color:var(--ink2);">Total: <strong style="color:var(--gold);">'+total+'</strong></span>'
+  // Banner showing what period we are entering
+  var banner = '';
+  if(selectedComp){
+    banner = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:.9rem;padding:.7rem 1rem;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.25);border-radius:8px;">'
+      +'<span style="font-size:1.1rem;">📝</span>'
+      +'<span style="font-size:.85rem;font-weight:600;color:var(--gold);">'+selectedComp.name+'</span>'
+      +'<span style="font-size:.75rem;color:var(--ink3);margin-left:4px;">— Enter marks out of <strong style="color:var(--ink);">'+selectedComp.maxMark+'</strong></span>'
       +'</div>';
   }
 
-  // ── Build table header ──
-  var thead = '<tr><th>#</th><th>Student</th><th>No.</th>';
-  if(comps){
-    comps.forEach(function(c){ thead+='<th style="text-align:center;">'+c.name+'<div style="font-size:.62rem;color:var(--ink3);font-weight:400;">/'+c.maxMark+'</div></th>'; });
-    thead+='<th style="text-align:center;">Total<div style="font-size:.62rem;color:var(--ink3);font-weight:400;">/'+comps.reduce(function(s,c){return s+c.maxMark;},0)+'</div></th>';
-  } else {
-    thead+='<th style="text-align:center;">Mark'+(isL?'':' /'+sub.scale)+'</th>';
-  }
-  thead+='<th style="text-align:center;">Grade</th><th style="text-align:center;">Position</th></tr>';
+  // Build table header
+  var maxMark = selectedComp ? selectedComp.maxMark : parseFloat(sub.scale);
+  var thead = '<tr><th>#</th><th>Student</th><th>No.</th>'
+    +'<th style="text-align:center;">Mark <span style="font-weight:400;color:var(--ink3);">/'+maxMark+'</span></th>'
+    +'<th style="text-align:center;">Grade</th>'
+    +'<th style="text-align:center;">Status</th>'
+    +'</tr>';
 
-  // ── Build rows ──
+  // Build rows — one mark input per student for this period
   var rows = students.map(function(s,i){
-    var row = '<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.sid+'</td>';
+    var markKey = selectedComp
+      ? s.id+'_'+sid+'_'+tid+'_'+selectedComp.id
+      : s.id+'_'+sid+'_'+tid;
+    var val = DB.marks[markKey]!==undefined ? DB.marks[markKey] : '';
+    var gr  = val!=='' ? calcGrade((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : '—';
+    var ps  = val!=='' ? checkPass((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : null;
 
-    if(comps){
-      // Component inputs
-      var compVals = comps.map(function(c){
-        var key = s.id+'_'+sid+'_'+tid+'_'+c.id;
-        return DB.marks[key]!==undefined ? DB.marks[key] : '';
-      });
-      comps.forEach(function(c,ci){
-        var key = s.id+'_'+sid+'_'+tid+'_'+c.id;
-        var val = DB.marks[key]!==undefined ? DB.marks[key] : '';
-        row+='<td style="text-align:center;">'
-          +'<input class="mkin" type="number" id="mkc_'+s.id+'_'+c.id+'" min="0" max="'+c.maxMark+'" step="0.5" value="'+val+'"'
-          +' oninput="prevMarkComp(\''+s.id+'\',\''+sid+'\',\''+tid+'\')" style="width:62px;">'
-          +'</td>';
-      });
-      // Total cell
-      var tot = calcCompTotal(s.id, sid, tid, comps, null);
-      var totMax = comps.reduce(function(s,c){return s+c.maxMark;},0);
-      var syntheticV = tot!==null ? (tot/totMax*parseFloat(sub.scale)).toFixed(1) : '';
-      var gr = calcGrade(syntheticV, sub);
-      var ps = checkPass(syntheticV, sub);
-      row+='<td style="text-align:center;"><span id="mktot_'+s.id+'" style="font-weight:700;font-size:.9rem;">'+(tot!==null?tot:'—')+'</span></td>';
-      row+='<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>';
-      row+='<td style="text-align:center;" id="ps_'+s.id+'"><span style="font-size:.78rem;font-weight:600;color:var(--blue);">'+getSubjectPosition(s.id,cid,sid,tid,students,sub)+'</span></td>';
-    } else {
-      // Single mark input
-      var key = s.id+'_'+sid+'_'+tid;
-      var val = DB.marks[key]||'';
-      var gr  = calcGrade(val,sub);
-      var ps  = checkPass(val,sub);
-      var inp = isL
-        ?'<select class="mksel" id="mk_'+s.id+'" onchange="prevMark(\''+s.id+'\',\''+sid+'\')"><option value="">—</option>'+['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(val===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>'
-        :'<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+sub.scale+'" step="0.5" value="'+val+'" oninput="prevMark(\''+s.id+'\',\''+sid+'\')">';
-      row+='<td style="text-align:center;">'+inp+'</td>';
-      row+='<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>';
-      row+='<td style="text-align:center;" id="ps_'+s.id+'"><span style="font-size:.78rem;font-weight:600;color:var(--blue);">'+getSubjectPosition(s.id,cid,sid,tid,students,sub)+'</span></td>';
-    }
-    return row+'</tr>';
+    var inp = isL
+      ? '<select class="mksel" id="mk_'+s.id+'" onchange="prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')"><option value="">—</option>'
+        +['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(val===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>'
+      : '<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+maxMark+'" step="0.5" value="'+val+'"'
+        +' oninput="prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')">';
+
+    return '<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td><strong>'+s.name+'</strong></td>'
+      +'<td>'+s.sid+'</td>'
+      +'<td style="text-align:center;">'+inp+'</td>'
+      +'<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>'
+      +'<td style="text-align:center;" id="ps_'+s.id+'">'+(val!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—')+'</td>'
+      +'</tr>';
   }).join('');
 
-  wrap.innerHTML = compBanner
-    +'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>';
+  wrap.innerHTML = banner + '<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>';
 }
 
 // Calculate the total from component inputs (live, before save)
@@ -2784,17 +2824,26 @@ function prevMarkComp(stid, subid, tid){
   var comps = term&&term.components&&term.components.length ? term.components : null;
   var sub   = DB.subjects.find(function(s){ return s.id===subid; });
   if(!comps||!sub) return;
+  // Validate each component — deny over maximum
+  comps.forEach(function(c){
+    var el=document.getElementById('mkc_'+stid+'_'+c.id);
+    if(el&&el.value!==''){
+      var v=parseFloat(el.value);
+      if(v>c.maxMark){
+        el.value=c.maxMark;
+        el.style.borderColor='var(--red)';
+        setTimeout(function(){el.style.borderColor='';},1500);
+      } else { el.style.borderColor=''; }
+    }
+  });
   var totMax = comps.reduce(function(s,c){return s+c.maxMark;},0);
   var tot    = calcCompTotal(stid, subid, tid, comps, null);
   var totEl  = document.getElementById('mktot_'+stid);
   if(totEl) totEl.textContent = tot!==null ? tot : '—';
   var syntheticV = tot!==null ? (tot/totMax*parseFloat(sub.scale)).toFixed(1) : '';
   var gr = calcGrade(syntheticV, sub);
-  var ps = checkPass(syntheticV, sub);
   var grEl = document.getElementById('gr_'+stid);
-  var psEl = document.getElementById('ps_'+stid);
   if(grEl) grEl.innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
-  // Refresh all positions in the table after mark change
   var cid=document.getElementById('mkCls').value;
   var students=DB.students.filter(function(s){return s.classId===cid;});
   students.forEach(function(st){
@@ -2803,66 +2852,65 @@ function prevMarkComp(stid, subid, tid){
   });
 }
 
-function prevMark(stid,subid){
+function prevMarkSingle(stid, subid, maxMark){
   var sub=DB.subjects.find(function(s){return s.id===subid;});
   var el=document.getElementById('mk_'+stid);
   if(!el)return;
-  var v=el.value;
-  var gr=calcGrade(v,sub);var ps=checkPass(v,sub);
-  document.getElementById('gr_'+stid).innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
-  document.getElementById('ps_'+stid).innerHTML=v!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—';
+  var v=parseFloat(el.value);
+  // Deny over maximum
+  if(!isNaN(v)&&sub.scale!=='letter'&&v>maxMark){
+    el.value=maxMark;
+    el.style.borderColor='var(--red)';
+    setTimeout(function(){el.style.borderColor='';},1500);
+    v=maxMark;
+  } else { el.style.borderColor=''; }
+  var val=el.value;
+  // Convert to subject scale for grade calc
+  var scaled = val!=='' ? (parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1) : '';
+  var gr=calcGrade(scaled,sub);
+  var ps=checkPass(scaled,sub);
+  var grEl=document.getElementById('gr_'+stid);
+  var psEl=document.getElementById('ps_'+stid);
+  if(grEl) grEl.innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
+  if(psEl) psEl.innerHTML=val!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—';
 }
 
 function saveAllMarks(){
-  var cid  = document.getElementById('mkCls').value;
-  var sid  = document.getElementById('mkSub').value;
-  var tid  = document.getElementById('mkTerm').value;
-  if(!cid||!sid){ alert('Select class and subject first.'); return; }
+  var cid   = document.getElementById('mkCls').value;
+  var sid   = document.getElementById('mkSub').value;
+  var tid   = document.getElementById('mkTerm').value;
+  var compId= document.getElementById('mkComp').value;
+  if(!cid||!sid||!tid){ alert('Select class, subject and term first.'); return; }
 
-  var students = DB.students.filter(function(s){ return s.classId===cid; });
-  var sub      = DB.subjects.find(function(s){ return s.id===sid; });
-  var term     = DB.terms.find(function(t){ return t.id===tid; });
-  var comps    = term&&term.components&&term.components.length ? term.components : null;
+  var students = DB.students.filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var allComps = (term&&term.components&&term.components.length) ? term.components : null;
+  var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
   var cnt = 0;
 
   students.forEach(function(s){
-    if(comps){
-      var totMax = comps.reduce(function(x,c){return x+c.maxMark;},0);
-      var tot=0; var hasSome=false;
-      comps.forEach(function(c){
-        var el = document.getElementById('mkc_'+s.id+'_'+c.id);
-        if(el&&el.value!==''){
-          var v=parseFloat(el.value);
-          // Clamp to component max
-          v=Math.min(v,c.maxMark);
-          DB.marks[s.id+'_'+sid+'_'+tid+'_'+c.id]=String(v);
-          tot+=v; hasSome=true;
-        }
-      });
-      // Save synthetic total as the main mark (scaled to subject max)
-      if(hasSome){
-        var syntheticV=(tot/totMax*parseFloat(sub.scale)).toFixed(1);
-        DB.marks[s.id+'_'+sid+'_'+tid]=syntheticV;
-        cnt++;
-      }
-    } else {
-      var el=document.getElementById('mk_'+s.id);
-      if(el&&el.value!==''){DB.marks[s.id+'_'+sid+'_'+tid]=el.value;cnt++;}
+    var el=document.getElementById('mk_'+s.id);
+    if(el&&el.value!==''){
+      var v=parseFloat(el.value);
+      var maxMark = selectedComp ? selectedComp.maxMark : parseFloat(DB.subjects.find(function(x){return x.id===sid;}).scale);
+      v=Math.min(v,maxMark);
+      // Save with component key if component selected, else plain key
+      var markKey = selectedComp
+        ? s.id+'_'+sid+'_'+tid+'_'+selectedComp.id
+        : s.id+'_'+sid+'_'+tid;
+      DB.marks[markKey]=String(v);
+      cnt++;
     }
   });
 
-  var sn=DB.subjects.find(function(s){return s.id===sid;});
-  addLog('Saved '+cnt+' marks — '+(sn?sn.name:'')+' ('+termLabel(tid)+')');
-  dbSave(); renderDash();
-
-  // Flash success inline instead of alert
+  addLog('Saved '+cnt+' marks — '+(selectedComp?selectedComp.name:tid));
+  dbSave();
+  // Flash confirmation
   var wrap=document.getElementById('mkWrap');
-  var banner=document.createElement('div');
-  banner.className='al ok';
-  banner.style.cssText='margin-bottom:.8rem;';
-  banner.textContent='✅ '+cnt+' marks saved!';
-  wrap.insertBefore(banner,wrap.firstChild);
-  setTimeout(function(){if(banner.parentNode)banner.parentNode.removeChild(banner);},2500);
+  var flash=document.createElement('div');
+  flash.className='al ok';
+  flash.innerHTML='✅ '+cnt+' marks saved'+(selectedComp?' for <strong>'+selectedComp.name+'</strong>':'')+'!';
+  wrap.insertBefore(flash,wrap.firstChild);
+  setTimeout(function(){if(flash.parentNode)flash.parentNode.removeChild(flash);},3000);
 }
 
 // ═══════════════════════════════════════
@@ -2912,6 +2960,7 @@ function setupReports(){
     }
     list=DB.students.filter(function(s){return s.classId===ct;});
   }
+  list = list.slice().sort(function(a,b){return a.name.localeCompare(b.name);});
   document.getElementById('rpSt').innerHTML='<option value="">— Select Student —</option>'+list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
   syncTerms();
   initLogoPreview();
@@ -2919,7 +2968,9 @@ function setupReports(){
 }
 function genReport(){
   var stid=document.getElementById('rpSt').value;
-  var selectedTerm=document.getElementById('rpTerm').value;
+  var selectedTermRaw=document.getElementById('rpTerm').value;
+  var tp=parseTermPeriod(selectedTermRaw);
+  var selectedTerm=tp.termId; // just the termId for report logic
   var out=document.getElementById('rpOut');
   if(!stid){out.innerHTML='<div class="empty"><div class="ei">&#128196;</div><p>Select a student to preview their report card.</p></div>';return;}
   var st=DB.students.find(function(s){return s.id===stid;});
@@ -3461,7 +3512,10 @@ function setupProcl(){
 }
 function genProcl(){
   var cid=document.getElementById('prCls').value;
-  var term=document.getElementById('prTerm').value;
+  var termRaw=document.getElementById('prTerm').value;
+  var tp=parseTermPeriod(termRaw);
+  var term=tp.termId;
+  var compId=tp.compId;
   var out=document.getElementById('prOut');
   if(!cid){out.innerHTML='<div class="empty"><div class="ei">🏆</div><p>No class selected.</p></div>';return;}
   if(!isAdmin()&&ME.classTeacher&&cid!==ME.classTeacher){
@@ -3475,7 +3529,8 @@ function genProcl(){
   var ranked=list.map(function(s){
     var tot=0,cnt=0;
     DB.subjects.forEach(function(sub){
-      var v=DB.marks[s.id+'_'+sub.id+'_'+term];
+      var markKey = (compId&&compId!=='single') ? s.id+'_'+sub.id+'_'+term+'_'+compId : s.id+'_'+sub.id+'_'+term;
+      var v=DB.marks[markKey];
       if(v!==undefined&&v!==''&&sub.scale!=='letter'){tot+=(parseFloat(v)/parseFloat(sub.scale))*100;cnt++;}
     });
     return Object.assign({},s,{avg:cnt?(tot/cnt):null,cnt:cnt});
@@ -3484,7 +3539,8 @@ function genProcl(){
   // ── Subject averages across all students ──
   var subjectAverages=DB.subjects.map(function(sub){
     var vals=list.map(function(s){
-      var v=DB.marks[s.id+'_'+sub.id+'_'+term];
+      var markKey = (compId&&compId!=='single') ? s.id+'_'+sub.id+'_'+term+'_'+compId : s.id+'_'+sub.id+'_'+term;
+      var v=DB.marks[markKey];
       return v!==undefined&&v!==''&&sub.scale!=='letter'?(parseFloat(v)/parseFloat(sub.scale))*100:null;
     }).filter(function(x){return x!==null;});
     var avg=vals.length?(vals.reduce(function(a,b){return a+b;},0)/vals.length):null;
@@ -3577,6 +3633,7 @@ function setupSettings(){
   document.getElementById('schin').value=DB.settings.schoolName||'';
   var mottoEl=document.getElementById('schmotto'); if(mottoEl) mottoEl.value=DB.settings.schoolMotto||'';
   var addrEl=document.getElementById('schaddr');   if(addrEl)  addrEl.value=DB.settings.schoolAddress||'';
+  var ayEl=document.getElementById('schAcadYear'); if(ayEl) ayEl.value=DB.settings.academicYear||'';
   document.getElementById('grA').value=DB.settings.grA;
   document.getElementById('grB').value=DB.settings.grB;
   document.getElementById('grC').value=DB.settings.grC;
@@ -3853,19 +3910,69 @@ function initLogoPreview(){
 // ═══════════════════════════════════════
 function syncTerms(){
   var at=activeTerms();
-  var opts=at.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
-  if(!opts) opts='<option value="">No active terms</option>';
-  ['mkTerm','rpTerm','prTerm','anTerm','qzTerm','qpTerm'].forEach(function(id){
-    var el=document.getElementById(id);if(!el)return;
-    var cur=el.value;el.innerHTML=opts;
-    if(at.find(function(t){return t.id===cur;})) el.value=cur;
+  // Use director's saved academic year, fallback to auto-calculated
+  var academicYear = (DB.settings&&DB.settings.academicYear) ? DB.settings.academicYear : (function(){
+    var now=new Date(); var yr=now.getFullYear(); var mo=now.getMonth()+1;
+    return mo<=7?(yr-1)+'-'+yr:yr+'-'+(yr+1);
+  })();
+
+  // Build flat list of ALL components across all terms
+  // Each option value = termId__compId so we can split it later
+  var periodOpts = '';
+  at.forEach(function(t){
+    if(t.components && t.components.length){
+      t.components.forEach(function(c){
+        periodOpts += '<option value="'+t.id+'__'+c.id+'">'+academicYear+' | '+c.name+'</option>';
+      });
+    } else {
+      // Term with no components — show as single entry
+      periodOpts += '<option value="'+t.id+'__single">'+academicYear+' | '+t.name+'</option>';
+    }
   });
-  // Sync quiz class selects from shared DB
-  var clsOpts='<option value="">— Select Class —</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
-  ['qzCls','qpCls'].forEach(function(id){
+  if(!periodOpts) periodOpts='<option value="">No active terms</option>';
+
+  // Apply to all term selectors EXCEPT mkTerm (marks page has its own 2-step selector)
+  ['rpTerm','prTerm','anTerm','qzTerm','qpTerm'].forEach(function(id){
     var el=document.getElementById(id);if(!el)return;
-    var cur=el.value; el.innerHTML=clsOpts; if(cur) el.value=cur;
+    var cur=el.value; el.innerHTML=periodOpts;
+    if(cur) el.value=cur;
   });
+
+  // mkTerm stays as Term 1/2/3 — period is chosen separately via mkComp
+  var termOpts = at.map(function(t){
+    return '<option value="'+t.id+'">'+academicYear+' | '+t.name+'</option>';
+  }).join('');
+  if(!termOpts) termOpts='<option value="">No active terms</option>';
+  var mkT=document.getElementById('mkTerm');
+  if(mkT){ var cur=mkT.value; mkT.innerHTML=termOpts; if(cur) mkT.value=cur; }
+
+  // Quiz class: teacher can only enter quiz for their OWN class teacher class
+  var isTeacher=!isAdmin()&&!isSuperAdmin();
+  var qzClsOpts, qpClsOpts;
+  if(isTeacher){
+    var ct=ME&&ME.classTeacher;
+    var ctCls=ct?DB.classes.find(function(c){return c.id===ct;}):null;
+    if(ctCls){
+      qzClsOpts='<option value="'+ctCls.id+'">'+ctCls.name+'</option>';
+      qpClsOpts='<option value="'+ctCls.id+'">'+ctCls.name+'</option>';
+    } else {
+      qzClsOpts='<option value="">— No class assigned —</option>';
+      qpClsOpts='<option value="">— No class assigned —</option>';
+    }
+  } else {
+    var adminClsOpts='<option value="">— Select Class —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    qzClsOpts=adminClsOpts;
+    qpClsOpts=adminClsOpts;
+  }
+  var qzEl=document.getElementById('qzCls');if(qzEl){var qzv=qzEl.value;qzEl.innerHTML=qzClsOpts;if(qzv)qzEl.value=qzv;}
+  var qpEl=document.getElementById('qpCls');if(qpEl){var qpv=qpEl.value;qpEl.innerHTML=qpClsOpts;if(qpv)qpEl.value=qpv;}
+}
+
+// Helper: parse termId and compId from combined value like "T1__T1_mid"
+function parseTermPeriod(val){
+  if(!val) return {termId:'', compId:''};
+  var parts = val.split('__');
+  return {termId: parts[0]||'', compId: parts[1]||''};
 }
 function syncAll(){
   syncTerms();
@@ -3935,7 +4042,9 @@ function updateTopbarModeBtn(){
 function loadQuizTable(){
   var cid=document.getElementById('qzCls').value;
   var week=document.getElementById('qzWeek').value;
-  var tid=document.getElementById('qzTerm').value;
+  var tidRaw=document.getElementById('qzTerm').value;
+  var tp=parseTermPeriod(tidRaw);
+  var tid=tp.termId||tidRaw; // use termId part only for quiz
   var wrap=document.getElementById('qzWrap');
   if(!cid){wrap.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week to enter quiz marks.</p></div>';return;}
   var students=DB.students.filter(function(s){return s.classId===cid;});
@@ -4001,7 +4110,9 @@ function setupQuizProcl(){syncTerms();genQuizProcl();}
 function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
-  var tid=document.getElementById('qpTerm').value;
+  var tidRaw=document.getElementById('qpTerm').value;
+  var tp=parseTermPeriod(tidRaw);
+  var tid=tp.termId||tidRaw;
   var out=document.getElementById('qpOut');
   if(!cid){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week.</p></div>';return;}
   var students=DB.students.filter(function(s){return s.classId===cid;});
@@ -4355,7 +4466,9 @@ function saveSchool(){
   DB.settings.schoolName=v;
   DB.settings.schoolMotto=(document.getElementById('schmotto')||{}).value||'';
   DB.settings.schoolAddress=(document.getElementById('schaddr')||{}).value||'';
-  dbSave();applySchool();
+  var ayEl=document.getElementById('schAcadYear');
+  if(ayEl&&ayEl.value.trim()) DB.settings.academicYear=ayEl.value.trim();
+  dbSave(); applySchool(); syncTerms();
   var dw=document.getElementById('dwelcome');if(dw&&ME)dw.textContent=(v?v+' — ':'')+' '+L('welcomeBack')+', '+ME.name;
   flash('schal','ok','✅ School info saved.');
 }
