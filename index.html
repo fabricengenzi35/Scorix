@@ -572,9 +572,14 @@ tr:hover td{background:var(--s2);}
   <div class="lbox">
     <div class="llogo" id="llogoText">SC<span>ORIX</span></div>
     <div class="lsub" id="lsubText">School Marks Management System</div>
+    <!-- LANGUAGE TOGGLE -->
+    <div style="display:flex;justify-content:center;gap:8px;margin:.7rem 0 .5rem;">
+      <button id="lang-en-btn" onclick="setAppLang('en')" style="flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--gold);background:rgba(240,180,41,.15);color:var(--gold);font-weight:700;cursor:pointer;font-size:.82rem;transition:all .2s;">🇬🇧 English</button>
+      <button id="lang-fr-btn" onclick="setAppLang('fr')" style="flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--bd);background:var(--s2);color:var(--ink2);font-weight:600;cursor:pointer;font-size:.82rem;transition:all .2s;">🇫🇷 Français</button>
+    </div>
     <div class="lerr" id="lerr">❌ Invalid username or password.</div>
-    <div class="lf"><label>Username</label><input type="text" id="luser" placeholder="Enter username" autocomplete="username"></div>
-    <div class="lf"><label>Password</label><div class="pw-wrap"><input type="password" id="lpass" placeholder="Enter password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="toggleLoginPw(this)" title="Show/hide password">👁</button></div></div>
+    <div class="lf"><label id="lbl-username">Username</label><input type="text" id="luser" placeholder="Enter username" autocomplete="username"></div>
+    <div class="lf"><label id="lbl-password">Password</label><div class="pw-wrap"><input type="password" id="lpass" placeholder="Enter password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="toggleLoginPw(this)" title="Show/hide password">👁</button></div></div>
     <button class="lbtn" id="loginBtn">Sign In →</button>
     <button class="lreset" id="resetBtn">Can't login? Reset to defaults</button>
     <div style="margin-top:1.2rem;padding:.75rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.18);border-radius:8px;text-align:center;">
@@ -594,7 +599,11 @@ tr:hover td{background:var(--s2);}
       <div class="tschool" id="tschool"></div>
     </div>
     <div class="tright">
-      <span class="tsaving" id="tsaving" style="display:none">💾 Saving…</span>
+      <!-- SUPABASE SYNC STATUS -->
+      <div id="sync-status" style="display:none;align-items:center;gap:5px;font-size:.75rem;padding:4px 10px;border-radius:20px;border:1px solid var(--bd);background:var(--s2);transition:all .4s;">
+        <span id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:var(--ink3);display:inline-block;transition:background .3s;"></span>
+        <span id="sync-text">Syncing…</span>
+      </div>
       <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Switch light/dark mode">
         <span class="tt-icon">🌙</span>
         <span class="tt-label">Dark</span>
@@ -607,7 +616,6 @@ tr:hover td{background:var(--s2);}
       <button class="tbtn" id="logoutBtn">⏻ Sign Out</button>
     </div>
   </div>
-
   <div class="layout">
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar"></div>
@@ -1031,7 +1039,7 @@ tr:hover td{background:var(--s2);}
 <script>
 
 // ===== SUPABASE CONNECTION =====
-const SUPABASE_URL = "https://xtaakpqxbgkojqbygewc.supabase.co";
+const SUPABASE_URL = "https://zabdtormeyrucjwjipzl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphYmR0b3JtZXlydWNqd2ppcHpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NTkzODUsImV4cCI6MjA4OTAzNTM4NX0.Rs-puu3GLuQBJzpVdYfgP63GNnb8AxU8XFcvGEpwHPw";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -1051,35 +1059,44 @@ var SUPERDB = {
 };
 
 async function superSave(){
-  try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(e){}
+  showSyncStatus('saving');
   try{
-    var res=await supabaseClient.from('epaza_data').upsert({id:'superdb',data:SUPERDB});
-    if(res.error) throw res.error;
-  }catch(e){ console.error('superSave',e); }
+    await supabaseClient.from('epaza_data').upsert({id:'superdb',data:SUPERDB});
+    try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(e){}
+    showSyncStatus('saved');
+  }catch(e){
+    console.error('superSave failed, saving locally:',e);
+    try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(ex){}
+    showSyncStatus('error');
+  }
 }
 async function superLoad(){
+  // PRIMARY: Load from Supabase
   try{
-    var tout=new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},8000);});
-    var fetchP=supabaseClient.from('epaza_data').select('*').eq('id','superdb').single();
-    var res=await Promise.race([fetchP,tout]);
+    var res = await supabaseClient.from('epaza_data').select('*').eq('id','superdb').single();
     if(res.data && res.data.data){
-      var r=res.data.data;
+      var r = res.data.data;
       if(Array.isArray(r.superusers)&&r.superusers.length) SUPERDB.superusers=r.superusers;
       if(Array.isArray(r.schools)) SUPERDB.schools=r.schools;
       if(r.settings&&typeof r.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,r.settings);
+      // Update local backup
       try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(e){}
       return;
     }
-  }catch(e){ console.log('Supabase superLoad failed, using localStorage fallback'); }
+  }catch(e){ console.log('superLoad from Supabase failed, trying local backup'); }
+
+  // FALLBACK: Use localStorage and push to Supabase
   try{
     var raw=localStorage.getItem('scorix_superDB');
     if(raw){
-      var r=JSON.parse(raw);
-      if(Array.isArray(r.superusers)&&r.superusers.length) SUPERDB.superusers=r.superusers;
-      if(Array.isArray(r.schools)) SUPERDB.schools=r.schools;
-      if(r.settings&&typeof r.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,r.settings);
+      var d=JSON.parse(raw);
+      if(Array.isArray(d.superusers)&&d.superusers.length) SUPERDB.superusers=d.superusers;
+      if(Array.isArray(d.schools)) SUPERDB.schools=d.schools;
+      if(d.settings&&typeof d.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,d.settings);
+      // Push to Supabase to sync
+      try{ await supabaseClient.from('epaza_data').upsert({id:'superdb',data:SUPERDB}); }catch(ex){}
     }
-  }catch(e){ console.log('No superdb cache'); }
+  }catch(e){ console.log('No superdb in localStorage either'); }
 }
 
 // ═══════════════════════════════════════
@@ -1100,7 +1117,6 @@ var DB = {
 var ME = null;
 var CURRENT_SCHOOL_ID = null;
 var saveTimer = null;
-var _pendingSave = false;
 var TCLR = {term:'var(--blue)',period:'var(--purple)',midterm:'var(--gold)',exam:'var(--red)',trimester:'var(--green)',semester:'var(--green)',other:'var(--ink3)'};
 var TLBL = {term:'Term',period:'Period',midterm:'Mid Term',exam:'Exam',trimester:'Trimester',semester:'Semester',other:'Other'};
 
@@ -1108,12 +1124,11 @@ function schoolDbKey(sid){ return 'epaza_school_'+sid; }
 
 async function supabaseSave(){
   if(!CURRENT_SCHOOL_ID) return;
-  // Always write localStorage first (survives tab close)
-  try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
-  var ts=document.getElementById('tsaving');
+  if(!DB.users||DB.users.length===0) return;
+  // PRIMARY: Save to Supabase FIRST (real database — syncs across all devices)
   try{
-    var saveRes=await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(CURRENT_SCHOOL_ID),data:DB});
-    if(saveRes.error) throw saveRes.error;
+    await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(CURRENT_SCHOOL_ID),data:DB});
+    // Also update user index
     var idx={};
     (DB.users||[]).forEach(function(u){ idx[u.username]={schoolId:CURRENT_SCHOOL_ID,password:u.password}; });
     try{
@@ -1122,23 +1137,21 @@ async function supabaseSave(){
         Object.keys(existing).forEach(function(uname){ if(existing[uname].schoolId!==CURRENT_SCHOOL_ID) idx[uname]=existing[uname]; });
       }
       await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:idx});
-    }catch(e){ console.warn('Index update failed',e); }
-    if(ts){ ts.textContent='Saved'; ts.style.color='var(--green)'; ts.style.display='inline';
-      setTimeout(function(){ ts.style.display='none'; ts.style.color=''; ts.textContent='Saving...'; },1500); }
-    return true;
+    }catch(e){}
+    // SECONDARY: Also cache locally as backup
+    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
   }catch(e){
-    console.error('supabaseSave error:',e);
-    if(ts){ ts.textContent='No internet - saved locally'; ts.style.color='var(--gold)'; ts.style.display='inline';
-      setTimeout(function(){ ts.style.display='none'; ts.style.color=''; ts.textContent='Saving...'; },4000); }
-    return false;
+    console.error('supabaseSave error — saving locally as fallback:',e);
+    // Fallback to localStorage if Supabase fails
+    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(ex){}
   }
 }
 
 async function supabaseLoad(sid){
-  // 1. Try Supabase first (source of truth across all devices)
+  // PRIMARY: Load from Supabase (real database — source of truth for ALL devices)
   try{
     var fetchP = supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single();
-    var tout   = new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},8000);});
+    var tout   = new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},10000);});
     var res    = await Promise.race([fetchP,tout]);
     if(res.data && res.data.data){
       var r=res.data.data;
@@ -1151,13 +1164,13 @@ async function supabaseLoad(sid){
       if(r.settings&&typeof r.settings==='object')   DB.settings=Object.assign(DB.settings,r.settings);
       if(Array.isArray(r.activity))                  DB.activity=r.activity;
       if(Array.isArray(r.terms)&&r.terms.length)     DB.terms=r.terms;
-      // Update local cache
+      // Update local cache as backup
       try{ localStorage.setItem(schoolDbKey(sid),JSON.stringify(DB)); }catch(e){}
       return true;
     }
-  }catch(e){ console.log('Supabase load failed, trying local cache'); }
+  }catch(e){ console.log('Supabase load failed, trying local cache as backup'); }
 
-  // 2. Fall back to localStorage cache
+  // FALLBACK: Use localStorage only if Supabase completely fails
   try{
     var raw=localStorage.getItem(schoolDbKey(sid));
     if(raw){
@@ -1172,6 +1185,8 @@ async function supabaseLoad(sid){
         if(d.settings&&typeof d.settings==='object') DB.settings=Object.assign(DB.settings,d.settings);
         if(Array.isArray(d.activity))                DB.activity=d.activity;
         if(Array.isArray(d.terms)&&d.terms.length)   DB.terms=d.terms;
+        // Push local cache to Supabase to sync it
+        try{ await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid),data:DB}); }catch(ex){}
       }
     }
   }catch(e){}
@@ -1189,17 +1204,48 @@ function dbSave(){
   if(school&&school.paused) return;
   _doSave();
 }
+function showSyncStatus(state){
+  // state: 'saving' | 'saved' | 'error'
+  var el = document.getElementById('sync-status');
+  var dot = document.getElementById('sync-dot');
+  var txt = document.getElementById('sync-text');
+  if(!el) return;
+  el.style.display = 'flex';
+  if(state === 'saving'){
+    dot.style.background = 'var(--gold)';
+    dot.style.animation = 'spin .8s linear infinite';
+    el.style.borderColor = 'rgba(240,180,41,.3)';
+    txt.textContent = APP_LANG==='fr' ? '☁️ Sync…' : '☁️ Syncing…';
+  } else if(state === 'saved'){
+    dot.style.background = 'var(--green)';
+    dot.style.animation = 'none';
+    el.style.borderColor = 'rgba(62,207,142,.3)';
+    txt.textContent = APP_LANG==='fr' ? '✅ Sauvegardé sur Supabase' : '✅ Saved to Supabase';
+    setTimeout(function(){
+      el.style.display = 'none';
+    }, 3000);
+  } else if(state === 'error'){
+    dot.style.background = 'var(--red)';
+    dot.style.animation = 'none';
+    el.style.borderColor = 'rgba(224,82,82,.3)';
+    txt.textContent = APP_LANG==='fr' ? '⚠️ Sauvegarde locale' : '⚠️ Saved locally only';
+    setTimeout(function(){
+      el.style.display = 'none';
+    }, 4000);
+  }
+}
+
 function _doSave(){
-  // IMMEDIATE: save to localStorage right away (data safe even if tab closes instantly)
-  try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
-  _pendingSave = true;
-  var ts=document.getElementById('tsaving');
-  if(ts){ ts.textContent='Saving...'; ts.style.color=''; ts.style.display='inline'; }
-  // DEBOUNCED: push to Supabase after 600ms (avoids hammering server while typing)
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
-    supabaseSave().then(function(){ _pendingSave=false; }).catch(function(){ _pendingSave=false; });
-  },600);
+    showSyncStatus('saving');
+    supabaseSave().then(function(){
+      showSyncStatus('saved');
+    }).catch(function(){
+      try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
+      showSyncStatus('error');
+    });
+  },350);
 }
 
 // ═══════════════════════════════════════
@@ -1208,42 +1254,6 @@ function _doSave(){
 document.getElementById('loginBtn').addEventListener('click', doLogin);
 document.getElementById('lpass').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
 document.getElementById('logoutBtn').addEventListener('click', doLogout);
-// ================================================================
-//  PAGE LEAVE PROTECTION
-//  Ensures data is NEVER lost when user closes/leaves the page
-// ================================================================
-
-// Warn browser if leaving with unsaved Supabase sync
-window.addEventListener('beforeunload', function(e){
-  if(_pendingSave && CURRENT_SCHOOL_ID){
-    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(ex){}
-    e.preventDefault();
-    e.returnValue = 'Changes may not be saved to cloud yet. Leave anyway?';
-    return e.returnValue;
-  }
-});
-
-// pagehide: fires on mobile/tablet more reliably than beforeunload
-window.addEventListener('pagehide', function(){
-  if(CURRENT_SCHOOL_ID){
-    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
-    try{ localStorage.setItem('scorix_superDB',JSON.stringify(SUPERDB)); }catch(e){}
-  }
-});
-
-// visibilitychange: fires when tab goes to background, phone locks, or user switches apps
-document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='hidden' && CURRENT_SCHOOL_ID){
-    // Save to localStorage immediately
-    try{ localStorage.setItem(schoolDbKey(CURRENT_SCHOOL_ID),JSON.stringify(DB)); }catch(e){}
-    // Also flush to Supabase if there is a pending save
-    if(_pendingSave){
-      clearTimeout(saveTimer);
-      supabaseSave().then(function(){ _pendingSave=false; });
-    }
-  }
-});
-
 document.getElementById('resetBtn').addEventListener('click', function(){
   if(confirm('Clear all data and reset to defaults? This cannot be undone.')){
     localStorage.clear(); location.reload();
@@ -1403,6 +1413,7 @@ function enterApp(){
   applyBranding();
   applySchool();
   buildSidebar();
+  applyAppLang();
 
   // Show pause banner if school is paused and superadmin is viewing
   if(isSuperAdmin()){
@@ -1479,24 +1490,24 @@ function buildSidebar(){
     });
   }
   if(isSuperAdmin()){
-    grp('System',[{id:'super',icon:'🛡️',label:'Control Panel'}]);
-    grp('Account',[{id:'settings',icon:'⚙️',label:'Settings'}]);
+    grp(L('grpSystem'),[{id:'super',icon:'🛡️',label:L('superAdmin')}]);
+    grp(L('grpAccount'),[{id:'settings',icon:'⚙️',label:L('settings')}]);
   } else {
-    grp('Overview',[{id:'dashboard',icon:'📊',label:'Dashboard'}]);
+    grp(L('grpOverview'),[{id:'dashboard',icon:'📊',label:L('dashboard')}]);
     if(admin){
-      grp('Setup',[
-        {id:'teachers',icon:'👩‍🏫',label:'Teachers'},
-        {id:'classes',icon:'🏫',label:'Classes'},
-        {id:'terms',icon:'📅',label:'Terms & Periods'},
-        {id:'subjects',icon:'📚',label:'Subjects'},
-        {id:'students',icon:'👨‍🎓',label:'Students'},
+      grp(L('grpSetup'),[
+        {id:'teachers',icon:'👩‍🏫',label:L('teachers')},
+        {id:'classes',icon:'🏫',label:L('classes')},
+        {id:'terms',icon:'📅',label:L('terms')},
+        {id:'subjects',icon:'📚',label:L('subjects')},
+        {id:'students',icon:'👨‍🎓',label:L('students')},
       ]);
     } else {
-      grp('My Classes',[{id:'students',icon:'👨‍🎓',label:'Students'}]);
+      grp(L('grpMyClasses'),[{id:'students',icon:'👨‍🎓',label:L('students')}]);
     }
-    grp('Marking',admin?[{id:'marks',icon:'✏️',label:'Enter Marks'},{id:'import',icon:'📥',label:'Import Data'}]:[{id:'marks',icon:'✏️',label:'Enter Marks'}]);
-    grp('Output',[{id:'reports',icon:'📄',label:'Report Cards'},{id:'analytics',icon:'📊',label:'Analytics'},{id:'proclamation',icon:'🏆',label:'Proclamation'}]);
-    grp('Account',[{id:'settings',icon:'⚙️',label:'Settings'}]);
+    grp(L('grpMarking'),admin?[{id:'marks',icon:'✏️',label:L('marks')},{id:'import',icon:'📥',label:L('importData')}]:[{id:'marks',icon:'✏️',label:L('marks')}]);
+    grp(L('grpOutput'),[{id:'reports',icon:'📄',label:L('reports')},{id:'analytics',icon:'📊',label:L('analytics')},{id:'proclamation',icon:'🏆',label:L('proclamation')}]);
+    grp(L('grpAccount'),[{id:'settings',icon:'⚙️',label:L('settings')}]);
   }
   document.getElementById('sidebar').innerHTML=html;
 }
@@ -1515,6 +1526,8 @@ function showPage(id){
     super:renderSuperPanel
   };
   if(fns[id]) fns[id]();
+  // Always apply language after rendering
+  translatePageElements();
 }
 function sysName(){ return (SUPERDB.settings&&SUPERDB.settings.systemName)||'SCORIX'; }
 function sysTagline(){ return (SUPERDB.settings&&SUPERDB.settings.systemTagline)||'School Marks Management System'; }
@@ -1628,14 +1641,21 @@ function flash(id,type,msg){
 function renderDash(){
   var schoolName=DB.settings&&DB.settings.schoolName?DB.settings.schoolName:'';
   var dw=document.getElementById('dwelcome');
-  if(dw&&ME) dw.textContent=(schoolName?schoolName+' — ':'')+' Welcome back, '+ME.name;
+  if(dw&&ME) dw.textContent=(schoolName?schoolName+' — ':'')+' '+L('welcomeBack')+', '+ME.name;
   document.getElementById('ds0').textContent = DB.students.length;
   document.getElementById('ds1').textContent = DB.classes.length;
   document.getElementById('ds2').textContent = DB.subjects.length;
   document.getElementById('ds3').textContent = Object.keys(DB.marks).length;
+  // Update stat labels
+  var labels=['totalStudents','totalClasses','totalSubjects','recentActivity'];
+  ['dsl0','dsl1','dsl2','dsl3'].forEach(function(id,i){
+    var el=document.getElementById(id); if(el) el.textContent=L(labels[i]);
+  });
   var el = document.getElementById('dact');
+  var actTitle=document.getElementById('dact-title');
+  if(actTitle) actTitle.textContent=L('recentActivity');
   if(!DB.activity.length){
-    el.innerHTML='<div class="empty"><div class="ei">📋</div><p>No activity yet.</p></div>';return;
+    el.innerHTML='<div class="empty"><div class="ei">📋</div><p>'+L('noActivity')+'</p></div>';return;
   }
   el.innerHTML = DB.activity.slice(-8).reverse().map(function(a){
     return'<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);"><span style="font-family:monospace;font-size:.7rem;color:var(--ink3);white-space:nowrap;">'+a.time+'</span><span style="font-size:.84rem;">'+a.text+'</span></div>';
@@ -2001,10 +2021,11 @@ function delSubject(id){
 // ═══════════════════════════════════════
 function setupStudents(){
   var admin=isAdmin();
-  document.getElementById('stbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mst\')">+ Add Student</button>':'';
-  document.getElementById('stacth').textContent=admin?'Action':'';
+  document.getElementById('stbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mst\')">'+L('addStudent')+'</button>':'';
+  document.getElementById('stacth').textContent=admin?L('action'):'';
+  document.getElementById('stSearch').placeholder=L('searchStudents');
   var cl=document.getElementById('stCls');
-  cl.innerHTML='<option value="">All Classes</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+  cl.innerHTML='<option value="">'+L('allClasses')+'</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
   renderStudents();
 }
 function renderStudents(){
@@ -2015,7 +2036,7 @@ function renderStudents(){
   if(q) list=list.filter(function(s){return s.name.toLowerCase().includes(q)||s.sid.includes(q);});
   if(cf) list=list.filter(function(s){return s.classId===cf;});
   var tb=document.getElementById('tbst');
-  if(!list.length){tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>No students found.</p></div></td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>'+L('noStudents')+'</p></div></td></tr>';return;}
   tb.innerHTML=list.map(function(s,i){
     var c=DB.classes.find(function(x){return x.id===s.classId;});
     return'<tr><td>'+(i+1)+'</td><td><strong>'+s.name+'</strong></td><td>'+s.sid+'</td><td>'+(c?c.name:'—')+'</td><td>'+(admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditStudent(\''+s.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delStudent(\''+s.id+'\')">Delete</button></div>':'—')+'</td></tr>';
@@ -3279,7 +3300,7 @@ function saveSchool(){
   DB.settings.schoolMotto=(document.getElementById('schmotto')||{}).value||'';
   DB.settings.schoolAddress=(document.getElementById('schaddr')||{}).value||'';
   dbSave();applySchool();
-  var dw=document.getElementById('dwelcome');if(dw&&ME)dw.textContent=(v?v+' — ':'')+' Welcome back, '+ME.name;
+  var dw=document.getElementById('dwelcome');if(dw&&ME)dw.textContent=(v?v+' — ':'')+' '+L('welcomeBack')+', '+ME.name;
   flash('schal','ok','✅ School info saved.');
 }
 
@@ -3313,6 +3334,227 @@ async function initApp(){
     document.getElementById('landingWrap').style.display='block';
   },300);
 }
+
+// ═══════════════════════════════════════
+//  LANGUAGE SYSTEM
+//  UI fully translates EN/FR
+//  Report cards always stay in English
+// ═══════════════════════════════════════
+var APP_LANG = localStorage.getItem('scorix_lang') || 'en';
+
+var LANG_UI = {
+  en: {
+    // Login
+    sub:'School Marks Management System',
+    username:'Username', password:'Password',
+    signIn:'Sign In →', cantLogin:"Can't login? Reset to defaults",
+    // Sidebar groups
+    grpOverview:'Overview', grpSetup:'Setup', grpMyClasses:'My Classes',
+    grpMarking:'Marking', grpOutput:'Output', grpAccount:'Account', grpSystem:'System',
+    // Sidebar items
+    dashboard:'Dashboard', teachers:'Teachers', classes:'Classes',
+    terms:'Terms & Periods', subjects:'Subjects', students:'Students',
+    marks:'Enter Marks', importData:'Import Data', reports:'Report Cards',
+    analytics:'Analytics', proclamation:'Proclamation', settings:'Settings',
+    superAdmin:'Control Panel',
+    // Topbar
+    logout:'Logout', saving:'Saving…',
+    // Dashboard
+    welcomeBack:'Welcome back', totalStudents:'Total Students',
+    totalTeachers:'Total Teachers', totalClasses:'Total Classes',
+    totalSubjects:'Total Subjects', recentActivity:'Recent Activity',
+    noActivity:'No activity yet.',
+    // Students
+    addStudent:'+ Add Student', searchStudents:'Search students…',
+    allClasses:'All Classes', noStudents:'No students found.',
+    name:'Name', studentId:'Student ID', class:'Class', action:'Action',
+    edit:'✏️ Edit', delete:'Delete', save:'Save', cancel:'Cancel',
+    editStudent:'Edit Student', addStudentTitle:'Add New Student',
+    studentName:'Full Name', studentNum:'Student Number', selectClass:'— Select Class —',
+    // Teachers
+    addTeacher:'+ Add Teacher', noTeachers:'No teachers yet.',
+    teacherName:'Full Name', teacherUser:'Username', teacherPw:'Password',
+    teacherClasses:'Assigned Classes', editTeacher:'Edit Teacher',
+    addTeacherTitle:'Add New Teacher',
+    // Classes
+    addClass:'+ Add Class', noClasses:'No classes yet.',
+    className:'Class Name', editClass:'Edit Class', addClassTitle:'Add New Class',
+    // Subjects
+    addSubject:'+ Add Subject', noSubjects:'No subjects yet.',
+    subjectName:'Subject Name', coeff:'Coefficient', maxMark:'Max Mark',
+    passMark:'Pass Mark', editSubject:'Edit Subject', addSubjectTitle:'Add New Subject',
+    // Terms
+    addTerm:'+ Add Term/Period', noTerms:'No terms yet.',
+    termName:'Term Name', termType:'Type', active:'Active',
+    // Marks
+    selectClassFirst:'Select a class', selectTermFirst:'Select a term',
+    selectSubjectFirst:'Select a subject', noMarksStudents:'No students in this class.',
+    saveMarks:'Save Marks', marksSaved:'Marks saved!',
+    // Analytics
+    classPerformance:'Class Performance', topStudents:'Top Students',
+    subjectAvg:'Subject Averages', passRate:'Pass Rate',
+    // Proclamation
+    rank:'Rank', average:'Average', total:'Total', passed:'PASSED', failed:'FAILED',
+    selectClassTerm:'Select class and term to view proclamation.',
+    // Settings
+    schoolInfo:'School Information', schoolName:'School Name',
+    schoolMotto:'Motto / Tagline', gradeScale:'Grade Scale',
+    gradeA:'Grade A (Excellent)', gradeB:'Grade B (Good)',
+    gradeC:'Grade C (Average)', gradeD:'Grade D (Pass)',
+    saveSettings:'Save Settings', settingsSaved:'Settings saved!',
+    // General
+    confirmDelete:'Are you sure you want to delete this?',
+    noData:'No data available.',
+    loading:'Loading…',
+    addedBy:'Added by',
+    search:'Search…',
+  },
+  fr: {
+    // Login
+    sub:'Système de Gestion des Notes Scolaires',
+    username:'Nom d\'utilisateur', password:'Mot de passe',
+    signIn:'Se Connecter →', cantLogin:'Problème? Réinitialiser',
+    // Sidebar groups
+    grpOverview:'Aperçu', grpSetup:'Configuration', grpMyClasses:'Mes Classes',
+    grpMarking:'Notation', grpOutput:'Résultats', grpAccount:'Compte', grpSystem:'Système',
+    // Sidebar items
+    dashboard:'Tableau de Bord', teachers:'Professeurs', classes:'Classes',
+    terms:'Trimestres & Périodes', subjects:'Matières', students:'Élèves',
+    marks:'Saisir les Notes', importData:'Importer', reports:'Bulletins',
+    analytics:'Analytique', proclamation:'Proclamation', settings:'Paramètres',
+    superAdmin:'Panneau de Contrôle',
+    // Topbar
+    logout:'Déconnexion', saving:'Enregistrement…',
+    // Dashboard
+    welcomeBack:'Bienvenue', totalStudents:'Total Élèves',
+    totalTeachers:'Total Professeurs', totalClasses:'Total Classes',
+    totalSubjects:'Total Matières', recentActivity:'Activité Récente',
+    noActivity:'Aucune activité.',
+    // Students
+    addStudent:'+ Ajouter Élève', searchStudents:'Rechercher élèves…',
+    allClasses:'Toutes les Classes', noStudents:'Aucun élève trouvé.',
+    name:'Nom', studentId:'Matricule', class:'Classe', action:'Action',
+    edit:'✏️ Modifier', delete:'Supprimer', save:'Enregistrer', cancel:'Annuler',
+    editStudent:'Modifier Élève', addStudentTitle:'Ajouter un Élève',
+    studentName:'Nom Complet', studentNum:'Numéro Élève', selectClass:'— Choisir Classe —',
+    // Teachers
+    addTeacher:'+ Ajouter Professeur', noTeachers:'Aucun professeur.',
+    teacherName:'Nom Complet', teacherUser:'Nom d\'utilisateur', teacherPw:'Mot de passe',
+    teacherClasses:'Classes Assignées', editTeacher:'Modifier Professeur',
+    addTeacherTitle:'Ajouter un Professeur',
+    // Classes
+    addClass:'+ Ajouter Classe', noClasses:'Aucune classe.',
+    className:'Nom de la Classe', editClass:'Modifier Classe', addClassTitle:'Ajouter une Classe',
+    // Subjects
+    addSubject:'+ Ajouter Matière', noSubjects:'Aucune matière.',
+    subjectName:'Nom de la Matière', coeff:'Coefficient', maxMark:'Note Maximale',
+    passMark:'Note de Passage', editSubject:'Modifier Matière', addSubjectTitle:'Ajouter une Matière',
+    // Terms
+    addTerm:'+ Ajouter Trimestre', noTerms:'Aucun trimestre.',
+    termName:'Nom du Trimestre', termType:'Type', active:'Actif',
+    // Marks
+    selectClassFirst:'Choisir une classe', selectTermFirst:'Choisir un trimestre',
+    selectSubjectFirst:'Choisir une matière', noMarksStudents:'Aucun élève dans cette classe.',
+    saveMarks:'Enregistrer les Notes', marksSaved:'Notes enregistrées!',
+    // Analytics
+    classPerformance:'Performance de la Classe', topStudents:'Meilleurs Élèves',
+    subjectAvg:'Moyennes par Matière', passRate:'Taux de Réussite',
+    // Proclamation
+    rank:'Rang', average:'Moyenne', total:'Total', passed:'ADMIS', failed:'ÉCHEC',
+    selectClassTerm:'Choisir la classe et le trimestre.',
+    // Settings
+    schoolInfo:'Informations de l\'École', schoolName:'Nom de l\'École',
+    schoolMotto:'Devise / Slogan', gradeScale:'Barème des Notes',
+    gradeA:'Note A (Excellent)', gradeB:'Note B (Bien)',
+    gradeC:'Note C (Moyen)', gradeD:'Note D (Passable)',
+    saveSettings:'Enregistrer', settingsSaved:'Paramètres enregistrés!',
+    // General
+    confirmDelete:'Voulez-vous vraiment supprimer ceci?',
+    noData:'Aucune donnée disponible.',
+    loading:'Chargement…',
+    addedBy:'Ajouté par',
+    search:'Rechercher…',
+  }
+};
+
+// Get translation
+function L(key){ return (LANG_UI[APP_LANG]||LANG_UI['en'])[key] || key; }
+
+// Translate all elements marked with data-lang attribute
+function translatePageElements(){
+  document.querySelectorAll('[data-lang]').forEach(function(el){
+    var key = el.getAttribute('data-lang');
+    var val = L(key);
+    if(val) el.textContent = val;
+  });
+  document.querySelectorAll('[data-lang-ph]').forEach(function(el){
+    var key = el.getAttribute('data-lang-ph');
+    var val = L(key);
+    if(val) el.placeholder = val;
+  });
+}
+
+function setAppLang(lang){
+  APP_LANG = lang;
+  localStorage.setItem('scorix_lang', lang);
+  applyAppLang();
+  // Rebuild sidebar with new language if logged in
+  if(typeof buildSidebar === 'function' && document.getElementById('appWrap').style.display !== 'none'){
+    buildSidebar();
+  }
+}
+
+function applyAppLang(){
+  // Language buttons
+  var enBtn = document.getElementById('lang-en-btn');
+  var frBtn = document.getElementById('lang-fr-btn');
+  if(enBtn && frBtn){
+    if(APP_LANG==='en'){
+      enBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--gold);background:rgba(240,180,41,.15);color:var(--gold);font-weight:700;cursor:pointer;font-size:.82rem;';
+      frBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--bd);background:var(--s2);color:var(--ink2);font-weight:600;cursor:pointer;font-size:.82rem;';
+    } else {
+      frBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--gold);background:rgba(240,180,41,.15);color:var(--gold);font-weight:700;cursor:pointer;font-size:.82rem;';
+      enBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--bd);background:var(--s2);color:var(--ink2);font-weight:600;cursor:pointer;font-size:.82rem;';
+    }
+  }
+  // Login page
+  setText('lsubText', L('sub'));
+  setText('lbl-username', L('username'));
+  setText('lbl-password', L('password'));
+  setText('loginBtn', L('signIn'));
+  setText('resetBtn', L('cantLogin'));
+  // Topbar
+  setText('logoutBtn', L('logout'));
+  setText('tsaving', L('saving'));
+  // Translate all marked elements
+  translatePageElements();
+  // If logged in — rebuild sidebar and re-render current page
+  if(typeof ME !== 'undefined' && ME && typeof buildSidebar === 'function'){
+    buildSidebar();
+    // Re-render active page
+    var activePage = document.querySelector('.page.on');
+    if(activePage){
+      var pageId = activePage.id.replace('p-','');
+      var fns={
+        dashboard:renderDash, teachers:renderTeachers, classes:renderClasses,
+        terms:renderTerms, subjects:renderSubjects, students:setupStudents,
+        marks:setupMarks, reports:setupReports,
+        analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
+      };
+      if(fns[pageId]) fns[pageId]();
+    }
+  }
+}
+
+function setText(id, text){
+  var el = document.getElementById(id);
+  if(el) el.textContent = text;
+}
+
+// Apply language on page load
+document.addEventListener('DOMContentLoaded', function(){
+  applyAppLang();
+});
 
 // Hide login until data is ready — wait for DOM to be fully loaded
 if(document.readyState === 'loading'){
