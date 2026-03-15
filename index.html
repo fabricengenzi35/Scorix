@@ -36,6 +36,10 @@ body.light ::-webkit-scrollbar-track{background:var(--bg);}
 .theme-toggle:hover{border-color:var(--gold);color:var(--gold);}
 .theme-toggle .tt-icon{font-size:1rem;transition:transform .3s;}
 body.light .theme-toggle .tt-icon{transform:rotate(180deg);}
+/* ── ROLE-BASED VISIBILITY ── */
+body.role-teacher .admin-only { display: none !important; }
+body.role-admin .admin-only { display: flex !important; }
+
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 input,select,textarea,button{font-family:'Outfit',sans-serif;}
@@ -737,30 +741,34 @@ tr:hover td{background:var(--s2);}
 
       <!-- CLASSES -->
       <div class="page" id="p-classes">
-        <div class="ph"><div><div class="phtitle">Classes</div><div class="phsub">Manage class groups</div></div><div class="phact" id="clsbtn"></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Class Name</th><th>Students</th><th id="clsacth"></th></tr></thead><tbody id="tbc"></tbody></table></div></div>
+        <div class="ph"><div><div class="phtitle">Classes</div><div class="phsub">Manage class groups</div></div>
+        <div class="phact admin-only"><button class="btn gold" onclick="om('mc')">+ Add Class</button></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Class Name</th><th>Students</th><th id="clsacth" class="admin-only">Action</th></tr></thead><tbody id="tbc"></tbody></table></div></div>
       </div>
 
       <!-- TERMS -->
       <div class="page" id="p-terms">
-        <div class="ph"><div><div class="phtitle">Terms &amp; Periods</div><div class="phsub">Manage assessment periods &amp; mark components</div></div><div class="phact"><button class="btn gold" onclick="om('mterm')">+ Add Term</button></div></div>
+        <div class="ph"><div><div class="phtitle">Terms &amp; Periods</div><div class="phsub">Manage assessment periods &amp; mark components</div></div>
+        <div class="phact admin-only"><button class="btn gold" onclick="om('mterm')">+ Add Term</button></div></div>
         <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Components</th><th>Active</th><th>Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
       </div>
 
       <!-- SUBJECTS -->
       <div class="page" id="p-subjects">
-        <div class="ph"><div><div class="phtitle">Subjects</div><div class="phsub">Manage subjects &amp; grading scales</div></div><div class="phact" id="subjbtn"></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Subject</th><th>Scale</th><th>Promotion Mark</th><th>Grade Thresholds</th><th id="subacth"></th></tr></thead><tbody id="tbs"></tbody></table></div></div>
+        <div class="ph"><div><div class="phtitle">Subjects</div><div class="phsub">Manage subjects &amp; grading scales</div></div>
+        <div class="phact admin-only"><button class="btn gold" onclick="om('ms')">+ Add Subject</button></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Subject</th><th>Scale</th><th>Promotion Mark</th><th>Grade Thresholds</th><th id="subacth" class="admin-only">Actions</th></tr></thead><tbody id="tbs"></tbody></table></div></div>
       </div>
 
       <!-- STUDENTS -->
       <div class="page" id="p-students">
-        <div class="ph"><div><div class="phtitle">Students</div><div class="phsub">Student roster</div></div><div class="phact" id="stbtn"></div></div>
+        <div class="ph"><div><div class="phtitle">Students</div><div class="phsub">Student roster</div></div>
+        <div class="phact admin-only"><button class="btn gold" onclick="om('mst')">+ Add Student</button></div></div>
         <div class="srow">
           <input type="text" id="stSearch" placeholder="Search by name or number…" oninput="renderStudents()">
           <select id="stCls" onchange="renderStudents()"><option value="">All Classes</option></select>
         </div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>No.</th><th>Class</th><th id="stacth"></th></tr></thead><tbody id="tbst"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>No.</th><th>Class</th><th id="stacth" class="admin-only">Action</th></tr></thead><tbody id="tbst"></tbody></table></div></div>
       </div>
 
       <!-- MARKS -->
@@ -1690,6 +1698,12 @@ async function doLogin(){
     me={id:'u_'+Date.now(),username:u,password:p,role:'admin',name:u,schoolId:foundSchoolId};
   }
   ME=me;
+  console.log('[SCORIX] Logged in as:', ME.name, '| role:', ME.role, '| isAdmin:', ME.role==='admin'||ME.role==='superadmin');
+  // Apply role class to body for CSS-based permission control
+  document.body.classList.remove('role-admin','role-teacher','role-superadmin');
+  if(ME.role==='superadmin') document.body.classList.add('role-admin');
+  else if(ME.role==='admin') document.body.classList.add('role-admin');
+  else document.body.classList.add('role-teacher');
 
   // Update user index in background — no await, doesn't block login
   setTimeout(function(){ rebuildUserIndex(); }, 2000);
@@ -1731,6 +1745,7 @@ function enterApp(){
 
 function doLogout(){
   ME=null; CURRENT_SCHOOL_ID=null; _markMode='term';
+  document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   _userIndexCache = null; // force fresh login lookup next time
   DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
@@ -1750,7 +1765,13 @@ function doLogout(){
 }
 
 function isSuperAdmin(){ return ME&&ME.role==='superadmin'; }
-function isAdmin(){ return ME&&(ME.role==='admin'||ME.role==='superadmin'); }
+function isAdmin(){ 
+  if(!ME) return false;
+  if(ME.role==='admin'||ME.role==='superadmin') return true;
+  // Fallback: if not explicitly a teacher, treat as admin
+  if(ME.role==='teacher') return false;
+  return true;
+}
 function myClasses(){
   if(isAdmin()) return DB.classes;
   if(!ME.classes||!ME.classes.length) return [];
@@ -2197,19 +2218,13 @@ function delTeacher(id){
 //  CLASSES
 // ═══════════════════════════════════════
 function renderClasses(){
-  var admin=isAdmin();
-  document.getElementById('clsbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mc\')">+ Add Class</button>':'';
-  document.getElementById('clsacth').textContent=admin?'Action':'';
   var tb=document.getElementById('tbc');
   var list=myClasses();
-  if(!list.length){
-    tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes yet. Click <strong>+ Add Class</strong> to get started.</p></div></td></tr>';
-    return;
-  }
+  if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes yet.</p></div></td></tr>';return;}
   tb.innerHTML=list.map(function(c,i){
     var cnt=DB.students.filter(function(s){return s.classId===c.id;}).length;
-    var actions=admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div>':'—';
-    return'<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td>'+cnt+'</td><td>'+actions+'</td></tr>';
+    return'<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td>'+cnt+'</td>'
+      +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div></td></tr>';
   }).join('');
 }
 function openEditClass(id){
@@ -2362,14 +2377,8 @@ function toggleSubForm(prefix){
   document.getElementById(prefix+'-grades').style.display=isLetter?'none':'';
 }
 function renderSubjects(){
-  var admin=isAdmin();
-  document.getElementById('subjbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'ms\')">+ Add Subject</button>':'';
-  document.getElementById('subacth').textContent=admin?'Actions':'';
   var tb=document.getElementById('tbs');
-  if(!DB.subjects.length){
-    tb.innerHTML='<tr><td colspan="6"><div class="empty"><p>No subjects yet. Click <strong>+ Add Subject</strong> to get started.</p></div></td></tr>';
-    return;
-  }
+  if(!DB.subjects.length){tb.innerHTML='<tr><td colspan="6"><div class="empty"><p>No subjects yet.</p></div></td></tr>';return;}
   tb.innerHTML=DB.subjects.map(function(s,i){
     var isL=s.scale==='letter';
     var gradeInfo=isL?'—':'A≥'+s.grA+'% B≥'+s.grB+'% C≥'+s.grC+'% D≥'+s.grD+'%';
@@ -2379,7 +2388,7 @@ function renderSubjects(){
       +'<td>'+(isL?'Letter (A–F)':'Out of '+s.scale)+'</td>'
       +'<td>'+(isL?'—':s.pass)+'</td>'
       +'<td style="font-size:.75rem;color:var(--ink2);">'+gradeInfo+'</td>'
-      +'<td>'+(admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditSub(\''+s.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delSubject(\''+s.id+'\')">Delete</button></div>':'')+'</td>'
+      +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditSub(\''+s.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delSubject(\''+s.id+'\')">Delete</button></div></td>'
       +'</tr>';
   }).join('');
 }
@@ -2443,9 +2452,6 @@ function delSubject(id){
 //  STUDENTS
 // ═══════════════════════════════════════
 function setupStudents(){
-  var admin=isAdmin();
-  document.getElementById('stbtn').innerHTML=admin?'<button class="btn gold" onclick="om(\'mst\')">+ Add Student</button>':'';
-  document.getElementById('stacth').textContent=admin?'Action':'';
   document.getElementById('stSearch').placeholder=L('searchStudents');
   var cl=document.getElementById('stCls');
   cl.innerHTML='<option value="">'+L('allClasses')+'</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
@@ -2460,13 +2466,13 @@ function renderStudents(){
   if(cf) list=list.filter(function(s){return s.classId===cf;});
   var tb=document.getElementById('tbst');
   if(!list.length){
-    tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>'+(admin?'No students yet. Click <strong>+ Add Student</strong> to get started.':L('noStudents'))+'</p></div></td></tr>';
+    tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>'+L('noStudents')+'</p></div></td></tr>';
     return;
   }
   tb.innerHTML=list.map(function(s,i){
     var c=DB.classes.find(function(x){return x.id===s.classId;});
     return'<tr><td>'+(i+1)+'</td><td><strong>'+s.name+'</strong></td><td>'+s.sid+'</td><td>'+(c?c.name:'—')+'</td>'
-      +'<td>'+(admin?'<div class="brow"><button class="btn sm ghost" onclick="openEditStudent(\''+s.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delStudent(\''+s.id+'\')">Delete</button></div>':'')+'</td></tr>';
+      +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditStudent(\''+s.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delStudent(\''+s.id+'\')">Delete</button></div></td></tr>';
   }).join('');
 }
 function openEditStudent(id){
