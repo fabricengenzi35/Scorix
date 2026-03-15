@@ -716,7 +716,7 @@ tr:hover td{background:var(--s2);}
             <div class="phsub">All teachers and students information</div>
           </div>
           <div class="phact">
-            <button class="btn ghost" onclick="renderOverview()">🔄 Refresh</button>
+            <button class="btn ghost" onclick="refreshOverview()">🔄 Refresh</button>
           </div>
         </div>
         <!-- TEACHERS OVERVIEW -->
@@ -1592,29 +1592,6 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.activity))                  DB.activity=d.activity;
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
     if(d.approvals&&typeof d.approvals==='object') DB.approvals=d.approvals;
-    // Always enforce correct 6-period term structure
-    // Replace old terms (Final Exam, Exam etc) with the 3-term + midterm/exam structure
-    var correctTermIds = ['T1','T2','T3'];
-    var hasOldTerms = DB.terms.some(function(t){return t.id==='Final'||t.name==='Final Exam'||t.name==='Exam';});
-    var missingComponents = DB.terms.some(function(t){return correctTermIds.indexOf(t.id)>=0 && (!t.components||!t.components.length);});
-    if(hasOldTerms||missingComponents){
-      DB.terms = [
-        {id:'T1',name:'Term 1',type:'term',active:true,components:[
-          {id:'T1_mid',name:'Midterm 1',maxMark:50},
-          {id:'T1_exam',name:'Exam Term 1',maxMark:50}
-        ]},
-        {id:'T2',name:'Term 2',type:'term',active:true,components:[
-          {id:'T2_mid',name:'Midterm 2',maxMark:50},
-          {id:'T2_exam',name:'Exam Term 2',maxMark:50}
-        ]},
-        {id:'T3',name:'Term 3',type:'term',active:true,components:[
-          {id:'T3_mid',name:'Midterm 3',maxMark:50},
-          {id:'T3_exam',name:'Exam Term 3',maxMark:50}
-        ]}
-      ];
-      // Save updated terms back to Supabase immediately
-      setTimeout(function(){ dbSave(); }, 1000);
-    }
     return true;
   }
   return false;
@@ -2074,7 +2051,6 @@ function renderDash(){
   var schoolName=DB.settings&&DB.settings.schoolName?DB.settings.schoolName:'';
   var dw=document.getElementById('dwelcome');
   if(dw&&ME) dw.textContent=(schoolName?schoolName+' — ':'')+' '+L('welcomeBack')+', '+ME.name;
-
   // For teachers: show students in their assigned classes, their assigned subjects/classes
   var studentCount, classCount, subjectCount, marksCount;
   if(isAdmin()){
@@ -2247,18 +2223,20 @@ function saveEditTeacher(){
     document.getElementById('uname').textContent=name;
   }
 }
+async function refreshOverview(){
+  if(!CURRENT_SCHOOL_ID) return;
+  var tEl=document.getElementById('ov-teachers');
+  var sEl=document.getElementById('ov-students');
+  if(tEl) tEl.innerHTML='<div class="empty"><div class="ei">⏳</div><p>Loading from server...</p></div>';
+  if(sEl) sEl.innerHTML='';
+  await supabaseLoad(CURRENT_SCHOOL_ID);
+  renderOverview();
+  renderDash();
+  syncAll();
+}
+
 function renderOverview(){
   if(!isAdmin()) return;
-
-  // If data not loaded yet, show loading and retry
-  if(!DB.users||!DB.classes){
-    var tEl=document.getElementById('ov-teachers');
-    var sEl=document.getElementById('ov-students');
-    if(tEl) tEl.innerHTML='<div class="empty"><div class="ei">⏳</div><p>Loading data...</p></div>';
-    if(sEl) sEl.innerHTML='';
-    setTimeout(function(){ renderOverview(); }, 1500);
-    return;
-  }
 
   // ── TEACHERS TABLE ──
   var teachers = DB.users.filter(function(u){return u.role==='teacher';}).sort(function(a,b){return a.name.localeCompare(b.name);});
