@@ -1541,17 +1541,29 @@ async function supabaseLoad(sid){
     if(d.settings&&typeof d.settings==='object')   DB.settings=Object.assign(DB.settings,d.settings);
     if(Array.isArray(d.activity))                  DB.activity=d.activity;
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
-    // Ensure all terms have components (upgrade old data)
-    var defaultComps = {
-      'T1':[{id:'T1_mid',name:'Midterm 1',maxMark:50},{id:'T1_exam',name:'Exam Term 1',maxMark:50}],
-      'T2':[{id:'T2_mid',name:'Midterm 2',maxMark:50},{id:'T2_exam',name:'Exam Term 2',maxMark:50}],
-      'T3':[{id:'T3_mid',name:'Midterm 3',maxMark:50},{id:'T3_exam',name:'Exam Term 3',maxMark:50}]
-    };
-    DB.terms.forEach(function(t){
-      if((!t.components||!t.components.length)&&defaultComps[t.id]){
-        t.components=defaultComps[t.id];
-      }
-    });
+    // Always enforce correct 6-period term structure
+    // Replace old terms (Final Exam, Exam etc) with the 3-term + midterm/exam structure
+    var correctTermIds = ['T1','T2','T3'];
+    var hasOldTerms = DB.terms.some(function(t){return t.id==='Final'||t.name==='Final Exam'||t.name==='Exam';});
+    var missingComponents = DB.terms.some(function(t){return correctTermIds.indexOf(t.id)>=0 && (!t.components||!t.components.length);});
+    if(hasOldTerms||missingComponents){
+      DB.terms = [
+        {id:'T1',name:'Term 1',type:'term',active:true,components:[
+          {id:'T1_mid',name:'Midterm 1',maxMark:50},
+          {id:'T1_exam',name:'Exam Term 1',maxMark:50}
+        ]},
+        {id:'T2',name:'Term 2',type:'term',active:true,components:[
+          {id:'T2_mid',name:'Midterm 2',maxMark:50},
+          {id:'T2_exam',name:'Exam Term 2',maxMark:50}
+        ]},
+        {id:'T3',name:'Term 3',type:'term',active:true,components:[
+          {id:'T3_mid',name:'Midterm 3',maxMark:50},
+          {id:'T3_exam',name:'Exam Term 3',maxMark:50}
+        ]}
+      ];
+      // Save updated terms back to Supabase immediately
+      setTimeout(function(){ dbSave(); }, 1000);
+    }
     return true;
   }
   return false;
@@ -1858,7 +1870,7 @@ function buildSidebar(){
         {id:'subjects',icon:'📚',label:L('subjects')},
         {id:'students',icon:'👨‍🎓',label:L('students')},
       ]);
-      grp(L('grpMarking'),[{id:'marks',icon:'✏️',label:L('marks')},{id:'import',icon:'📥',label:L('importData')}]);
+      grp(L('grpMarking'),[{id:'import',icon:'📥',label:L('importData')}]);
     } else {
       grp(L('grpMyClasses'),[{id:'students',icon:'👨‍🎓',label:L('students')}]);
       grp(L('grpMarking'),[{id:'marks',icon:'✏️',label:L('marks')}]);
@@ -2613,16 +2625,29 @@ function getMarkValue(studentId, subjectId, termId, sub){
 }
 
 function setupMarks(){
-  var isTeacher=!isAdmin()&&!isSuperAdmin();
-  var classTeacherId=ME?ME.classTeacher:null;
+  // Block director/admin from entering marks — marks are for teachers only
+  if(isAdmin()){
+    var wrap=document.getElementById('mkWrap');
+    if(wrap) wrap.innerHTML='<div class="al warn">⛔ Directors do not enter marks. Please assign a teacher to record marks for each class and subject.</div>';
+    document.getElementById('mkCls').innerHTML='<option value="">— Select Class —</option>';
+    document.getElementById('mkSub').innerHTML='<option value="">— Select Subject —</option>';
+    syncTerms();
+    switchMarkMode(_markMode);
+    return;
+  }
+
+  // Teacher: load their assigned classes
   document.getElementById('mkCls').innerHTML='<option value="">— Select Class —</option>'+myClasses().map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
-  var subjectsToShow;
-  if(isAdmin()||isSuperAdmin()){subjectsToShow=DB.subjects;}
-  else{
-    subjectsToShow=mySubjects();
-    if(classTeacherId){subjectsToShow=[{id:'__overall__',name:'📋 Overall Class View'}].concat(subjectsToShow);}
+
+  // Teacher: load their assigned subjects — if none assigned, show ALL subjects
+  var subjectsToShow = mySubjects();
+  if(!subjectsToShow||!subjectsToShow.length) subjectsToShow = DB.subjects;
+  var classTeacherId = ME?ME.classTeacher:null;
+  if(classTeacherId){
+    subjectsToShow=[{id:'__overall__',name:'📋 Overall Class View'}].concat(subjectsToShow);
   }
   document.getElementById('mkSub').innerHTML='<option value="">— Select Subject —</option>'+subjectsToShow.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+
   syncTerms();
   switchMarkMode(_markMode);
 }
