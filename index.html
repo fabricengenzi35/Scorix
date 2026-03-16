@@ -4434,24 +4434,33 @@ function syncTerms(){
     return mo<=7?(yr-1)+'-'+yr:yr+'-'+(yr+1);
   })();
 
-  // Build flat list of ALL periods
-  // If term already has name like "2025-2026 | Midterm 1" — use it directly
-  // Otherwise build it from academicYear + component name
+  // Build report period options
+  // EU (midterm) → "EU — Term 1"
+  // ET (exam)    → "Term 1" (end of term, full EU+ET report)
   var periodOpts = '';
   at.forEach(function(t){
-    // Check if name already contains the year (new format terms)
     var alreadyFormatted = t.name && t.name.indexOf('|') >= 0;
     if(alreadyFormatted){
-      // Use term name directly — it's already "2025-2026 | Midterm 1"
-      periodOpts += '<option value="'+t.id+'__'+(t.components&&t.components.length?t.components[0].id:'single')+'">'+t.name+'</option>';
+      // New format term — determine if EU or ET from periodType
+      var isEU = t.periodType==='Midterm';
+      var termLabel = t.termLabel || 'Term';
+      var label = isEU
+        ? (academicYear+' | EU — '+termLabel)
+        : (academicYear+' | '+termLabel);
+      var compId = t.components&&t.components.length ? t.components[0].id : 'single';
+      periodOpts += '<option value="'+t.id+'__'+compId+'">'+label+'</option>';
     } else if(t.components && t.components.length){
-      // Old format term with components — build label from year + component
-      t.components.forEach(function(c){
-        var displayName = c.name.replace(/\bMidterm\b/gi,'EU').replace(/\bExam\b/gi,'ET');
-        periodOpts += '<option value="'+t.id+'__'+c.id+'">'+academicYear+' | '+displayName+'</option>';
-      });
+      // Default DB terms with Midterm + Exam components
+      // Find EU (midterm) and ET (exam) components
+      var euComp = t.components.find(function(c){return c.name.toLowerCase().indexOf('midterm')>=0;}) || t.components[0];
+      var etComp = t.components.find(function(c){return c.name.toLowerCase().indexOf('exam')>=0;}) || (t.components.length>1?t.components[1]:null);
+      // EU option — midterm only report
+      periodOpts += '<option value="'+t.id+'__'+euComp.id+'">'+academicYear+' | EU — '+t.name+'</option>';
+      // ET option — full term report (shows EU+ET)
+      if(etComp){
+        periodOpts += '<option value="'+t.id+'__'+etComp.id+'">'+academicYear+' | '+t.name+'</option>';
+      }
     } else {
-      // Old format term no components
       periodOpts += '<option value="'+t.id+'__single">'+academicYear+' | '+t.name+'</option>';
     }
   });
