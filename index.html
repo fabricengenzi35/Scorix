@@ -808,10 +808,10 @@ tr:hover td{background:var(--s2);}
         <!-- MORNING QUIZ MODE -->
         <div id="quiz-marks-mode" style="display:none;">
           <div class="al info" style="margin-bottom:1rem;">
-            🌅 <strong>Morning Quiz</strong> — Weekly quiz marks out of 20 per subject. These do <strong>NOT</strong> affect term marks or reports. Used to track student progress only.
+            🌅 <strong>Morning Quiz</strong> — Weekly quiz marks out of 20 per subject. Independent from terms. Used to track daily student progress only.
           </div>
           <div class="card">
-            <div class="g3" style="margin-bottom:1rem;">
+            <div class="g2" style="margin-bottom:1rem;">
               <div class="fg">
                 <label>Class</label>
                 <select id="qzCls" onchange="loadQuizTable()"><option value="">— Select Class —</option></select>
@@ -833,10 +833,6 @@ tr:hover td{background:var(--s2);}
                   <option value="W12">Week 12</option>
                 </select>
               </div>
-              <div class="fg">
-                <label>Term</label>
-                <select id="qzTerm" onchange="loadQuizTable()"></select>
-              </div>
             </div>
             <div id="qzWrap"><div class="empty"><div class="ei">🌅</div><p>Select class and week to enter quiz marks.</p></div></div>
           </div>
@@ -850,9 +846,12 @@ tr:hover td{background:var(--s2);}
             <div class="phtitle">🌅 Quiz Proclamation</div>
             <div class="phsub">Student progress — morning quiz rankings</div>
           </div>
+          <div class="phact">
+            <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
+          </div>
         </div>
         <div class="card" style="margin-bottom:1rem;">
-          <div class="g3">
+          <div class="g2">
             <div class="fg">
               <label>Class</label>
               <select id="qpCls" onchange="genQuizProcl()"><option value="">— Select Class —</option></select>
@@ -867,10 +866,6 @@ tr:hover td{background:var(--s2);}
                 <option value="W9">Week 9</option><option value="W10">Week 10</option>
                 <option value="W11">Week 11</option><option value="W12">Week 12</option>
               </select>
-            </div>
-            <div class="fg">
-              <label>Term</label>
-              <select id="qpTerm" onchange="genQuizProcl()"></select>
             </div>
           </div>
         </div>
@@ -2351,13 +2346,6 @@ function renderOverview(){
   sEl.innerHTML=html;
 }
 
-  // Populate class filter
-  var clsSel=document.getElementById('ov-class');
-  if(clsSel){
-    var cur=clsSel.value;
-    clsSel.innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'"'+(c.id===cur?' selected':'')+'>'+c.name+'</option>';}).join('');
-  }
-
 function renderTeachers(){
   var tb=document.getElementById('tbt');
   if(!DB.teachers.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><p>No teachers yet.</p></div></td></tr>';return;}
@@ -2594,7 +2582,6 @@ function openEditSub(id){
   document.getElementById('mesid').value=id;
   document.getElementById('mesname').textContent=s.name;
   document.getElementById('mesn').value=s.name;
-  document.getElementById('mesc').value=s.code||'';
   var isL=s.scale==='letter';
   document.getElementById('messc').value=isL?'letter':'number';
   document.getElementById('mesmax').value=isL?'100':s.scale;
@@ -3034,7 +3021,8 @@ function saveAllMarks(){
   }
 
   var students = DB.students.filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
-  var allComps = (term&&term.components&&term.components.length) ? term.components : null;
+  var termObj = DB.terms.find(function(t){ return t.id===tid; });
+  var allComps = (termObj&&termObj.components&&termObj.components.length) ? termObj.components : null;
   var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
   var cnt = 0;
 
@@ -3264,12 +3252,64 @@ function genReport(){
   var g=DB.settings;
   var promotionMark=DB.settings.promotionMark!=null?DB.settings.promotionMark:g.grD||50;
 
-  // ── Terms to show ──
+  // ── Determine which terms to show based on selected period ──
+  // Rules:
+  // Midterm X → show only that midterm
+  // Exam X    → show all periods from start up to and including that exam
+  // Exam 3    → show all + promotion decision
   var allActive=activeTerms();
-  var selectedIdx=allActive.findIndex(function(t){return t.id===selectedTerm;});
-  if(selectedIdx<0) selectedIdx=0;
-  var termsToShow=allActive.slice(0,selectedIdx+1);
-  var isFinalTerm=selectedIdx===allActive.length-1;
+  var selectedTp=parseTermPeriod(selectedTermRaw);
+  var selectedTermId=selectedTp.termId;
+  var selectedCompId=selectedTp.compId;
+
+  // Find the selected term
+  var selectedTermObj=allActive.find(function(t){return t.id===selectedTermId;});
+  var selectedComp=selectedTermObj&&selectedTermObj.components
+    ? selectedTermObj.components.find(function(c){return c.id===selectedCompId;})
+    : null;
+
+  var isMidterm = selectedComp && selectedComp.name && selectedComp.name.toLowerCase().indexOf('midterm')>=0;
+  var isExam = selectedComp && selectedComp.name && selectedComp.name.toLowerCase().indexOf('exam')>=0;
+
+  // Build the list of periods to show on the report
+  var periodsToShow=[]; // array of {term, comp} pairs
+  if(isMidterm){
+    // Only this midterm
+    periodsToShow=[{term:selectedTermObj, comp:selectedComp}];
+  } else {
+    // Exam or unknown — show all periods from beginning up to this one
+    var reached=false;
+    allActive.forEach(function(t){
+      if(reached) return;
+      if(t.components&&t.components.length){
+        t.components.forEach(function(c){
+          if(!reached) periodsToShow.push({term:t, comp:c});
+          if(t.id===selectedTermId&&c.id===selectedCompId) reached=true;
+        });
+      } else {
+        periodsToShow.push({term:t, comp:null});
+        if(t.id===selectedTermId) reached=true;
+      }
+    });
+  }
+
+  // Is this Exam 3 (last exam = last period overall)?
+  var allPeriods=[];
+  allActive.forEach(function(t){
+    if(t.components&&t.components.length){
+      t.components.forEach(function(c){allPeriods.push({termId:t.id,compId:c.id});});
+    } else {
+      allPeriods.push({termId:t.id,compId:null});
+    }
+  });
+  var lastPeriod=allPeriods[allPeriods.length-1];
+  var isFinalTerm = lastPeriod && lastPeriod.termId===selectedTermId && lastPeriod.compId===selectedCompId;
+
+  // Legacy support: termsToShow = unique terms in periodsToShow
+  var termsToShow=[];
+  periodsToShow.forEach(function(p){
+    if(!termsToShow.find(function(t){return t.id===p.term.id;})) termsToShow.push(p.term);
+  });
 
   // ── Active subjects ──
   if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
@@ -3414,7 +3454,9 @@ function genReport(){
   // ══════════════════════════════════════════════
   // BUILD REPORT CARD HTML
   // ══════════════════════════════════════════════
-  var titleTerms=termsToShow.map(function(t){return t.name;}).join(' + ');
+  var titleTerms = periodsToShow.map(function(p){
+    return p.comp ? p.comp.name : p.term.name;
+  }).join(' + ');
 
   var html='<div style="background:#faf8f4;color:#1a1612;border-radius:4px;font-family:\'EB Garamond\',Georgia,serif;max-width:900px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.18);">'
 
@@ -3443,320 +3485,303 @@ function genReport(){
   +'</div>';
 
   // ════════════════════════════════════════════════
-  // MARKS TABLE — new layout matching reference image
-  // Columns:
-  //   SUBJECT | MAXIMUM (EU ET TOT) [once] |
-  //   Term1 (EU ET TOT % GR Pos) | Term2 … |
-  //   TOTAL (TOT MAX % GR)
+  // MARKS TABLE — Exact format per reference image
+  // SUBJECT | MAXIMUM (EU ET TOT once) | Period cols (EU ET TOT % GR) | Total (TOT MAX % GR)
+  // Subjects sorted highest max to lowest
+  // MAX shown ONCE — never repeated per term
   // ════════════════════════════════════════════════
-  html+='<div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#6b5e50;margin-bottom:5px;">Academic Performance</div>';
 
-  // Determine if any term uses components
-  var anyComps=termsToShow.some(function(t){return !!getTermComps(t.id);});
-  // For each term, get its components (or null)
-  var termCompsList=termsToShow.map(function(t){return getTermComps(t.id);});
+  var remark=document.getElementById('rpRemark')?document.getElementById('rpRemark').value:'';
+  var discipline=document.getElementById('rpDiscipline')?document.getElementById('rpDiscipline').value:'';
 
-  // Table styles
-  var thS='padding:5px 4px;text-align:center;font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border:1px solid #c8b88a;white-space:nowrap;';
-  var thSL='padding:5px 6px;text-align:left;font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border:1px solid #c8b88a;';
-  var tdS='padding:5px 4px;text-align:center;font-size:.78rem;border:1px solid #ddd4b8;vertical-align:middle;';
-  var tdSL='padding:5px 6px;font-size:.78rem;border:1px solid #ddd4b8;vertical-align:middle;font-weight:500;';
-  var hdBg='background:#1a1612;color:#f5f0e0;';
-  var subHdBg='background:#3a2e10;color:#f5e8a0;';
-
-  html+='<table style="width:100%;border-collapse:collapse;margin-bottom:1.2rem;table-layout:auto;">';
-
-  // ── ROW 1: Group headers (SUBJECT | MAXIMUM | Term1 | Term2 … | TOTAL) ──
-  var termColspan=anyComps
-    ? function(ti){ var c=termCompsList[ti]; return c?(c.length+3):4; } // comps+TOT+%+GR+Pos
-    : function(){ return 4; }; // TOT % GR Pos
-
-  // For a term with components: EU ET [comp cols] TOT % GR POS
-  // For a term without: TOT % GR POS
-  // MAXIMUM: same structure as first term (EU ET TOT) but uses subject.scale
-  // Because terms may have different components we use the first term's comps for MAX header
-
-  var firstTermComps=termCompsList[0];
-
-  html+='<thead>';
-  // Row 1 — group labels
-  html+='<tr style="'+hdBg+'">';
-  html+='<th rowspan="3" style="'+thSL+hdBg+'min-width:110px;">Subject</th>';
-
-  // MAXIMUM group — spans same cols as one term
-  var maxColspan=firstTermComps?(firstTermComps.length+4):4; // comps+TOT+%+GR+Pos → but MAX only needs comps+TOT (no %, GR, Pos repeated)
-  // Actually MAX shows: EU cols (comp names) + TOT — same width as term columns
-  var maxDisplayCols=firstTermComps?firstTermComps.length+1:1; // just the raw mark columns
-  html+='<th colspan="'+maxDisplayCols+'" style="'+thS+hdBg+'border-left:2px solid #b8920a;">MAXIMUM</th>';
-
-  termsToShow.forEach(function(t,ti){
-    var comps=termCompsList[ti];
-    var span=comps?(comps.length+4):4; // comp cols + TOT + % + GR + POS
-    html+='<th colspan="'+span+'" style="'+thS+hdBg+'border-left:2px solid #b8920a;">'+t.name+'</th>';
+  // Sort subjects highest max mark to lowest
+  var sortedSubjects=activeSubjects.slice().sort(function(a,b){
+    return parseFloat(b.scale||100)-parseFloat(a.scale||100);
   });
 
-  // TOTAL group
-  html+='<th colspan="4" style="'+thS+hdBg+'border-left:2px solid #b8920a;">TOTAL</th>';
+  var thS='padding:4px 3px;text-align:center;font-size:.5rem;font-weight:700;text-transform:uppercase;border:1px solid #c8b88a;white-space:nowrap;';
+  var thSL='padding:4px 5px;text-align:left;font-size:.5rem;font-weight:700;text-transform:uppercase;border:1px solid #c8b88a;';
+  var tdS='padding:4px 3px;text-align:center;font-size:.76rem;border:1px solid #ddd4b8;vertical-align:middle;';
+  var tdSL='padding:4px 5px;font-size:.76rem;border:1px solid #ddd4b8;vertical-align:middle;font-weight:500;';
+  var hdBg='background:#1a1612;color:#f5f0e0;';
+  var subHdBg='background:#3a2e10;color:#f5e8a0;';
+  var maxBg='background:#f0ece0;color:#1a1612;';
+
+  // For each period, figure out how many EU/ET cols it has
+  // If period has 1 component — just 1 mark col. If term has 2 comps, show EU ET TOT
+  // Reference shows: for a term with 2 periods shown (EU=midterm, ET=exam): EU ET TOT % GR
+  // For midterm alone: just EU TOT % GR (1 comp)
+  // We show one column per period component in the report
+
+  // MAX columns: EU ET TOT (one col per component of first period, then TOT)
+  // But since max is constant, we just show the max values as a special row
+
+  // Determine period cols per term shown
+  // Each periodsToShow entry = one column group: label | marks... | TOT | % | GR
+  // If single comp per period: marks = 1 col (TOT)
+  // MAX is shown ONCE before all periods
+
+  // Get the max mark for each subject per period
+  function getPeriodMax(p, sub){
+    if(p.comp) return p.comp.maxMark;
+    return parseFloat(sub.scale||100);
+  }
+
+  // Get student mark for a period
+  function getPeriodMark(p, subId, stid_){
+    var key = p.comp
+      ? stid_+'_'+subId+'_'+p.term.id+'_'+p.comp.id
+      : stid_+'_'+subId+'_'+p.term.id;
+    var v = DB.marks[key];
+    return (v!==undefined&&v!=='') ? parseFloat(v) : null;
+  }
+
+  // For MAX column — total max across all periods shown
+  function getTotalMax(sub){
+    return periodsToShow.reduce(function(s,p){ return s+getPeriodMax(p,sub); },0);
+  }
+
+  html+='<div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#6b5e50;margin-bottom:5px;">Academic Performance</div>';
+  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:.75rem;">';
+
+  // ── HEADER ROW 1: group spans ──
+  html+='<thead>';
+  html+='<tr style="'+hdBg+'">';
+  html+='<th rowspan="3" style="'+thSL+hdBg+'min-width:100px;max-width:140px;">SUBJECT</th>';
+  // MAXIMUM group — 3 cols: EU ET TOT (or just TOT if single component)
+  var hasMultiComp = periodsToShow.length>1 || (periodsToShow[0]&&periodsToShow[0].comp);
+  var maxCols = hasMultiComp ? 3 : 1;
+  html+='<th colspan="'+maxCols+'" style="'+thS+hdBg+'border-left:2px solid #b8920a;background:#2a1a00;color:#f5e8a0;">MAXIMUM</th>';
+  // Period groups
+  periodsToShow.forEach(function(p){
+    var label = p.comp ? p.comp.name : p.term.name;
+    // cols per period: marks + TOT + % + GR = 4 (or marks=1 if single, so 4 total)
+    html+='<th colspan="4" style="'+thS+hdBg+'border-left:2px solid #b8920a;">'+label+'</th>';
+  });
+  // Total group: TOT MAX % GR
+  html+='<th colspan="4" style="'+thS+hdBg+'border-left:2px solid #b8920a;background:#2a1a00;color:#f5e8a0;">TOTAL</th>';
   html+='</tr>';
 
-  // Row 2 — sub-headers
+  // ── HEADER ROW 2: sub-labels ──
   html+='<tr style="'+subHdBg+'">';
-
-  // MAX sub-headers
-  if(firstTermComps){
-    firstTermComps.forEach(function(c){
-      html+='<th style="'+thS+subHdBg+'border-left:1px solid #b8920a;">'+c.name+'</th>';
-    });
+  // MAX sub-cols
+  if(maxCols===3){
+    html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;">EU</th>';
+    html+='<th style="'+thS+subHdBg+'">ET</th>';
     html+='<th style="'+thS+subHdBg+'">TOT</th>';
   } else {
     html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;">MAX</th>';
   }
-
-  termsToShow.forEach(function(t,ti){
-    var comps=termCompsList[ti];
-    if(comps){
-      comps.forEach(function(c){
-        html+='<th style="'+thS+subHdBg+'border-left:1px solid #b8920a;">'+c.name+'</th>';
-      });
-      html+='<th style="'+thS+subHdBg+'">TOT</th>';
-    } else {
-      html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;">TOT</th>';
-    }
+  // Period sub-cols: EU ET TOT % GR — but since each period = 1 mark col + TOT + % + GR
+  periodsToShow.forEach(function(p){
+    html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;">Marks</th>';
+    html+='<th style="'+thS+subHdBg+'">TOT</th>';
     html+='<th style="'+thS+subHdBg+'">%</th>';
     html+='<th style="'+thS+subHdBg+'">GR</th>';
-    html+='<th style="'+thS+subHdBg+'">POS</th>';
   });
-
-  // TOTAL sub-headers
+  // Total sub-cols
   html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;">TOT</th>';
   html+='<th style="'+thS+subHdBg+'">MAX</th>';
   html+='<th style="'+thS+subHdBg+'">%</th>';
   html+='<th style="'+thS+subHdBg+'">GR</th>';
   html+='</tr>';
 
-  // Row 3 — weight row (shows max mark per component per subject — same for all terms so shown once in MAX)
-  // Actually we show WEIGHT row: for MAX cols show component maxMarks, for term cols show component weights as %
-  // We'll show a "WEIGHT" row with % weights if components exist
-  if(firstTermComps){
-    html+='<tr style="background:#2e2000;color:#f5e8a0;font-size:.5rem;">';
-    html+='<td style="'+thSL+'background:#2e2000;color:#f5e8a0;font-size:.5rem;">WEIGHT</td>';
-    var totMaxFirst=firstTermComps.reduce(function(s,c){return s+c.maxMark;},0);
-    firstTermComps.forEach(function(c){
-      html+='<td style="'+thS+'background:#2e2000;color:#f5e8a0;border-left:1px solid #b8920a;">'+Math.round(c.maxMark/totMaxFirst*100)+'%</td>';
-    });
-    html+='<td style="'+thS+'background:#2e2000;color:#f5e8a0;">100%</td>';
-    termsToShow.forEach(function(t,ti){
-      var comps=termCompsList[ti];
-      if(comps){
-        var totMax=comps.reduce(function(s,c){return s+c.maxMark;},0);
-        comps.forEach(function(c){
-          html+='<td style="'+thS+'background:#2e2000;color:#f5e8a0;border-left:1px solid #b8920a;">'+Math.round(c.maxMark/totMax*100)+'%</td>';
-        });
-        html+='<td style="'+thS+'background:#2e2000;color:#f5e8a0;">100%</td>';
-      } else {
-        html+='<td colspan="1" style="'+thS+'background:#2e2000;color:#f5e8a0;border-left:2px solid #b8920a;">100%</td>';
-      }
-      html+='<td style="'+thS+'background:#2e2000;color:#f5e8a0;"></td>';
-      html+='<td style="'+thS+'background:#2e2000;color:#f5e8a0;"></td>';
-      html+='<td style="'+thS+'background:#2e2000;color:#f5e8a0;"></td>';
-    });
-    html+='<td colspan="4" style="'+thS+'background:#2e2000;color:#f5e8a0;border-left:2px solid #b8920a;"></td>';
-    html+='</tr>';
+  // ── HEADER ROW 3: WEIGHT row ──
+  html+='<tr style="'+subHdBg+'">';
+  // MAX weight cells
+  if(maxCols===3){
+    var wt=Math.round(100/periodsToShow.length);
+    html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;font-weight:400;">'+wt+'%</th>';
+    html+='<th style="'+thS+subHdBg+'font-weight:400;">'+wt+'%</th>';
+    html+='<th style="'+thS+subHdBg+'font-weight:400;">100%</th>';
+  } else {
+    html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;font-weight:400;">100%</th>';
   }
+  periodsToShow.forEach(function(){
+    html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;"></th>';
+    html+='<th style="'+thS+subHdBg+'"></th>';
+    html+='<th style="'+thS+subHdBg+'"></th>';
+    html+='<th style="'+thS+subHdBg+'"></th>';
+  });
+  html+='<th style="'+thS+subHdBg+'border-left:2px solid #b8920a;"></th>';
+  html+='<th style="'+thS+subHdBg+'"></th>';
+  html+='<th style="'+thS+subHdBg+'"></th>';
+  html+='<th style="'+thS+subHdBg+'"></th>';
+  html+='</tr></thead>';
 
-  html+='</thead><tbody>';
+  // ── SUBJECT ROWS ──
+  var GC={'A':'#1a7a4a','B':'#1a4a8a','C':'#7a5a00','D':'#5a3a7a','F':'#8a1a1a'};
+  html+='<tbody>';
+  var overallTot=0,overallCnt=0;
+  var colTotals={}; // sum per period for totals row
+  periodsToShow.forEach(function(p,pi){ colTotals[pi]={marks:0,max:0,cnt:0}; });
+  var grandTot=0,grandMax=0;
 
-  // ── DATA ROWS ──
-  activeSubjects.forEach(function(sub,i){
-    var isL=sub.scale==='letter';
-    var cfg=DB.settings.reportSubjects[sub.id]||{forPromotion:true};
-    var forProm=!cfg||cfg.forPromotion!==false;
-    var bg=i%2===0?'#faf8f4':'#f4f0e6';
+  sortedSubjects.forEach(function(sub,si){
+    var cfg=DB.settings.reportSubjects&&DB.settings.reportSubjects[sub.id]?DB.settings.reportSubjects[sub.id]:{};
+    var forPromotion=cfg.forPromotion!==false;
+    var rowBg=si%2===0?'background:#faf8f4;':'background:#fff;';
+    var totalMaxSub=getTotalMax(sub);
 
-    html+='<tr style="background:'+bg+';">';
+    html+='<tr style="'+rowBg+'">';
     // Subject name
-    html+='<td style="'+tdSL+'background:'+bg+';">'+sub.name+(forProm?'<span style="color:#b8920a;font-size:.6rem;margin-left:3px;">★</span>':'')+'</td>';
+    html+='<td style="'+tdSL+'font-weight:600;font-size:.72rem;">'
+      +(forPromotion?'':'')
+      +sub.name+'</td>';
 
-    // MAXIMUM columns — show component max marks or subject scale, only once
-    if(firstTermComps&&!isL){
-      firstTermComps.forEach(function(c){
-        html+='<td style="'+tdS+'background:#fff8e0;border-left:1px solid #d0c080;font-weight:700;">'+c.maxMark+'</td>';
-      });
-      var totMax=firstTermComps.reduce(function(s,c){return s+c.maxMark;},0);
-      html+='<td style="'+tdS+'background:#fff8e0;font-weight:700;">'+totMax+'</td>';
+    // MAX columns — shown once
+    var subMaxTot=parseFloat(sub.scale||100)*periodsToShow.length;
+    if(maxCols===3){
+      var euMax=periodsToShow[0]?getPeriodMax(periodsToShow[0],sub):0;
+      var etMax=periodsToShow[1]?getPeriodMax(periodsToShow[1],sub):0;
+      html+='<td style="'+tdS+maxBg+'border-left:2px solid #b8920a;font-weight:700;">'+euMax+'</td>';
+      html+='<td style="'+tdS+maxBg+'font-weight:700;">'+(etMax||'')+'</td>';
+      html+='<td style="'+tdS+maxBg+'font-weight:700;">'+(euMax+(etMax||0))+'</td>';
     } else {
-      html+='<td style="'+tdS+'background:#fff8e0;border-left:2px solid #b8920a;font-weight:700;">'+(isL?'A–F':sub.scale)+'</td>';
+      var singleMax=periodsToShow[0]?getPeriodMax(periodsToShow[0],sub):0;
+      html+='<td style="'+tdS+maxBg+'border-left:2px solid #b8920a;font-weight:700;">'+singleMax+'</td>';
     }
 
-    // Per-term columns
-    var termMarks=[];
-    termsToShow.forEach(function(t,ti){
-      var comps=termCompsList[ti];
-      var v=getMark(stid,sub.id,t.id);
-      var pct=(!isL&&v!=='')?((parseFloat(v)/parseFloat(sub.scale))*100):null;
-      var grade=pct!==null?(pct>=g.grA?'A':pct>=g.grB?'B':pct>=g.grC?'C':pct>=g.grD?'D':'F'):(isL&&v!==''?v:'—');
-      var gc2=GC[grade]||'#888';
-      var subPos=(!isL&&v!=='')?getSubjectPos(sub.id,sub.scale,t.id):'—';
-      termMarks.push({v:v,pct:pct,grade:grade,gc:gc2,pos:subPos});
+    // Period mark columns
+    var studentTot=0,studentMaxTot=0;
+    periodsToShow.forEach(function(p,pi){
+      var maxMark=getPeriodMax(p,sub);
+      var mark=getPeriodMark(p,sub.id,stid);
+      var pct=mark!==null?(mark/maxMark)*100:null;
+      var gr=pct!==null?(pct>=(g.grA||80)?'A':pct>=(g.grB||70)?'B':pct>=(g.grC||60)?'C':pct>=(g.grD||50)?'D':'F'):'—';
 
-      if(comps&&!isL){
-        var compVals=getCompMarks(stid,sub.id,t.id);
-        var subTotMax=comps.reduce(function(s,c){return s+c.maxMark;},0);
-        comps.forEach(function(c,ci){
-          var cv=compVals?compVals[ci]:null;
-          html+='<td style="'+tdS+'border-left:1px solid #ddd4b8;color:#1a1612;">'+(cv!==null?cv:'—')+'</td>';
-        });
-        // TOT (sum of components)
-        var rawTot=null;
-        if(compVals){var s2=0;var ok=false;compVals.forEach(function(cv){if(cv!==null){s2+=cv;ok=true;}});if(ok)rawTot=s2;}
-        html+='<td style="'+tdS+'font-weight:700;color:#1a1612;">'+(rawTot!==null?rawTot:'—')+'</td>';
+      html+='<td style="'+tdS+'border-left:2px solid #b8920a;">'+(mark!==null?mark:'—')+'</td>';
+      html+='<td style="'+tdS+'">'+(mark!==null?mark:'—')+'</td>';
+      html+='<td style="'+tdS+'">'+(pct!==null?pct.toFixed(1)+'%':'—')+'</td>';
+      html+='<td style="'+tdS+'font-weight:700;color:'+(gr!=='—'?GC[gr]:'#aaa')+';">'+gr+'</td>';
+
+      if(mark!==null){
+        studentTot+=mark; studentMaxTot+=maxMark;
+        colTotals[pi].marks+=mark; colTotals[pi].max+=maxMark; colTotals[pi].cnt++;
       } else {
-        html+='<td style="'+tdS+'border-left:2px solid #b8920a;font-weight:700;color:#1a1612;">'+(v!==''?v:'—')+'</td>';
+        studentMaxTot+=maxMark; colTotals[pi].max+=maxMark;
       }
-
-      // %
-      var pctColor=pct!==null?(pct>=g.grA?'#1a7a4a':pct>=g.grB?'#1a4a8a':pct>=g.grC?'#b8920a':pct>=g.grD?'#5a3a7a':'#8a1a1a'):'#aaa';
-      html+='<td style="'+tdS+'">'+(pct!==null?'<span style="background:'+pctColor+'18;padding:1px 4px;border-radius:3px;color:'+pctColor+';font-weight:700;font-size:.72rem;">'+pct.toFixed(0)+'%</span>':'—')+'</td>';
-
-      // GR
-      html+='<td style="'+tdS+'"><span style="display:inline-block;padding:1px 6px;border-radius:8px;font-weight:700;font-size:.7rem;background:'+gc2+'22;color:'+gc2+';border:1px solid '+gc2+'44;">'+grade+'</span></td>';
-
-      // POS
-      html+='<td style="'+tdS+'font-size:.68rem;font-weight:700;color:'+posClr(parseInt(subPos)||99)+';">'+subPos+'</td>';
     });
 
-    // TOTAL columns — average mark across terms, total max, avg%, overall grade
-    var validMarks=termMarks.filter(function(m){return m.pct!==null;});
-    var avgPct=validMarks.length?(validMarks.reduce(function(a,m){return a+m.pct;},0)/validMarks.length):null;
-    var overGrade=avgPct!==null?(avgPct>=g.grA?'A':avgPct>=g.grB?'B':avgPct>=g.grC?'C':avgPct>=g.grD?'D':'F'):(isL?'—':'—');
-    var overGc=GC[overGrade]||'#888';
-    // TOT = sum of raw marks across terms
-    var rawSum=0;var rawCnt=0;
-    termMarks.forEach(function(m){if(m.v!==''&&!isNaN(parseFloat(m.v))){rawSum+=parseFloat(m.v);rawCnt++;}});
-    var totalMax=parseFloat(sub.scale)*termsToShow.length;
-    html+='<td style="'+tdS+'border-left:2px solid #b8920a;font-weight:700;background:#fffef0;">'+(rawCnt?rawSum.toFixed(1):'—')+'</td>';
-    html+='<td style="'+tdS+'background:#fffef0;font-weight:700;color:#888;">'+(isL?'—':totalMax)+'</td>';
-    html+='<td style="'+tdS+'background:#fffef0;">'+(avgPct!==null?'<span style="font-weight:700;font-size:.72rem;color:'+(GC[overGrade]||'#888')+';">'+avgPct.toFixed(1)+'%</span>':'—')+'</td>';
-    html+='<td style="'+tdS+'background:#fffef0;"><span style="display:inline-block;padding:1px 6px;border-radius:8px;font-weight:700;font-size:.7rem;background:'+overGc+'22;color:'+overGc+';border:1px solid '+overGc+'44;">'+overGrade+'</span></td>';
-
+    // Total columns
+    var totPct=studentMaxTot>0?(studentTot/studentMaxTot)*100:null;
+    var totGr=totPct!==null?(totPct>=(g.grA||80)?'A':totPct>=(g.grB||70)?'B':totPct>=(g.grC||60)?'C':totPct>=(g.grD||50)?'D':'F'):'—';
+    html+='<td style="'+tdS+'border-left:2px solid #b8920a;font-weight:700;">'+(studentTot||'—')+'</td>';
+    html+='<td style="'+tdS+'font-weight:700;color:#b8920a;">'+studentMaxTot+'</td>';
+    html+='<td style="'+tdS+'">'+(totPct!==null?totPct.toFixed(1)+'%':'—')+'</td>';
+    html+='<td style="'+tdS+'font-weight:700;color:'+(totGr!=='—'?GC[totGr]:'#aaa')+';">'+totGr+'</td>';
     html+='</tr>';
+
+    grandTot+=studentTot; grandMax+=studentMaxTot;
+    if(forPromotion&&totPct!==null){overallTot+=totPct;overallCnt++;}
   });
 
   // ── TOTALS ROW ──
-  var termTotalsList=termsToShow.map(function(t){return calcTermTotals(t.id);});
-  html+='<tr style="background:#1a1612;color:#f5f0e0;font-weight:700;">';
-  html+='<td style="'+tdSL+'background:#1a1612;color:#f5e8a0;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;">Total</td>';
-
-  // MAX total
-  if(firstTermComps){
-    var totMaxFirst2=firstTermComps.reduce(function(s,c){return s+c.maxMark;},0);
-    firstTermComps.forEach(function(c){
-      html+='<td style="'+tdS+'background:#2a2000;color:#f5e8a0;border-left:1px solid #b8920a;">'+c.maxMark+'</td>';
-    });
-    html+='<td style="'+tdS+'background:#2a2000;color:#f5e8a0;">'+totMaxFirst2+'</td>';
-  } else {
-    // Sum of all subject scales
-    var totalMaxAll=activeSubjects.filter(function(s){return s.scale!=='letter';}).reduce(function(a,s){return a+parseFloat(s.scale);},0);
-    html+='<td style="'+tdS+'background:#2a2000;color:#f5e8a0;border-left:2px solid #b8920a;">'+totalMaxAll+'</td>';
-  }
-
-  termsToShow.forEach(function(t,ti){
-    var comps=termCompsList[ti];
-    var r=termTotalsList[ti];
-    var pos=calcClassPosForTerm(t.id);
-    if(comps){
-      comps.forEach(function(){html+='<td style="'+tdS+'background:#2a1800;border-left:1px solid #b8920a;">—</td>';});
-      html+='<td style="'+tdS+'background:#2a1800;color:#f5e8a0;">'+(r.tot!==null?r.tot.toFixed(1):'—')+'</td>';
-    } else {
-      html+='<td style="'+tdS+'background:#2a1800;color:#f5e8a0;border-left:2px solid #b8920a;">'+(r.tot!==null?r.tot.toFixed(1):'—')+'</td>';
-    }
-    html+='<td style="'+tdS+'background:#2a1800;color:#f5e8a0;">'+(r.pct!==null?r.pct.toFixed(1)+'%':'—')+'</td>';
-    var tg=r.pct!==null?(r.pct>=g.grA?'A':r.pct>=g.grB?'B':r.pct>=g.grC?'C':r.pct>=g.grD?'D':'F'):'—';
-    html+='<td style="'+tdS+'background:#2a1800;color:'+(GC[tg]||'#f5e8a0')+';">'+tg+'</td>';
-    html+='<td style="'+tdS+'background:#2a1800;color:#f5e8a0;font-size:.68rem;">'+(pos.pos!==null?pos.pos+'<span style="font-size:.55rem;opacity:.7;">/'+pos.total+'</span>':'—')+'</td>';
-  });
-
-  // Grand totals
-  var grandTot=0;var grandMax=0;var grandCnt=0;
-  termTotalsList.forEach(function(r){if(r.tot!==null){grandTot+=r.tot;grandMax+=r.maxTot;grandCnt++;}});
   var grandPct=grandMax>0?(grandTot/grandMax)*100:null;
-  var grandGrade=grandPct!==null?(grandPct>=g.grA?'A':grandPct>=g.grB?'B':grandPct>=g.grC?'C':grandPct>=g.grD?'D':'F'):'—';
-  html+='<td style="'+tdS+'background:#2a2000;color:#f5e8a0;border-left:2px solid #b8920a;font-weight:700;">'+(grandCnt?grandTot.toFixed(1):'—')+'</td>';
-  html+='<td style="'+tdS+'background:#2a2000;color:#f5e8a0;font-weight:700;">'+grandMax+'</td>';
-  html+='<td style="'+tdS+'background:#2a2000;color:#f5e8a0;font-weight:700;">'+(grandPct!==null?grandPct.toFixed(1)+'%':'—')+'</td>';
-  html+='<td style="'+tdS+'background:#2a2000;color:'+(GC[grandGrade]||'#f5e8a0')+';font-weight:700;">'+grandGrade+'</td>';
+  var grandGr=grandPct!==null?(grandPct>=(g.grA||80)?'A':grandPct>=(g.grB||70)?'B':grandPct>=(g.grC||60)?'C':grandPct>=(g.grD||50)?'D':'F'):'—';
+  html+='<tr style="background:#1a1612;color:#f5f0e0;font-weight:700;">';
+  html+='<td style="'+tdSL+'color:#f5f0e0;font-weight:700;">Total</td>';
+  // Max totals
+  if(maxCols===3){
+    var eu0=sortedSubjects.reduce(function(s,sub){return s+(periodsToShow[0]?getPeriodMax(periodsToShow[0],sub):0);},0);
+    var et0=sortedSubjects.reduce(function(s,sub){return s+(periodsToShow[1]?getPeriodMax(periodsToShow[1],sub):0);},0);
+    html+='<td style="'+tdS+'color:#f5e8a0;border-left:2px solid #b8920a;">'+eu0+'</td>';
+    html+='<td style="'+tdS+'color:#f5e8a0;">'+et0+'</td>';
+    html+='<td style="'+tdS+'color:#f5e8a0;">'+(eu0+et0)+'</td>';
+  } else {
+    var single0=sortedSubjects.reduce(function(s,sub){return s+(periodsToShow[0]?getPeriodMax(periodsToShow[0],sub):0);},0);
+    html+='<td style="'+tdS+'color:#f5e8a0;border-left:2px solid #b8920a;">'+single0+'</td>';
+  }
+  // Period totals
+  periodsToShow.forEach(function(p,pi){
+    var ct=colTotals[pi];
+    var cpct=ct.max>0?(ct.marks/ct.max)*100:null;
+    html+='<td style="'+tdS+'color:#f5f0e0;border-left:2px solid #b8920a;">'+ct.marks.toFixed(1)+'</td>';
+    html+='<td style="'+tdS+'color:#f5f0e0;">'+ct.marks.toFixed(1)+'</td>';
+    html+='<td style="'+tdS+'color:#f5e8a0;">'+(cpct!==null?cpct.toFixed(1)+'%':'—')+'</td>';
+    html+='<td style="'+tdS+'color:#f5e8a0;">—</td>';
+  });
+  html+='<td style="'+tdS+'color:#f5f0e0;border-left:2px solid #b8920a;font-weight:800;">'+grandTot.toFixed(1)+'</td>';
+  html+='<td style="'+tdS+'color:#f5e8a0;">'+grandMax+'</td>';
+  html+='<td style="'+tdS+'color:#f5e8a0;">'+(grandPct!==null?grandPct.toFixed(1)+'%':'—')+'</td>';
+  html+='<td style="'+tdS+'color:#f5e8a0;">'+grandGr+'</td>';
   html+='</tr>';
 
   // ── PERCENTAGE ROW ──
   html+='<tr style="background:#f4f0e6;">';
-  html+='<td style="'+tdSL+'font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6b5e50;">Percentage</td>';
-  var maxEmptyCols=firstTermComps?firstTermComps.length+1:1;
-  html+='<td colspan="'+maxEmptyCols+'" style="'+tdS+'"></td>';
-  termsToShow.forEach(function(t,ti){
-    var comps=termCompsList[ti];
-    var r=termTotalsList[ti];
-    var span=comps?(comps.length+1):1;
-    html+='<td colspan="'+span+'" style="'+tdS+'border-left:2px solid #b8920a;"></td>';
-    html+='<td style="'+tdS+'font-weight:700;color:#1a4a8a;font-size:.85rem;">'+(r.pct!==null?r.pct.toFixed(1)+'%':'—')+'</td>';
-    html+='<td style="'+tdS+'"></td>';
-    html+='<td style="'+tdS+'"></td>';
+  html+='<td style="'+tdSL+'font-weight:700;color:#6b5e50;">Percentage</td>';
+  var emptyCols=maxCols;
+  html+='<td colspan="'+emptyCols+'" style="'+tdS+'"></td>';
+  periodsToShow.forEach(function(p,pi){
+    var ct=colTotals[pi];
+    var cpct=ct.max>0?(ct.marks/ct.max)*100:null;
+    html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-weight:700;color:#1a1612;">'+(cpct!==null?cpct.toFixed(1)+'%':'—')+'</td>';
   });
-  html+='<td colspan="2" style="'+tdS+'border-left:2px solid #b8920a;"></td>';
-  html+='<td style="'+tdS+'font-weight:700;color:#1a4a8a;font-size:.85rem;">'+(grandPct!==null?grandPct.toFixed(1)+'%':'—')+'</td>';
-  html+='<td style="'+tdS+'"></td>';
+  html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-weight:700;color:#1a1612;">'+(grandPct!==null?grandPct.toFixed(1)+'%':'—')+'</td>';
   html+='</tr>';
 
   // ── POSITION ROW ──
-  html+='<tr style="background:#faf8f4;">';
-  html+='<td style="'+tdSL+'font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6b5e50;">Position</td>';
-  html+='<td colspan="'+maxEmptyCols+'" style="'+tdS+'"></td>';
-  termsToShow.forEach(function(t,ti){
-    var comps=termCompsList[ti];
-    var pos=calcClassPosForTerm(t.id);
-    var span=comps?(comps.length+1):1;
-    html+='<td colspan="'+span+'" style="'+tdS+'border-left:2px solid #b8920a;"></td>';
-    html+='<td style="'+tdS+'font-weight:700;font-size:.8rem;color:'+posClr(pos.pos||99)+'">'+(pos.pos!==null?pos.pos+' out of '+pos.total:'—')+'</td>';
-    html+='<td style="'+tdS+'"></td>';
-    html+='<td style="'+tdS+'"></td>';
+  var classmates_=cls?DB.students.filter(function(s){return s.classId===st.classId;}):[st];
+  var myScore=grandPct||0;
+  var betterCount=0;
+  classmates_.forEach(function(cm){
+    if(cm.id===stid) return;
+    var cmTot=0,cmMax=0;
+    sortedSubjects.forEach(function(sub){
+      periodsToShow.forEach(function(p){
+        var mk=getPeriodMark(p,sub.id,cm.id);
+        if(mk!==null){cmTot+=mk;}
+        cmMax+=getPeriodMax(p,sub);
+      });
+    });
+    if(cmMax>0&&(cmTot/cmMax)*100>myScore) betterCount++;
   });
-  html+='<td colspan="2" style="'+tdS+'border-left:2px solid #b8920a;"></td>';
-  html+='<td style="'+tdS+'font-weight:700;font-size:.8rem;color:'+posClr(classPos.pos||99)+'">'+(classPos.pos!==null?classPos.pos+' out of '+classPos.total:'—')+'</td>';
-  html+='<td style="'+tdS+'"></td>';
+  var position=betterCount+1;
+  var suffix=position===1?'st':position===2?'nd':position===3?'rd':'th';
+  html+='<tr style="background:#f4f0e6;">';
+  html+='<td style="'+tdSL+'font-weight:700;color:#6b5e50;">Position</td>';
+  html+='<td colspan="'+emptyCols+'" style="'+tdS+'"></td>';
+  periodsToShow.forEach(function(){
+    html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-weight:700;color:#b8920a;">'+position+suffix+' / '+classmates_.length+'</td>';
+  });
+  html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-weight:700;color:#b8920a;">'+position+suffix+' / '+classmates_.length+'</td>';
   html+='</tr>';
 
-  // ── COMMENT & DISCIPLINE ROW ──
-  var remark=document.getElementById('rpRemark')?document.getElementById('rpRemark').value:'';
-  var discipline=document.getElementById('rpDiscipline')?document.getElementById('rpDiscipline').value:'';
-  html+='<tr style="background:#f4f0e6;">';
-  html+='<td style="'+tdSL+'font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6b5e50;">Remarks</td>';
-  html+='<td colspan="'+maxEmptyCols+'" style="'+tdS+'"></td>';
-  termsToShow.forEach(function(t,ti){
-    var comps=termCompsList[ti];
-    var span=comps?(comps.length+1):1;
-    html+='<td colspan="'+span+'" style="'+tdS+'border-left:2px solid #b8920a;"></td>';
-    html+='<td colspan="3" style="'+tdS+'font-style:italic;color:#6b5e50;font-size:.75rem;">'+(ti===termsToShow.length-1&&remark?remark:'')+'</td>';
-  });
-  html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-style:italic;color:#6b5e50;font-size:.75rem;">'+(remark||'')+'</td>';
-  html+='</tr>';
-  if(discipline){
+  // ── COMMENT ROW ──
+  if(remark){
     html+='<tr style="background:#f4f0e6;">';
-    html+='<td style="'+tdSL+'font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6b5e50;">Discipline</td>';
-    html+='<td colspan="'+(maxEmptyCols)+'" style="'+tdS+'font-style:italic;color:#6b5e50;font-size:.75rem;">'+discipline+'</td>';
+    html+='<td style="'+tdSL+'font-weight:700;color:#6b5e50;">Comment</td>';
+    html+='<td colspan="'+emptyCols+'" style="'+tdS+'"></td>';
+    periodsToShow.forEach(function(){
+      html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-style:italic;color:#6b5e50;">'+remark+'</td>';
+    });
+    html+='<td colspan="4" style="'+tdS+'border-left:2px solid #b8920a;font-style:italic;color:#6b5e50;">'+remark+'</td>';
     html+='</tr>';
   }
 
-  html+='</tbody></table>';
+  // ── DISCIPLINE ROW ──
+  if(discipline){
+    html+='<tr style="background:#f4f0e6;">';
+    html+='<td style="'+tdSL+'font-weight:700;color:#6b5e50;">Discipline</td>';
+    var discCols=(periodsToShow.length*4)+maxCols+4;
+    html+='<td colspan="'+discCols+'" style="'+tdS+'font-style:italic;color:#6b5e50;">'+discipline+'</td>';
+    html+='</tr>';
+  }
 
-  // ── PROMOTION DECISION ──
+  html+='</tbody></table></div>';
+
+
+
+  // ── PROMOTION DECISION — Only on last exam (Exam 3) ──
+  var overallPromAvg = overallCnt ? overallTot/overallCnt : null;
+  var promoted = overallPromAvg!==null && overallPromAvg>=promotionMark;
+  var promColor = promoted?'#1a5c30':'#7a1a1a';
+
   if(isFinalTerm){
     html+='<div style="padding:12px;text-align:center;background:'+(promoted?'#eef7f2':'#fdf0f0')+';border:1px solid #ddd4b8;border-radius:6px;margin-bottom:.9rem;">'
-      +'<div style="font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Final Decision</div>'
-      +'<div style="font-size:1.1rem;font-weight:800;color:'+promColor+';letter-spacing:.06em;">'+(promoted?'✅ PROMOTED':'❌ REPEAT / NOT PROMOTED')+'</div>'
-      +'<div style="font-size:.62rem;color:#aaa;margin-top:3px;">Promotion avg: '+(overallPromAvg!==null?overallPromAvg.toFixed(1)+'%':'—')+' | Required: '+promotionMark+'% | Based on ★ subjects</div>'
-      +'</div>';
-  } else {
-    html+='<div style="padding:8px 12px;text-align:center;background:#f5f0e0;border:1px solid #ddd4b8;border-radius:6px;margin-bottom:.9rem;">'
-      +'<div style="font-size:.68rem;color:#6b5e50;">Promotion decision will appear on the <strong>Final Term</strong> report card only.</div>'
+      +'<div style="font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Final Decision — Academic Year</div>'
+      +'<div style="font-size:1.2rem;font-weight:800;color:'+promColor+';letter-spacing:.06em;">'+(promoted?'✅ PROMOTED TO NEXT CLASS':'❌ REPEAT / NOT PROMOTED')+'</div>'
+      +'<div style="font-size:.62rem;color:#aaa;margin-top:3px;">Overall average (★ subjects): '+(overallPromAvg!==null?overallPromAvg.toFixed(1)+'%':'—')+' | Required: '+promotionMark+'%+</div>'
       +'</div>';
   }
 
@@ -4332,7 +4357,7 @@ function syncTerms(){
   });
   if(!periodOpts) periodOpts='<option value="">No periods set — ask director to add terms</option>';
 
-  ['rpTerm','rpTerm2','prTerm','anTerm','qzTerm','qpTerm'].forEach(function(id){
+  ['rpTerm','rpTerm2','prTerm','anTerm'].forEach(function(id){
     var el=document.getElementById(id);if(!el)return;
     var cur=el.value; el.innerHTML=periodOpts;
     if(cur) el.value=cur;
@@ -4446,12 +4471,9 @@ function updateTopbarModeBtn(){
 function loadQuizTable(){
   var cid=document.getElementById('qzCls').value;
   var week=document.getElementById('qzWeek').value;
-  var tidRaw=document.getElementById('qzTerm').value;
-  var tp=parseTermPeriod(tidRaw);
-  var tid=tp.termId||tidRaw; // use termId part only for quiz
   var wrap=document.getElementById('qzWrap');
   if(!cid){wrap.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week to enter quiz marks.</p></div>';return;}
-  var students=DB.students.filter(function(s){return s.classId===cid;});
+  var students=DB.students.filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
   if(!students.length){wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>';return;}
   var subjects=DB.subjects.filter(function(s){return s.scale!=='letter';});
   if(!subjects.length){wrap.innerHTML='<div class="empty"><p>No subjects configured yet.</p></div>';return;}
@@ -4463,7 +4485,7 @@ function loadQuizTable(){
     var row='<tr><td>'+(i+1)+'</td><td><strong>'+st.name+'</strong><div style="font-size:.7rem;color:var(--ink3);">'+st.sid+'</div></td>';
     var tot=0;var cnt=0;
     subjects.forEach(function(sub){
-      var key='qz_'+st.id+'_'+sub.id+'_'+tid+'_'+week;
+      var key='qz_'+st.id+'_'+sub.id+'_'+week;
       var val=DB.marks[key]!==undefined?DB.marks[key]:'';
       if(val!==''&&!isNaN(parseFloat(val))){tot+=parseFloat(val);cnt++;}
       row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="20" step="0.5" value="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
@@ -4473,9 +4495,13 @@ function loadQuizTable(){
     return row+'</tr>';
   }).join('');
   wrap.innerHTML='<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
-    +'<div style="margin-top:.9rem;display:flex;gap:8px;"><button class="btn green" onclick="saveQuizMarks()">💾 Save Quiz Marks</button></div>'
+    +'<div style="margin-top:.9rem;display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<button class="btn green" onclick="saveQuizMarks()">💾 Save Quiz Marks</button>'
+    +'<button class="btn gold" onclick="viewQuizProclamation()">🏆 View Proclamation</button>'
+    +'</div>'
     +'<div id="qzSaveFlash" style="margin-top:.5rem;"></div>';
 }
+
 function previewQuizRow(stid,subIdsStr){
   var subIds=subIdsStr.split(',');
   var tot=0;var cnt=0;
@@ -4484,14 +4510,29 @@ function previewQuizRow(stid,subIdsStr){
     if(el&&el.value!==''&&!isNaN(parseFloat(el.value))){tot+=parseFloat(el.value);cnt++;}
   });
   var maxT=subIds.length*20;
-  var te=document.getElementById('qztot_'+stid);var ae=document.getElementById('qzavg_'+stid);
+  var te=document.getElementById('qztot_'+stid);
+  var ae=document.getElementById('qzavg_'+stid);
   if(te) te.textContent=cnt>0?tot.toFixed(1):'—';
   if(ae) ae.textContent=cnt>0?((tot/maxT)*100).toFixed(1)+'%':'—';
 }
+
+function viewQuizProclamation(){
+  var cid=document.getElementById('qzCls').value;
+  var week=document.getElementById('qzWeek').value;
+  // Navigate to quiz proclamation with same class and week
+  showPage('quizprocl');
+  setTimeout(function(){
+    var qpCls=document.getElementById('qpCls');
+    var qpWeek=document.getElementById('qpWeek');
+    if(qpCls) qpCls.value=cid;
+    if(qpWeek) qpWeek.value=week;
+    genQuizProcl();
+  },100);
+}
+
 function saveQuizMarks(){
   var cid=document.getElementById('qzCls').value;
   var week=document.getElementById('qzWeek').value;
-  var tid=document.getElementById('qzTerm').value;
   if(!cid){alert('Select a class first.');return;}
   var students=DB.students.filter(function(s){return s.classId===cid;});
   var subjects=DB.subjects.filter(function(s){return s.scale!=='letter';});
@@ -4501,22 +4542,38 @@ function saveQuizMarks(){
       var el=document.getElementById('qzk_'+st.id+'_'+sub.id);
       if(el&&el.value!==''){
         var v=Math.min(parseFloat(el.value),20);
-        DB.marks['qz_'+st.id+'_'+sub.id+'_'+tid+'_'+week]=String(v);cnt++;
+        DB.marks['qz_'+st.id+'_'+sub.id+'_'+week]=String(v);cnt++;
       }
     });
   });
   addLog('Saved '+cnt+' quiz marks — '+(DB.classes.find(function(c){return c.id===cid;})||{}).name+' / '+week);
   dbSave();
   var fl=document.getElementById('qzSaveFlash');
-  if(fl){fl.innerHTML='<div class="al ok">✅ '+cnt+' quiz marks saved! ('+week+') — These do NOT affect term marks or report cards.</div>';setTimeout(function(){fl.innerHTML='';},3000);}
+  if(fl){
+    fl.innerHTML='<div class="al ok">✅ '+cnt+' quiz marks saved for '+week+'! <button class="btn sm gold" onclick="viewQuizProclamation()" style="margin-left:8px;">🏆 View Proclamation</button></div>';
+    setTimeout(function(){fl.innerHTML='';},5000);
+  }
 }
-function setupQuizProcl(){syncTerms();genQuizProcl();}
+
+function setupQuizProcl(){
+  // Populate class dropdown for proclamation
+  var isTeacher=!isAdmin()&&!isSuperAdmin();
+  var qpEl=document.getElementById('qpCls');
+  if(qpEl){
+    if(isTeacher){
+      var ct=ME&&ME.classTeacher;
+      var ctCls=ct?DB.classes.find(function(c){return c.id===ct;}):null;
+      qpEl.innerHTML=ctCls?'<option value="'+ctCls.id+'">'+ctCls.name+'</option>':'<option value="">— No class assigned —</option>';
+    } else {
+      qpEl.innerHTML='<option value="">— Select Class —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    }
+  }
+  genQuizProcl();
+}
+
 function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
-  var tidRaw=document.getElementById('qpTerm').value;
-  var tp=parseTermPeriod(tidRaw);
-  var tid=tp.termId||tidRaw;
   var out=document.getElementById('qpOut');
   if(!cid){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week.</p></div>';return;}
   var students=DB.students.filter(function(s){return s.classId===cid;});
@@ -4529,22 +4586,21 @@ function genQuizProcl(){
   var ranked=students.map(function(st){
     var tot=0;var cnt=0;
     subjects.forEach(function(sub){
-      var v=DB.marks['qz_'+st.id+'_'+sub.id+'_'+tid+'_'+week];
+      var v=DB.marks['qz_'+st.id+'_'+sub.id+'_'+week];
       if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
     });
     return Object.assign({},st,{quizTotal:cnt>0?tot:null,quizPct:cnt>0?(tot/maxTotal)*100:null});
   }).filter(function(s){return s.quizTotal!==null;}).sort(function(a,b){return b.quizPct-a.quizPct;});
-  if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>No quiz marks recorded for '+week+' yet.</p></div>';return;}
+  if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>No quiz marks recorded for '+week+' yet. Enter marks first.</p></div>';return;}
   function getRangeLabel(pct){for(var i=0;i<ranges.length;i++){if(pct>=ranges[i].min&&pct<=ranges[i].max)return ranges[i];}return{label:'—',color:'#888'};}
-  var tn=DB.terms.find(function(t){return t.id===tid;});var tnLabel=tn?tn.name:tid;
   var html='<div style="text-align:center;padding:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;">🌅 Quiz Rankings</div>'
-    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' · '+week+' · '+tnLabel+'</div>'
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;">🌅 Morning Quiz Rankings</div>'
+    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' · '+week+'</div>'
     +'<div style="display:inline-block;margin-top:.5rem;padding:3px 12px;border-radius:20px;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);font-size:.7rem;color:var(--blue);font-weight:600;">⚠️ These marks have NO impact on term results or report cards</div></div>';
-  html+='<div class="card"><div class="ctitle">🎖️ Student Quiz Rankings — '+week+'</div>';
+  html+='<div class="card"><div class="ctitle">🎖️ Student Rankings — '+week+'</div>';
   ranked.forEach(function(s,i){
     var r=getRangeLabel(s.quizPct);
-    var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':String(i+1);
+    var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'<span style="font-size:.85rem;font-weight:700;color:var(--ink3);">'+(i+1)+'</span>';
     html+='<div style="display:flex;align-items:center;gap:12px;padding:.9rem;border:1px solid var(--bd);border-radius:9px;margin-bottom:.5rem;background:var(--s2);">'
       +'<div style="font-size:1.3rem;min-width:32px;text-align:center;">'+medal+'</div>'
       +'<div style="flex:1;"><div style="font-weight:600;">'+s.name+'</div><div style="font-size:.72rem;color:var(--ink3);">No. '+s.sid+'</div></div>'
