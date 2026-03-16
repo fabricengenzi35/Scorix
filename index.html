@@ -794,12 +794,25 @@ tr:hover td{background:var(--s2);}
 
         <!-- TERM MARKS MODE -->
         <div id="term-marks-mode">
+          <!-- Teacher assignment info banner -->
+          <div id="mkTeacherBanner" style="display:none;margin-bottom:.9rem;padding:.75rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.22);border-radius:9px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="font-size:1.1rem;">👨‍🏫</span>
+              <div style="flex:1;">
+                <div style="font-size:.84rem;font-weight:700;color:var(--blue);" id="mkTeacherBannerTitle">Your Assignments</div>
+                <div style="font-size:.74rem;color:var(--ink3);margin-top:2px;" id="mkTeacherBannerInfo">Class and subjects auto-selected below.</div>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div class="g4" style="margin-bottom:1rem;">
-              <div class="fg"><label>Class</label><select id="mkCls" onchange="setupMarksSubjects()"><option value="">— Select Class —</option></select></div>
+              <div class="fg"><label>Class</label><select id="mkCls" onchange="onMkClsChange()"><option value="">— Select Class —</option></select></div>
               <div class="fg"><label>Subject</label><select id="mkSub" onchange="loadMkTable()"><option value="">— Select Subject —</option></select></div>
               <div class="fg"><label>Term</label><select id="mkTerm" onchange="onMkTermChange()"></select></div>
-              <div class="fg"><label>Period</label><select id="mkComp" onchange="loadMkTable()"><option value="">— Select Period —</option></select></div>
+              <div class="fg">
+                <label>Period</label>
+                <select id="mkComp" onchange="loadMkTable()"><option value="">— Select Period —</option></select>
+              </div>
             </div>
             <div id="mkWrap"><div class="empty"><div class="ei">✏️</div><p>Select class, subject, term and period to enter marks.</p></div></div>
           </div>
@@ -809,6 +822,14 @@ tr:hover td{background:var(--s2);}
         <div id="quiz-marks-mode" style="display:none;">
           <div class="al info" style="margin-bottom:1rem;">
             🌅 <strong>Morning Quiz</strong> — Weekly quiz marks out of 20 per subject. Independent from terms. Used to track daily student progress only.
+          </div>
+          <!-- Class teacher badge — shown when teacher is class teacher -->
+          <div id="qzClassTeacherBadge" style="display:none;margin-bottom:1rem;padding:.7rem 1rem;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:9px;align-items:center;gap:10px;">
+            <span style="font-size:1.2rem;">⭐</span>
+            <div>
+              <div style="font-size:.84rem;font-weight:700;color:var(--green);">Class Teacher Mode</div>
+              <div style="font-size:.73rem;color:var(--ink3);" id="qzClassTeacherInfo">Your class is auto-selected. Enter quiz marks for all subjects below.</div>
+            </div>
           </div>
           <div class="card">
             <div class="g2" style="margin-bottom:1rem;">
@@ -843,18 +864,19 @@ tr:hover td{background:var(--s2);}
       <div class="page" id="p-quizprocl">
         <div class="ph">
           <div>
-            <div class="phtitle">🌅 Quiz Proclamation</div>
-            <div class="phsub">Student progress — morning quiz rankings</div>
+            <div class="phtitle">&#127749; Quiz Proclamation</div>
+            <div class="phsub">Student progress — morning quiz rankings &amp; per-subject breakdown</div>
           </div>
           <div class="phact">
-            <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
+            <button class="btn ghost" onclick="toggleQuizView()" id="qpViewToggleBtn">&#128202; Subject Breakdown</button>
+            <button class="btn ghost" onclick="window.print()">&#128424; Print</button>
           </div>
         </div>
-        <div class="card" style="margin-bottom:1rem;">
+        <div class="card noprint" style="margin-bottom:1rem;">
           <div class="g2">
             <div class="fg">
               <label>Class</label>
-              <select id="qpCls" onchange="genQuizProcl()"><option value="">— Select Class —</option></select>
+              <select id="qpCls" onchange="genQuizProcl()"><option value="">&#8212; Select Class &#8212;</option></select>
             </div>
             <div class="fg">
               <label>Week</label>
@@ -869,7 +891,8 @@ tr:hover td{background:var(--s2);}
             </div>
           </div>
         </div>
-        <div id="qpOut"><div class="empty"><div class="ei">🌅</div><p>Select class and week to view quiz rankings.</p></div></div>
+        <div id="qpOut"><div class="empty"><div class="ei">&#127749;</div><p>Select class and week to view quiz rankings.</p></div></div>
+        <div id="qpBreakdown" style="display:none;"></div>
       </div>
 
       <!-- IMPORT -->
@@ -2744,12 +2767,81 @@ function setupMarks(){
   document.getElementById('mkCls').innerHTML='<option value="">— Select Class —</option>'
     +classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
 
-  // Step 2: populate subjects from DB.users record (most reliable source)
+  // Step 2: Auto-select class if teacher is class teacher or has only one class
+  var u = DB.users.find(function(x){return x.id===(ME&&ME.id);});
+  var classTeacherId = (u&&u.classTeacher) || (ME&&ME.classTeacher);
+  var clsSel = document.getElementById('mkCls');
+  if(classTeacherId){
+    clsSel.value = classTeacherId;
+  } else if(classes.length===1){
+    clsSel.value = classes[0].id;
+  }
+
+  // Step 3: populate subjects
   setupMarksSubjects();
 
-  // Step 3: populate terms
+  // Step 4: Auto-select subject if only one assigned
+  var subSel = document.getElementById('mkSub');
+  var opts = subSel.querySelectorAll('option[value]:not([value=""])');
+  var realOpts = Array.prototype.filter.call(opts, function(o){return o.value!=='__overall__';});
+  if(realOpts.length===1){
+    subSel.value = realOpts[0].value;
+  }
+
+  // Step 5: populate terms
   syncTerms();
+
+  // Step 6: Auto-select term if only one active
+  var termSel = document.getElementById('mkTerm');
+  var termOpts = termSel.querySelectorAll('option[value]:not([value=""])');
+  if(termOpts.length===1){
+    termSel.value = termOpts[0].value;
+    onMkTermChange();
+  }
+
+  // Show teacher assignment banner
+  renderMkTeacherBanner();
+
   switchMarkMode(_markMode);
+}
+
+function renderMkTeacherBanner(){
+  var banner = document.getElementById('mkTeacherBanner');
+  var title  = document.getElementById('mkTeacherBannerTitle');
+  var info   = document.getElementById('mkTeacherBannerInfo');
+  if(!banner || isAdmin() || isSuperAdmin()) return;
+  var u = DB.users.find(function(x){return x.id===(ME&&ME.id);});
+  var classTeacherId = (u&&u.classTeacher)||(ME&&ME.classTeacher);
+  var ctCls = classTeacherId ? DB.classes.find(function(c){return c.id===classTeacherId;}) : null;
+  var subIds = (u&&u.subjects&&u.subjects.length)?u.subjects:((ME&&ME.subjects&&ME.subjects.length)?ME.subjects:[]);
+  var mySubNames = subIds.length
+    ? DB.subjects.filter(function(s){return subIds.indexOf(s.id)>=0;}).map(function(s){return s.name;})
+    : ['All subjects'];
+  var lines = [];
+  if(ctCls) lines.push('Class Teacher of: <strong style="color:var(--gold);">'+ctCls.name+'</strong>');
+  var myCls = myClasses();
+  if(!classTeacherId && myCls.length) lines.push('Assigned Classes: <strong>'+myCls.map(function(c){return c.name;}).join(', ')+'</strong>');
+  lines.push('Your Subjects: <strong>'+mySubNames.join(' &middot; ')+'</strong>');
+  if(title) title.innerHTML = 'Your Teaching Assignments';
+  if(info)  info.innerHTML  = lines.join(' &nbsp;|&nbsp; ');
+  banner.style.display = 'block';
+}
+
+// Called when class dropdown changes
+function onMkClsChange(){
+  setupMarksSubjects();
+  // After subject list is rebuilt, auto-select if only one subject
+  setTimeout(function(){
+    var subSel = document.getElementById('mkSub');
+    if(!subSel) return;
+    var opts = Array.prototype.filter.call(subSel.querySelectorAll('option'), function(o){
+      return o.value && o.value !== '__overall__';
+    });
+    if(opts.length === 1){
+      subSel.value = opts[0].value;
+      loadMkTable();
+    }
+  }, 10);
 }
 
 // Called when class changes — refresh subject list
@@ -2797,13 +2889,29 @@ function onMkTermChange(){
       + comps.map(function(c){
           return '<option value="'+c.id+'">'+c.name+'</option>';
         }).join('');
+    // Auto-select if only one period available
+    if(comps.length===1){
+      compSel.value = comps[0].id;
+      loadMkTable();
+      return;
+    }
+    // Show helpful hint — only period is missing
+    var cid2=document.getElementById('mkCls').value;
+    var sid2=document.getElementById('mkSub').value;
+    if(cid2 && sid2 && sid2!=='__overall__'){
+      wrap.innerHTML='<div class="al info" style="display:flex;align-items:center;gap:10px;">'
+        +'<span style="font-size:1.2rem;">👆</span>'
+        +'<span><strong>Almost there!</strong> Now select the <strong>Period</strong> above (Midterm or Exam) to load students.</span>'
+        +'</div>';
+    } else {
+      wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Now select the Period above to load students.</p></div>';
+    }
   } else {
     compSel.innerHTML='<option value="__single__">Full Term</option>';
     compSel.value='__single__';
     loadMkTable();
     return;
   }
-  wrap.innerHTML='<div class="empty"><div class="ei">✏️</div><p>Now select Midterm or Exam above.</p></div>';
 }
 
 function loadMkTable(){
@@ -2934,7 +3042,27 @@ function loadMkTable(){
       +'</tr>';
   }).join('');
 
-  wrap.innerHTML = banner + '<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>';
+  var studentCount = students.length;
+  var subjectName = sub ? sub.name : '';
+  var clsObj = DB.classes.find(function(c){return c.id===cid;});
+  var clsName = clsObj ? clsObj.name : '';
+
+  var infoBar = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.9rem;padding:.6rem 1rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;">'
+    +'<span style="font-size:1.1rem;">&#128101;</span>'
+    +'<div><span style="font-size:.84rem;font-weight:700;color:var(--ink);">'+clsName+'</span>'
+    +'<span style="font-size:.76rem;color:var(--ink3);margin-left:8px;">'+studentCount+' student'+(studentCount!==1?'s':'')+'</span>'
+    +'<span style="margin:0 6px;color:var(--bd);">|</span>'
+    +'<span style="font-size:.8rem;font-weight:600;color:var(--blue);">'+subjectName+'</span></div>'
+    +'</div>'
+    +'<button class="btn green" onclick="saveAllMarks()" style="font-size:.8rem;">&#128190; Save Marks</button>'
+    +'</div>';
+
+  wrap.innerHTML = banner + infoBar + '<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div style="margin-top:.9rem;display:flex;justify-content:flex-end;">'
+    +'<button class="btn green" onclick="saveAllMarks()">&#128190; Save All Marks</button>'
+    +'</div>'
+    +'<div id="mkSaveFlash" style="margin-top:.5rem;"></div>';
 }
 
 // Calculate the total from component inputs (live, before save)
@@ -3044,12 +3172,18 @@ function saveAllMarks(){
   addLog('Saved '+cnt+' marks — '+(selectedComp?selectedComp.name:tid));
   dbSave();
   // Flash confirmation
-  var wrap=document.getElementById('mkWrap');
-  var flash=document.createElement('div');
-  flash.className='al ok';
-  flash.innerHTML='✅ '+cnt+' marks saved'+(selectedComp?' for <strong>'+selectedComp.name+'</strong>':'')+'!';
-  wrap.insertBefore(flash,wrap.firstChild);
-  setTimeout(function(){if(flash.parentNode)flash.parentNode.removeChild(flash);},3000);
+  var flashEl = document.getElementById('mkSaveFlash');
+  if(flashEl){
+    flashEl.innerHTML='<div class="al ok">&#9989; '+cnt+' marks saved'+(selectedComp?' for <strong>'+selectedComp.name+'</strong>':'')+'!</div>';
+    setTimeout(function(){if(flashEl) flashEl.innerHTML='';},4000);
+  } else {
+    var wrap=document.getElementById('mkWrap');
+    var flash=document.createElement('div');
+    flash.className='al ok';
+    flash.innerHTML='&#9989; '+cnt+' marks saved'+(selectedComp?' for <strong>'+selectedComp.name+'</strong>':'')+'!';
+    wrap.insertBefore(flash,wrap.firstChild);
+    setTimeout(function(){if(flash.parentNode)flash.parentNode.removeChild(flash);},3000);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -4432,6 +4566,25 @@ function switchMarkMode(mode){
     if(termBtn){termBtn.style.background='none';termBtn.style.color='var(--ink2)';}
     if(quizBtn){quizBtn.style.background='var(--blue)';quizBtn.style.color='#fff';}
     syncTerms();
+    // Auto-select class teacher's class and show badge
+    var isTeacher = !isAdmin()&&!isSuperAdmin();
+    var badge = document.getElementById('qzClassTeacherBadge');
+    if(isTeacher && ME && ME.classTeacher){
+      var ct = ME.classTeacher;
+      var ctCls = DB.classes.find(function(c){return c.id===ct;});
+      var qzCls = document.getElementById('qzCls');
+      if(qzCls && ctCls){
+        qzCls.value = ct;
+        if(badge){
+          badge.style.display='flex';
+          var info = document.getElementById('qzClassTeacherInfo');
+          if(info) info.textContent = 'Class: '+ctCls.name+' — Enter quiz marks for all subjects below.';
+        }
+        loadQuizTable();
+      }
+    } else {
+      if(badge) badge.style.display='none';
+    }
   }
   updateTopbarModeBtn();
 }
@@ -4575,6 +4728,11 @@ function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
   var out=document.getElementById('qpOut');
+  // Reset view to rankings whenever filters change
+  _quizView='rankings';
+  var outDiv2=document.getElementById('qpOut'); if(outDiv2) outDiv2.style.display='';
+  var bdDiv2=document.getElementById('qpBreakdown'); if(bdDiv2) bdDiv2.style.display='none';
+  var tb2=document.getElementById('qpViewToggleBtn'); if(tb2) tb2.innerHTML='&#128202; Subject Breakdown';
   if(!cid){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week.</p></div>';return;}
   var students=DB.students.filter(function(s){return s.classId===cid;});
   var subjects=DB.subjects.filter(function(s){return s.scale!=='letter';});
@@ -4612,6 +4770,102 @@ function genQuizProcl(){
   });
   html+='</div>';
   out.innerHTML=html;
+
+  // ── Build per-subject breakdown table ──
+  genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges);
+}
+
+// ── Quiz view toggle (rankings <-> subject breakdown) ──
+var _quizView = 'rankings';
+function toggleQuizView(){
+  _quizView = (_quizView==='rankings') ? 'breakdown' : 'rankings';
+  var outDiv = document.getElementById('qpOut');
+  var bdDiv  = document.getElementById('qpBreakdown');
+  var btn    = document.getElementById('qpViewToggleBtn');
+  if(_quizView==='breakdown'){
+    if(outDiv) outDiv.style.display='none';
+    if(bdDiv)  bdDiv.style.display='';
+    if(btn)    btn.innerHTML='&#127942; Rankings';
+  } else {
+    if(outDiv) outDiv.style.display='';
+    if(bdDiv)  bdDiv.style.display='none';
+    if(btn)    btn.innerHTML='&#128202; Subject Breakdown';
+  }
+}
+
+function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
+  var bdDiv = document.getElementById('qpBreakdown');
+  if(!bdDiv) return;
+  var cls = DB.classes.find(function(c){return c.id===cid;});
+
+  // Build ranked list for position column
+  var ranked = students.map(function(st){
+    var tot=0; var cnt=0;
+    subjects.forEach(function(sub){
+      var v=DB.marks['qz_'+st.id+'_'+sub.id+'_'+week];
+      if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
+    });
+    return {id:st.id, total:cnt>0?tot:null};
+  });
+  ranked.sort(function(a,b){
+    if(a.total===null&&b.total===null) return 0;
+    if(a.total===null) return 1;
+    if(b.total===null) return -1;
+    return b.total-a.total;
+  });
+  var rankMap={};
+  ranked.forEach(function(r,i){ rankMap[r.id]=(r.total!==null?i+1:null); });
+
+  // Table header
+  var thead = '<tr>'
+    +'<th style="text-align:center;">#</th>'
+    +'<th>Student</th>';
+  subjects.forEach(function(s){
+    thead += '<th style="text-align:center;font-size:.68rem;white-space:nowrap;">'+s.name
+      +'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/20</div></th>';
+  });
+  thead += '<th style="text-align:center;font-size:.68rem;">Total<br>/'+maxTotal+'</th>'
+    +'<th style="text-align:center;font-size:.68rem;">Avg%</th>'
+    +'<th style="text-align:center;font-size:.68rem;">Rank</th>'
+    +'<th style="text-align:center;font-size:.68rem;">Level</th>'
+    +'</tr>';
+
+  // Table rows
+  var tbody = students.map(function(st,i){
+    var tot=0; var cnt=0;
+    var cells = subjects.map(function(sub){
+      var v = DB.marks['qz_'+st.id+'_'+sub.id+'_'+week];
+      var val = (v!==undefined&&v!==''&&!isNaN(parseFloat(v))) ? parseFloat(v) : null;
+      if(val!==null){tot+=val;cnt++;}
+      var pct = val!==null ? (val/20)*100 : null;
+      var color = pct===null?'var(--ink3)':pct>=80?'var(--green)':pct>=60?'var(--blue)':pct>=40?'var(--gold)':'var(--red)';
+      return '<td style="text-align:center;font-size:.84rem;font-weight:'+(val!==null?'600':'400')+';color:'+color+';">'
+        +(val!==null?val.toFixed(1):'<span style=\'color:var(--ink3);\'>—</span>')+'</td>';
+    }).join('');
+    var avg = cnt>0 ? ((tot/maxTotal)*100) : null;
+    var rank = rankMap[st.id];
+    var rankStr = rank ? (rank===1?'&#129351;':rank===2?'&#129352;':rank===3?'&#129353;':'<strong>'+rank+'</strong>') : '—';
+    var rangeObj = avg!==null ? (function(){ for(var i=0;i<ranges.length;i++){if(avg>=ranges[i].min&&avg<=ranges[i].max)return ranges[i];} return{label:'—',color:'#888'}; })() : {label:'—',color:'#888'};
+    var rowBg = i%2===0?'background:var(--s2);':'';
+    return '<tr style="'+rowBg+'">'
+      +'<td style="text-align:center;font-size:.8rem;color:var(--ink3);">'+(i+1)+'</td>'
+      +'<td><strong style="font-size:.88rem;">'+st.name+'</strong><div style="font-size:.68rem;color:var(--ink3);">'+st.sid+'</div></td>'
+      +cells
+      +'<td style="text-align:center;font-weight:700;color:var(--gold);">'+(cnt>0?tot.toFixed(1):'—')+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:var(--blue);">'+(avg!==null?avg.toFixed(1)+'%':'—')+'</td>'
+      +'<td style="text-align:center;font-size:.95rem;">'+rankStr+'</td>'
+      +'<td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;background:'+rangeObj.color+'22;color:'+rangeObj.color+';border:1px solid '+rangeObj.color+'44;">'+rangeObj.label+'</span></td>'
+      +'</tr>';
+  }).join('');
+
+  var html = '<div style="text-align:center;padding:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;">&#128202; Quiz Subject Breakdown</div>'
+    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' &middot; '+week+'</div>'
+    +'</div>'
+    +'<div class="card"><div class="ctitle">&#128218; Per-Student Subject Scores &mdash; '+week+'</div>'
+    +'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>'
+    +'</div>';
+  bdDiv.innerHTML=html;
 }
 
 // ═══════════════════════════════════════
