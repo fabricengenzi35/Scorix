@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;">
 <meta name="referrer" content="no-referrer-when-downgrade">
-<title>SCORIX — School Marks System</title>
+<title>SCORIX — School Marks System v2.0</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1622,11 +1622,55 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.classes))                   DB.classes=d.classes;
     if(Array.isArray(d.subjects))                  DB.subjects=d.subjects;
     if(Array.isArray(d.students))                  DB.students=d.students;
-    if(d.marks&&typeof d.marks==='object')         DB.marks=d.marks;
+    if(d.marks&&typeof d.marks==='object'){
+      DB.marks=d.marks;
+      // ── MIGRATION: convert old marks (sid_subId_termId) to component marks (sid_subId_termId_compId) ──
+      var newMarks={};
+      var migrated=false;
+      Object.keys(DB.marks).forEach(function(key){
+        var parts=key.split('_');
+        // Old format: 3 parts (stid_subId_termId) — need to migrate to component format
+        // New format: 4 parts (stid_subId_termId_compId)
+        if(parts.length===3){
+          var tid=parts[2];
+          var term=DB.terms.find(function(t){return t.id===tid;});
+          if(term&&term.components&&term.components.length){
+            // Put mark into the EXAM component (ET) as it represents final term mark
+            var examComp=term.components.find(function(c){return c.name.toLowerCase().indexOf('exam')>=0;})||term.components[term.components.length-1];
+            newMarks[key+'_'+examComp.id]=DB.marks[key];
+            migrated=true;
+          } else {
+            newMarks[key]=DB.marks[key];
+          }
+        } else {
+          newMarks[key]=DB.marks[key];
+        }
+      });
+      if(migrated) DB.marks=newMarks;
+    }
     if(d.settings&&typeof d.settings==='object')   DB.settings=Object.assign(DB.settings,d.settings);
     if(Array.isArray(d.activity))                  DB.activity=d.activity;
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
     if(d.approvals&&typeof d.approvals==='object') DB.approvals=d.approvals;
+    // ── MIGRATION: ensure all terms have EU/ET components ──
+    DB.terms.forEach(function(t){
+      if(!t.components||!t.components.length){
+        var maxMark=t.maxMark||50;
+        var tLabel=t.termLabel||t.name||'Term';
+        if(t.type==='midterm'){
+          t.components=[{id:t.id+'_comp',name:'Midterm '+tLabel,maxMark:maxMark}];
+        } else if(t.type==='exam'){
+          t.components=[{id:t.id+'_comp',name:'Exam '+tLabel,maxMark:maxMark}];
+        } else {
+          // Regular term — add both midterm and exam components
+          var mn=t.maxMark||50;
+          t.components=[
+            {id:t.id+'_mid',name:'Midterm '+tLabel,maxMark:mn},
+            {id:t.id+'_exam',name:'Exam '+tLabel,maxMark:mn}
+          ];
+        }
+      }
+    });
     return true;
   }
   return false;
