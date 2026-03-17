@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;">
 <meta name="referrer" content="no-referrer-when-downgrade">
 <title>SCORIX — School Marks System v2.0</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -555,13 +555,6 @@ tr:hover td{background:var(--s2);}
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-
-<script>
-window.addEventListener('DOMContentLoaded', () => {
-  console.log("SCORIX loaded successfully (standalone mode).");
-});
-</script>
-
 </head>
 <body>
 <div id="print-area" style="display:none;"></div>
@@ -3805,13 +3798,7 @@ function genReport(){
   if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
 
   // ════════════════════════════════════════════════
-  // BUILD 
-<div style="text-align:center;font-weight:bold;font-size:18px;">
-    <span id="exam-type"></span> 
-    <span id="term-number"></span><br>
-    REPORT CARD
-</div>
- HTML
+  // BUILD REPORT CARD HTML
   // ════════════════════════════════════════════════
   var titleTerms = termsToShow.map(function(t){
     return t.termLabel || t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim() || t.name;
@@ -6303,24 +6290,6 @@ document.addEventListener('DOMContentLoaded', function(){
     <button class="btn ghost" onclick="cm('mAddSuperUser')">Cancel</button>
   </div>
 </div></div>
-
-
-<script>
-function loadReportTitle() {
-    const term = localStorage.getItem("school_term") || "1";
-    const exam = localStorage.getItem("exam_type") || "MIDTERM";
-
-    const termEl = document.getElementById("term-number");
-    const examEl = document.getElementById("exam-type");
-
-    if(termEl && examEl){
-        examEl.textContent = exam;
-        termEl.textContent = term;
-    }
-}
-
-loadReportTitle();
-</script>
 
 </body>
 </html>
