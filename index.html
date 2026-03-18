@@ -38,7 +38,10 @@ body.light ::-webkit-scrollbar-track{background:var(--bg);}
 body.light .theme-toggle .tt-icon{transform:rotate(180deg);}
 /* ── ROLE-BASED VISIBILITY ── */
 body.role-teacher .admin-only { display: none !important; }
-body.role-admin .admin-only { display: flex !important; }
+body.role-admin .admin-only { display: revert !important; }
+body.role-admin .admin-only.card { display: block !important; }
+body.role-admin .admin-only.phact { display: flex !important; }
+body.role-admin .admin-only.brow { display: flex !important; }
 body.role-admin .teacher-only { display: none !important; }
 body.role-teacher .teacher-only { display: flex !important; }
 
@@ -255,6 +258,9 @@ tr:hover td{background:var(--s2);}
 /* MARK INPUTS */
 .mkin{width:68px;padding:5px 7px;background:var(--s3);border:1px solid var(--bd);border-radius:5px;color:var(--ink);font-size:.86rem;text-align:center;outline:none;}
 .mkin:focus{border-color:var(--gold);}
+/* Hide spinner arrows on number inputs for cleaner mobile look */
+.mkin::-webkit-outer-spin-button,.mkin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.mkin[type=number]{-moz-appearance:textfield;}
 .mksel{width:84px;padding:5px 7px;background:var(--s3);border:1px solid var(--bd);border-radius:5px;color:var(--ink);font-size:.86rem;outline:none;}
 .mksel:focus{border-color:var(--gold);}
 
@@ -354,42 +360,55 @@ tr:hover td{background:var(--s2);}
 .active-pill{font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:10px;background:rgba(62,207,142,.12);color:var(--green);border:1px solid rgba(62,207,142,.2);}
 
 @media print{
-  /* Hide the entire app */
-  body > *:not(#print-area) { display:none!important; }
+  /* Hide everything except print-area */
+  body > *:not(#print-area) { display:none!important; visibility:hidden!important; }
 
-  /* Show only print-area */
+  /* Force white page */
+  html, body { background:#fff!important; margin:0!important; padding:0!important; }
+
+  @page { size:A4 portrait; margin:10mm; }
+
+  /* Force color printing */
+  * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important; }
+
+  /* Show print-area full page */
   #print-area {
     display:block!important;
-    position:fixed!important;
-    top:0!important; left:0!important;
+    visibility:visible!important;
+    position:static!important;
     width:100%!important;
-    margin:0!important; padding:8px!important;
+    margin:0!important; padding:0!important;
     background:#fff!important;
     z-index:99999!important;
+    overflow:visible!important;
   }
 
-  /* Ensure all child elements render */
-  #print-area * { visibility:visible!important; }
-  #print-area div { display:block!important; }
-  #print-area table { display:table!important; width:100%!important; }
+  /* Make ALL descendants visible */
+  #print-area, #print-area * {
+    visibility:visible!important;
+  }
+
+  /* Tables */
+  #print-area table { width:100%!important; border-collapse:collapse!important; }
   #print-area thead { display:table-header-group!important; }
   #print-area tbody { display:table-row-group!important; }
-  #print-area tr { display:table-row!important; }
+  #print-area tr    { display:table-row!important; page-break-inside:avoid!important; }
   #print-area th, #print-area td { display:table-cell!important; }
-  #print-area [style*="display:flex"] { display:flex!important; }
-  #print-area [style*="display:grid"] { display:grid!important; }
-  #print-area [style*="display:inline"] { display:inline!important; }
-  #print-area [style*="display:inline-block"] { display:inline-block!important; }
 
-  /* Remove shadows for clean print */
+  /* CRITICAL: do NOT force div to block — respect inline display:flex/grid */
+
+  /* Remove shadows, clip */
   #print-area > div {
     box-shadow:none!important;
     border-radius:4px!important;
-    max-width:100%!important;
+    overflow:visible!important;
+    page-break-inside:avoid!important;
   }
 
-  /* Hide print button inside report */
-  #print-area button, #print-area .noprint, #print-area .btn { display:none!important; }
+  /* Hide UI controls inside print area */
+  #print-area button,
+  #print-area .noprint,
+  #print-area .btn { display:none!important; }
 }
 
 /* ══ MOBILE ══════════════════════════════════════════ */
@@ -710,6 +729,34 @@ tr:hover td{background:var(--s2);}
   </div>
 </div>
 
+<!-- ══ QUIZ YEAR SELECTOR ════════════════════════════════════════ -->
+<div id="quizYearSelect" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:8500;align-items:center;justify-content:center;flex-direction:column;gap:1.5rem;animation:fadeIn .3s ease;">
+  <div style="text-align:center;margin-bottom:.5rem;">
+    <div style="font-size:1.5rem;margin-bottom:.3rem;">🌅</div>
+    <div style="font-family:'Playfair Display',serif;font-size:1.3rem;" id="qys-title">Morning Quiz</div>
+    <div style="font-size:.82rem;color:var(--ink3);margin-top:4px;">Select an academic year to continue</div>
+  </div>
+  <div id="qys-list" style="display:flex;flex-direction:column;gap:.7rem;width:100%;max-width:400px;padding:0 1.2rem;max-height:60vh;overflow-y:auto;"></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:.6rem;margin-top:.3rem;">
+    <button class="btn gold" id="qys-new-btn" onclick="addQuizYearFromSelector()" style="min-width:220px;justify-content:center;display:none;">➕ New Academic Year</button>
+    <button class="btn ghost" onclick="cancelQuizYear()">← Back</button>
+  </div>
+</div>
+
+<!-- ══ TERM YEAR SELECTOR ════════════════════════════════════════ -->
+<div id="termYearSelect" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:8500;align-items:center;justify-content:center;flex-direction:column;gap:1.5rem;animation:fadeIn .3s ease;">
+  <div style="text-align:center;margin-bottom:.5rem;">
+    <div style="font-size:1.5rem;margin-bottom:.3rem;">📝</div>
+    <div style="font-family:'Playfair Display',serif;font-size:1.3rem;">Term Marks</div>
+    <div style="font-size:.82rem;color:var(--ink3);margin-top:4px;">Select an academic year to continue</div>
+  </div>
+  <div id="tys-list" style="display:flex;flex-direction:column;gap:.7rem;width:100%;max-width:400px;padding:0 1.2rem;max-height:60vh;overflow-y:auto;"></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:.6rem;margin-top:.3rem;">
+    <button class="btn gold" id="tys-new-btn" onclick="addTermYearFromSelector()" style="min-width:220px;justify-content:center;display:none;">➕ New Academic Year</button>
+    <button class="btn ghost" onclick="cancelTermYear()">← Back</button>
+  </div>
+</div>
+
 <div id="appWrap">
 
   <!-- TOPBAR -->
@@ -759,6 +806,8 @@ tr:hover td{background:var(--s2);}
         </div>
         <!-- QUICK ACTIONS — Admin only -->
         <div id="dash-quickactions"></div>
+        <!-- ATTENDANCE — Teacher (class teacher) only -->
+        <div id="dash-attendance"></div>
         <!-- APPROVAL STATUS — Teacher only -->
         <div id="dash-approval"></div>
         <div class="card admin-only"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
@@ -848,6 +897,14 @@ tr:hover td{background:var(--s2);}
 
         <!-- TERM MARKS MODE -->
         <div id="term-marks-mode">
+          <!-- Term Year Banner -->
+          <div id="term-year-banner" style="margin-bottom:.8rem;padding:.6rem 1rem;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.2);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+            <div style="font-size:.8rem;font-weight:600;color:var(--gold);">📝 Academic Year: <span id="term-year-label" style="color:var(--ink);">—</span></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="term-year-locked-badge" style="display:none;font-size:.7rem;font-weight:700;color:var(--red);background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.2);border-radius:10px;padding:2px 10px;">🔒 LOCKED — Read Only</div>
+              <button onclick="switchTermYear()" style="padding:3px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.72rem;cursor:pointer;">⇄ Switch Year</button>
+            </div>
+          </div>
           <!-- Teacher assignment info banner -->
           <div id="mkTeacherBanner" style="display:none;margin-bottom:.9rem;padding:.75rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.22);border-radius:9px;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -874,6 +931,13 @@ tr:hover td{background:var(--s2);}
 
         <!-- MORNING QUIZ MODE -->
         <div id="quiz-marks-mode" style="display:none;">
+          <div id="qz-year-banner" style="margin-bottom:.8rem;padding:.6rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.2);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+            <div style="font-size:.8rem;font-weight:600;color:var(--blue);">📅 Academic Year: <span id="qz-year-label" style="color:var(--gold);">—</span></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="qz-year-locked-badge" style="display:none;font-size:.7rem;font-weight:700;color:var(--red);background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.2);border-radius:10px;padding:2px 10px;">🔒 LOCKED — Read Only</div>
+              <button onclick="switchQuizYear()" style="padding:3px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.72rem;cursor:pointer;">⇄ Switch Year</button>
+            </div>
+          </div>
           <div class="al info" style="margin-bottom:1rem;">
             🌅 <strong>Morning Quiz</strong> — Weekly quiz marks out of 20 per subject. Independent from terms. Used to track daily student progress only.
           </div>
@@ -894,18 +958,7 @@ tr:hover td{background:var(--s2);}
               <div class="fg">
                 <label>Week</label>
                 <select id="qzWeek" onchange="loadQuizTable()">
-                  <option value="W1">Week 1</option>
-                  <option value="W2">Week 2</option>
-                  <option value="W3">Week 3</option>
-                  <option value="W4">Week 4</option>
-                  <option value="W5">Week 5</option>
-                  <option value="W6">Week 6</option>
-                  <option value="W7">Week 7</option>
-                  <option value="W8">Week 8</option>
-                  <option value="W9">Week 9</option>
-                  <option value="W10">Week 10</option>
-                  <option value="W11">Week 11</option>
-                  <option value="W12">Week 12</option>
+                  <option value="">— Select Week —</option>
                 </select>
               </div>
             </div>
@@ -923,10 +976,14 @@ tr:hover td{background:var(--s2);}
           </div>
           <div class="phact">
             <button class="btn ghost" onclick="toggleQuizView()" id="qpViewToggleBtn">&#128202; Subject Breakdown</button>
-            <button class="btn ghost" onclick="printReport()">&#128424; Print</button>
+            <button class="btn ghost" onclick="printQuizProcl()">&#128424; Print</button>
           </div>
         </div>
         <div class="card noprint" style="margin-bottom:1rem;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;flex-wrap:wrap;">
+            <span style="font-size:.72rem;color:var(--ink3);font-weight:600;">📅 Academic Year:</span>
+            <span id="qp-year-label" style="font-size:.78rem;font-weight:700;color:var(--gold);">—</span>
+          </div>
           <div class="g2">
             <div class="fg">
               <label>Class</label>
@@ -935,12 +992,7 @@ tr:hover td{background:var(--s2);}
             <div class="fg">
               <label>Week</label>
               <select id="qpWeek" onchange="genQuizProcl()">
-                <option value="W1">Week 1</option><option value="W2">Week 2</option>
-                <option value="W3">Week 3</option><option value="W4">Week 4</option>
-                <option value="W5">Week 5</option><option value="W6">Week 6</option>
-                <option value="W7">Week 7</option><option value="W8">Week 8</option>
-                <option value="W9">Week 9</option><option value="W10">Week 10</option>
-                <option value="W11">Week 11</option><option value="W12">Week 12</option>
+                <option value="">— Select Week —</option>
               </select>
             </div>
           </div>
@@ -977,10 +1029,12 @@ tr:hover td{background:var(--s2);}
       <div class="page" id="p-reports">
         <div class="ph"><div><div class="phtitle">Report Cards</div><div class="phsub">Official Academic Bridge report card</div></div>
         <div class="phact admin-only">
+          <button class="btn ghost" onclick="switchTermYear()" title="Switch Academic Year" style="gap:5px;">📅 <span id="rp-year-label" style="font-size:.75rem;color:var(--gold);">Year</span></button>
           <button class="btn ghost" onclick="openReportSettings()">⚙️ Report Settings</button>
           <button class="btn ghost" onclick="printReport()">🖨️ Print</button>
         </div>
         <div class="phact teacher-only">
+          <button class="btn ghost" onclick="switchTermYear()" title="Switch Academic Year" style="gap:5px;">📅 <span id="rp-year-label-t" style="font-size:.75rem;color:var(--gold);">Year</span></button>
           <button class="btn ghost" onclick="printReport()">🖨️ Print</button>
         </div>
         </div>
@@ -1123,6 +1177,32 @@ tr:hover td{background:var(--s2);}
           <div id="qral"></div>
           <div id="quiz-range-editor" style="margin-bottom:.9rem;"></div>
           <button class="btn gold" onclick="saveQuizRanges()">💾 Save Ranges</button>
+        </div>
+
+        <!-- QUIZ ACADEMIC YEARS CARD — Admin only -->
+        <div class="card admin-only" id="quizYearsCard">
+          <div class="ctitle">📅 Morning Quiz — Academic Years & Weeks</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.9rem;">
+            Create academic years for morning quizzes. Each year has its own set of weeks. Teachers select the year when they log in. Closing a year locks all its quiz data permanently.
+          </div>
+          <div id="qyal"></div>
+          <div id="quiz-years-list" style="margin-bottom:1rem;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn gold" onclick="addQuizYear()">+ New Academic Year</button>
+          </div>
+        </div>
+
+        <!-- TERM ACADEMIC YEARS CARD — Admin only -->
+        <div class="card admin-only" id="termYearsCard">
+          <div class="ctitle">📝 Term Marks — Academic Years</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:.9rem;">
+            Create academic years for term marks. Teachers select the year after login. Each year's marks are kept separately. Closing a year locks all term marks permanently — no teacher can edit after that.
+          </div>
+          <div id="tyal"></div>
+          <div id="term-years-list" style="margin-bottom:1rem;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn gold" onclick="addTermYear()">+ New Academic Year</button>
+          </div>
         </div>
         <div class="card" style="max-width:450px;">
           <div class="ctitle">Change My Password</div>
@@ -1339,6 +1419,12 @@ tr:hover td{background:var(--s2);}
       <select id="metrPeriod" style="max-width:220px;">
         <option value="Midterm">EU</option>
         <option value="Exam">ET</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>📊 Max Mark</label>
+      <input type="number" id="metrMax" value="50" min="1" max="100" style="max-width:120px;">
+      <div style="font-size:.7rem;color:var(--ink3);margin-top:3px;">Maximum mark for this period</div>
     </div>
   </div>
   <button class="btn gold" onclick="saveEditTermNew()">✅ Save Changes</button>
@@ -1622,6 +1708,9 @@ var DB = {
   settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',
     reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
   activity:[],
+  attendance:{},
+  quizYears:[],   // [{id, label, weeks:[{id,label}], locked, createdAt}]
+  termYears:[],   // [{id, label, locked, createdAt}] — each year uses its own marks via key prefix
   terms:[
     {id:'T1',name:'Term 1',type:'term',active:true,components:[
       {id:'T1_mid',name:'Midterm 1',maxMark:50},
@@ -1639,6 +1728,8 @@ var DB = {
 };
 var ME = null;
 var CURRENT_SCHOOL_ID = null;
+var CURRENT_QUIZ_YEAR_ID = null; // selected quiz academic year
+var CURRENT_TERM_YEAR_ID = null; // selected term academic year
 var saveTimer = null;
 var TCLR = {term:'var(--blue)',period:'var(--purple)',midterm:'var(--gold)',exam:'var(--red)',trimester:'var(--green)',semester:'var(--green)',other:'var(--ink3)'};
 var TLBL = {term:'Term',period:'Period',midterm:'Mid Term',exam:'Exam',trimester:'Trimester',semester:'Semester',other:'Other'};
@@ -1693,6 +1784,61 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.activity))                  DB.activity=d.activity;
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
     if(d.approvals&&typeof d.approvals==='object') DB.approvals=d.approvals;
+    if(d.attendance&&typeof d.attendance==='object') DB.attendance=d.attendance;
+    if(Array.isArray(d.quizYears)) DB.quizYears=d.quizYears;
+    if(Array.isArray(d.termYears)) DB.termYears=d.termYears;
+
+    // ── MIGRATION 3: old quiz mark keys → new year-keyed format ──
+    // Old: qz_studentId_subId_W1  (4 parts split by _)
+    // New: qz_studentId_subId_yearId_weekId  (5+ parts)
+    // Strategy: if we find old-format keys AND quizYears exist, migrate into first non-locked year
+    // If no years exist, create a legacy year automatically
+    (function(){
+      var oldQzKeys = Object.keys(DB.marks).filter(function(k){
+        if(!k.startsWith('qz_')) return false;
+        var parts = k.split('_');
+        // Old format: qz + stId + subId + W# = 4 parts; new has 5+
+        // But stId/subId themselves may contain underscores (ST1234, S1234)
+        // Safe check: last segment matches /^W\d+$/
+        var last = parts[parts.length-1];
+        return /^W\d+$/.test(last) && parts.length === 4;
+      });
+      if(!oldQzKeys.length) return;
+
+      // Find or create a legacy year
+      var legacyYr = DB.quizYears.find(function(y){ return y.label==='Legacy (Migrated)'; });
+      if(!legacyYr){
+        // Collect unique week IDs from old marks
+        var oldWeeks = {};
+        oldQzKeys.forEach(function(k){
+          var w = k.split('_')[3];
+          oldWeeks[w] = true;
+        });
+        var legacyId = 'QY_legacy';
+        legacyYr = {
+          id: legacyId,
+          label: 'Legacy (Migrated)',
+          weeks: Object.keys(oldWeeks).sort().map(function(w){
+            return {id: w, label: w.replace('W','Week ')};
+          }),
+          locked: true,
+          createdAt: new Date().toISOString(),
+          lockedAt: new Date().toISOString()
+        };
+        DB.quizYears.unshift(legacyYr);
+      }
+
+      // Migrate each old key to new format
+      oldQzKeys.forEach(function(k){
+        var parts = k.split('_');
+        // qz_stId_subId_W# → qz_stId_subId_yearId_W#
+        var newKey = 'qz_'+parts[1]+'_'+parts[2]+'_'+legacyYr.id+'_'+parts[3];
+        if(!DB.marks[newKey]){
+          DB.marks[newKey] = DB.marks[k];
+        }
+        delete DB.marks[k];
+      });
+    })();
 
     // ── MIGRATION 1: ensure all terms have EU/ET components ──
     DB.terms.forEach(function(t){
@@ -1973,7 +2119,7 @@ function doLogout(){
   _userIndexCache = null; // force fresh login lookup next time
   DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
-    activity:[],
+    activity:[],quizYears:[],termYears:[],attendance:{},
     terms:[
       {id:'T1',name:'Term 1',type:'term',active:true,components:[{id:'T1_mid',name:'Midterm 1',maxMark:50},{id:'T1_exam',name:'Exam Term 1',maxMark:50}]},
       {id:'T2',name:'Term 2',type:'term',active:true,components:[{id:'T2_mid',name:'Midterm 2',maxMark:50},{id:'T2_exam',name:'Exam Term 2',maxMark:50}]},
@@ -2005,6 +2151,17 @@ function myClasses(){
   if(!ME.classes||!ME.classes.length) return [];
   return DB.classes.filter(function(c){ return ME.classes.indexOf(c.id)>=0; });
 }
+
+// ── Year-scoped student list ──
+// Students carry a termYearId field set when they are added.
+// Legacy students (no termYearId) remain visible in all years for backwards compatibility.
+function yearStudents(){
+  if(!CURRENT_TERM_YEAR_ID) return DB.students;
+  return DB.students.filter(function(s){
+    return !s.termYearId || s.termYearId === CURRENT_TERM_YEAR_ID;
+  });
+}
+
 function activeTerms(){ return DB.terms.filter(function(t){ return t.active; }); }
 function termLabel(id){
   for(var i=0;i<DB.terms.length;i++) if(DB.terms[i].id===id) return DB.terms[i].name;
@@ -2211,14 +2368,14 @@ function renderDash(){
   // For teachers: show students in their assigned classes, their assigned subjects/classes
   var studentCount, classCount, subjectCount, marksCount;
   if(isAdmin()){
-    studentCount = DB.students.length;
+    studentCount = yearStudents().length;
     classCount   = DB.classes.length;
     subjectCount = DB.subjects.length;
     marksCount   = Object.keys(DB.marks).length;
   } else {
     var myClsList = myClasses();
     var mySubsList = mySubjects();
-    studentCount = DB.students.filter(function(s){
+    studentCount = yearStudents().filter(function(s){
       return myClsList.some(function(c){return c.id===s.classId;});
     }).length;
     classCount   = myClsList.length;
@@ -2226,7 +2383,7 @@ function renderDash(){
     marksCount   = Object.keys(DB.marks).filter(function(k){
       // count marks belonging to students in teacher's classes
       var sid = k.split('_')[0];
-      return DB.students.some(function(st){
+      return yearStudents().some(function(st){
         return st.id===sid && myClsList.some(function(c){return c.id===st.classId;});
       });
     }).length;
@@ -2298,6 +2455,16 @@ function renderDash(){
     } else { da.innerHTML=''; }
   }
 
+  // ── ATTENDANCE WIDGET — class teacher only ──
+  var attDiv = document.getElementById('dash-attendance');
+  if(attDiv){
+    if(!isAdmin() && ME && ME.classTeacher){
+      renderAttendanceWidget(attDiv, ME.classTeacher);
+    } else {
+      attDiv.innerHTML='';
+    }
+  }
+
   if(!DB.activity.length){
     el.innerHTML='<div class="empty"><div class="ei">📋</div><p>'+L('noActivity')+'</p></div>';return;
   }
@@ -2312,6 +2479,260 @@ function dashQuickAdd(type){
   var modalMap = {student:'mst', class:'mc', teacher:'mt', subject:'ms', term:'mterm'};
   showPage(pageMap[type]);
   setTimeout(function(){ om(modalMap[type]); }, 120);
+}
+
+// ═══════════════════════════════════════
+//  ATTENDANCE
+// ═══════════════════════════════════════
+function getTodayKey(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function getAttKey(classId, date){ return 'att_'+classId+'_'+date; }
+
+// Active attendance date per class (defaults to today)
+var _attDate = {};
+
+function renderAttendanceWidget(container, classId){
+  if(!DB.attendance) DB.attendance={};
+  var cls = DB.classes.find(function(c){return c.id===classId;});
+  var students = yearStudents().filter(function(s){return s.classId===classId;})
+    .sort(function(a,b){return a.name.localeCompare(b.name);});
+  if(!students.length){ container.innerHTML=''; return; }
+
+  // Use stored selected date or today
+  var today = getTodayKey();
+  if(!_attDate[classId]) _attDate[classId] = today;
+  var selDate = _attDate[classId];
+  var attKey  = getAttKey(classId, selDate);
+  var saved   = DB.attendance[attKey] || {};
+
+  // Format display date label
+  var dParts = selDate.split('-');
+  var dObj   = new Date(parseInt(dParts[0]), parseInt(dParts[1])-1, parseInt(dParts[2]));
+  var displayDate = dObj.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var isToday = (selDate === today);
+
+  // Build student rows
+  var rows = _buildAttRows(students, saved, classId);
+
+  // Summary counts
+  var counts = _attCounts(students, saved);
+
+  container.innerHTML =
+    '<div class="card" style="margin-bottom:.9rem;">'
+    // ── Header row: title + date picker ──
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.7rem;">'
+      +'<div class="ctitle" style="margin-bottom:0;">📅 Attendance — <span style="color:var(--gold);">'+(cls?cls.name:'')+'</span></div>'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+        // ◀ prev day
+        +'<button onclick="attChangeDate(\''+classId+'\',-1)" title="Previous day" style="padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.85rem;cursor:pointer;line-height:1;">◀</button>'
+        // date input
+        +'<input type="date" id="att-date-'+classId+'" value="'+selDate+'" max="'+today+'" onchange="attPickDate(\''+classId+'\')" style="padding:5px 8px;border-radius:7px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-size:.8rem;outline:none;cursor:pointer;">'
+        // ▶ next day (disabled if already today)
+        +'<button onclick="attChangeDate(\''+classId+'\',1)" title="Next day" '+(isToday?'disabled style="padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--s3);color:var(--ink3);font-size:.85rem;cursor:not-allowed;line-height:1;opacity:.4;"':'style="padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.85rem;cursor:pointer;line-height:1;"')+'>▶</button>'
+        // Today shortcut
+        +(!isToday?'<button onclick="attGoToday(\''+classId+'\')" style="padding:4px 10px;border-radius:7px;border:1px solid var(--bd);background:rgba(240,180,41,.15);color:var(--gold);font-size:.72rem;font-weight:700;cursor:pointer;">Today</button>':'')
+      +'</div>'
+    +'</div>'
+    // Date label
+    +'<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.7rem;">'+displayDate+(isToday?' <span style="background:rgba(62,207,142,.15);color:var(--green);border-radius:8px;padding:1px 7px;font-weight:700;font-size:.68rem;">TODAY</span>':'')+'</div>'
+    // Summary pills
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.8rem;" id="att-pills-'+classId+'">'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(62,207,142,.15);color:var(--green);font-size:.72rem;font-weight:700;border:1px solid rgba(62,207,142,.3);" id="att-sum-p">✓ Present: '+counts.p+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(224,82,82,.12);color:var(--red);font-size:.72rem;font-weight:700;border:1px solid rgba(224,82,82,.25);" id="att-sum-a">✗ Absent: '+counts.a+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(240,180,41,.12);color:var(--gold);font-size:.72rem;font-weight:700;border:1px solid rgba(240,180,41,.3);" id="att-sum-l">⏰ Late: '+counts.l+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(74,143,255,.12);color:var(--blue);font-size:.72rem;font-weight:700;border:1px solid rgba(74,143,255,.25);" id="att-sum-e">📋 Excused: '+counts.e+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:var(--s3);color:var(--ink3);font-size:.72rem;font-weight:700;">Total: '+students.length+'</span>'
+    +'</div>'
+    // Table
+    +'<div style="overflow-x:auto;">'
+    +'<table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr>'
+      +'<th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-bottom:2px solid var(--bd);">Student</th>'
+      +'<th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-bottom:2px solid var(--bd);">Status</th>'
+    +'</tr></thead>'
+    +'<tbody id="att-tbody">'+rows+'</tbody>'
+    +'</table></div>'
+    // Buttons
+    +'<div style="margin-top:.9rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      +'<button class="btn gold" onclick="saveAttendance(\''+classId+'\')">💾 Save Attendance</button>'
+      +'<button class="btn ghost" onclick="viewAttHistory(\''+classId+'\')" style="font-size:.78rem;">📊 View History</button>'
+      +'<div id="att-flash" style="font-size:.78rem;"></div>'
+    +'</div>'
+    +'</div>'
+    +'<div id="att-history-panel"></div>';
+}
+
+function _buildAttRows(students, saved, classId){
+  return students.map(function(st){
+    var status   = saved[st.id] || 'present';
+    var isPresent = status==='present', isAbsent = status==='absent';
+    var isLate    = status==='late',    isExcused = status==='excused';
+    return '<tr id="att-row-'+st.id+'">'
+      +'<td style="padding:7px 10px;font-size:.84rem;font-weight:600;border-bottom:1px solid var(--bd);">'+st.name
+        +'<span style="font-size:.68rem;color:var(--ink3);margin-left:6px;">'+st.sid+'</span></td>'
+      +'<td style="padding:7px 6px;border-bottom:1px solid var(--bd);white-space:nowrap;">'
+        +'<div style="display:flex;gap:4px;">'
+          +'<button onclick="setAtt(\''+classId+'\',\''+st.id+'\',\'present\')" id="attb-p-'+st.id+'" style="padding:3px 8px;border-radius:6px;border:2px solid '+(isPresent?'var(--green)':'var(--bd)')+';background:'+(isPresent?'rgba(62,207,142,.18)':'var(--s3)')+';color:'+(isPresent?'var(--green)':'var(--ink3)')+';font-size:.7rem;font-weight:700;cursor:pointer;transition:all .15s;">✓ P</button>'
+          +'<button onclick="setAtt(\''+classId+'\',\''+st.id+'\',\'absent\')" id="attb-a-'+st.id+'" style="padding:3px 8px;border-radius:6px;border:2px solid '+(isAbsent?'var(--red)':'var(--bd)')+';background:'+(isAbsent?'rgba(224,82,82,.18)':'var(--s3)')+';color:'+(isAbsent?'var(--red)':'var(--ink3)')+';font-size:.7rem;font-weight:700;cursor:pointer;transition:all .15s;">✗ A</button>'
+          +'<button onclick="setAtt(\''+classId+'\',\''+st.id+'\',\'late\')" id="attb-l-'+st.id+'" style="padding:3px 8px;border-radius:6px;border:2px solid '+(isLate?'var(--gold)':'var(--bd)')+';background:'+(isLate?'rgba(240,180,41,.18)':'var(--s3)')+';color:'+(isLate?'var(--gold)':'var(--ink3)')+';font-size:.7rem;font-weight:700;cursor:pointer;transition:all .15s;">⏰ L</button>'
+          +'<button onclick="setAtt(\''+classId+'\',\''+st.id+'\',\'excused\')" id="attb-e-'+st.id+'" style="padding:3px 8px;border-radius:6px;border:2px solid '+(isExcused?'var(--blue)':'var(--bd)')+';background:'+(isExcused?'rgba(74,143,255,.18)':'var(--s3)')+';color:'+(isExcused?'var(--blue)':'var(--ink3)')+';font-size:.7rem;font-weight:700;cursor:pointer;transition:all .15s;">📋 E</button>'
+        +'</div>'
+      +'</td></tr>';
+  }).join('');
+}
+
+function _attCounts(students, saved){
+  var p=0,a=0,l=0,e=0;
+  students.forEach(function(s){
+    var v=saved[s.id]||'present';
+    if(v==='present')p++;else if(v==='absent')a++;else if(v==='late')l++;else if(v==='excused')e++;
+  });
+  return{p:p,a:a,l:l,e:e};
+}
+
+// Date navigation helpers
+function attPickDate(classId){
+  var inp = document.getElementById('att-date-'+classId);
+  if(!inp) return;
+  var val = inp.value;
+  if(!val) return;
+  // Don't allow future dates
+  if(val > getTodayKey()) val = getTodayKey();
+  _attDate[classId] = val;
+  var attDiv = document.getElementById('dash-attendance');
+  if(attDiv) renderAttendanceWidget(attDiv, classId);
+}
+
+function attChangeDate(classId, delta){
+  var cur = _attDate[classId] || getTodayKey();
+  var parts = cur.split('-');
+  var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  d.setDate(d.getDate() + delta);
+  // Don't go into the future
+  var today = getTodayKey();
+  var newKey = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(newKey > today) newKey = today;
+  _attDate[classId] = newKey;
+  var attDiv = document.getElementById('dash-attendance');
+  if(attDiv) renderAttendanceWidget(attDiv, classId);
+}
+
+function attGoToday(classId){
+  _attDate[classId] = getTodayKey();
+  var attDiv = document.getElementById('dash-attendance');
+  if(attDiv) renderAttendanceWidget(attDiv, classId);
+}
+
+// Called when teacher taps a status button — updates in-memory and refreshes button styles
+function setAtt(classId, studentId, status){
+  var selDate = _attDate[classId] || getTodayKey();
+  var attKey  = getAttKey(classId, selDate);
+  if(!DB.attendance) DB.attendance={};
+  if(!DB.attendance[attKey]) DB.attendance[attKey]={};
+  DB.attendance[attKey][studentId] = status;
+
+  // Refresh just the 4 buttons for this student
+  var colors = {present:'var(--green)',absent:'var(--red)',late:'var(--gold)',excused:'var(--blue)'};
+  var bgs    = {present:'rgba(62,207,142,.18)',absent:'rgba(224,82,82,.18)',late:'rgba(240,180,41,.18)',excused:'rgba(74,143,255,.18)'};
+  var map    = {present:'p',absent:'a',late:'l',excused:'e'};
+  ['present','absent','late','excused'].forEach(function(s){
+    var btn = document.getElementById('attb-'+map[s]+'-'+studentId);
+    if(!btn) return;
+    var active = s===status;
+    btn.style.borderColor = active ? colors[s] : 'var(--bd)';
+    btn.style.background  = active ? bgs[s]    : 'var(--s3)';
+    btn.style.color       = active ? colors[s] : 'var(--ink3)';
+  });
+
+  // Update summary pills
+  var students = yearStudents().filter(function(s){return s.classId===classId;});
+  var rec = DB.attendance[attKey]||{};
+  var counts = _attCounts(students, rec);
+  var sp=document.getElementById('att-sum-p'); if(sp) sp.textContent='✓ Present: '+counts.p;
+  var sa=document.getElementById('att-sum-a'); if(sa) sa.textContent='✗ Absent: '+counts.a;
+  var sl=document.getElementById('att-sum-l'); if(sl) sl.textContent='⏰ Late: '+counts.l;
+  var se=document.getElementById('att-sum-e'); if(se) se.textContent='📋 Excused: '+counts.e;
+}
+
+function saveAttendance(classId){
+  var selDate = _attDate[classId] || getTodayKey();
+  var attKey  = getAttKey(classId, selDate);
+  if(!DB.attendance) DB.attendance={};
+  var students = yearStudents().filter(function(s){return s.classId===classId;});
+  if(!DB.attendance[attKey]) DB.attendance[attKey]={};
+  // Default unmarked students to present
+  students.forEach(function(s){
+    if(!DB.attendance[attKey][s.id]) DB.attendance[attKey][s.id]='present';
+  });
+  addLog('📅 Attendance saved for '+(DB.classes.find(function(c){return c.id===classId;})||{}).name+' — '+selDate);
+  dbSave();
+  var fl=document.getElementById('att-flash');
+  if(fl){
+    fl.innerHTML='<span style="color:var(--green);font-weight:600;">✅ Saved for '+selDate+'!</span>';
+    setTimeout(function(){if(fl) fl.innerHTML='';},3500);
+  }
+}
+
+function viewAttHistory(classId){
+  var panel = document.getElementById('att-history-panel');
+  if(!panel) return;
+  // Toggle
+  if(panel.innerHTML.trim()){panel.innerHTML='';return;}
+
+  if(!DB.attendance) DB.attendance={};
+  var cls = DB.classes.find(function(c){return c.id===classId;});
+  var students = yearStudents().filter(function(s){return s.classId===classId;})
+    .sort(function(a,b){return a.name.localeCompare(b.name);});
+
+  // Get all attendance dates for this class, last 14 days
+  var allDates = Object.keys(DB.attendance)
+    .filter(function(k){return k.startsWith('att_'+classId+'_');})
+    .map(function(k){return k.replace('att_'+classId+'_','');})
+    .sort().reverse().slice(0,14);
+
+  if(!allDates.length){
+    panel.innerHTML='<div class="card"><div class="empty"><p>No attendance records yet.</p></div></div>';
+    return;
+  }
+
+  var statusIcon={present:'<span style="color:var(--green);">P</span>',absent:'<span style="color:var(--red);">A</span>',late:'<span style="color:var(--gold);">L</span>',excused:'<span style="color:var(--blue);">E</span>'};
+
+  var thead='<tr><th style="padding:6px 8px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:2px solid var(--bd);">Student</th>'
+    +allDates.map(function(d){
+      var parts=d.split('-'); return'<th style="padding:6px 5px;text-align:center;font-size:.62rem;font-weight:700;color:var(--ink3);border-bottom:2px solid var(--bd);white-space:nowrap;">'+parts[2]+'/'+parts[1]+'</th>';
+    }).join('')
+    +'<th style="padding:6px 8px;text-align:center;font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:2px solid var(--bd);">Abs</th>'
+    +'</tr>';
+
+  var tbody=students.map(function(st,i){
+    var absCnt=0;
+    var cells=allDates.map(function(d){
+      var rec=DB.attendance[getAttKey(classId,d)]||{};
+      var v=rec[st.id]||'';
+      if(v==='absent') absCnt++;
+      return'<td style="padding:5px;text-align:center;font-size:.75rem;font-weight:700;border-bottom:1px solid var(--bd);">'+(v?statusIcon[v]:'<span style="color:var(--bd);">·</span>')+'</td>';
+    }).join('');
+    var rowBg=i%2===0?'background:var(--s2);':'';
+    return'<tr style="'+rowBg+'">'
+      +'<td style="padding:6px 8px;font-size:.8rem;font-weight:600;border-bottom:1px solid var(--bd);">'+st.name+'</td>'
+      +cells
+      +'<td style="padding:5px;text-align:center;font-size:.78rem;font-weight:700;color:'+(absCnt>3?'var(--red)':absCnt>0?'var(--gold)':'var(--green)')+';border-bottom:1px solid var(--bd);">'+absCnt+'</td>'
+      +'</tr>';
+  }).join('');
+
+  panel.innerHTML='<div class="card" style="margin-bottom:.9rem;">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">'
+      +'<div class="ctitle" style="margin-bottom:0;">📊 Attendance History — '+(cls?cls.name:'')+'</div>'
+      +'<button class="btn sm ghost" onclick="viewAttHistory(\''+classId+'\')">✕ Close</button>'
+    +'</div>'
+    +'<div style="font-size:.68rem;color:var(--ink3);margin-bottom:.6rem;">Last '+allDates.length+' recorded days &nbsp;|&nbsp; <strong style="color:var(--green);">P</strong>=Present &nbsp;<strong style="color:var(--red);">A</strong>=Absent &nbsp;<strong style="color:var(--gold);">L</strong>=Late &nbsp;<strong style="color:var(--blue);">E</strong>=Excused</div>'
+    +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+    +'<thead>'+thead+'</thead><tbody>'+tbody+'</tbody>'
+    +'</table></div>'
+    +'</div>';
 }
 
 // ═══════════════════════════════════════
@@ -2378,6 +2799,43 @@ function saveEditTeacher(){
   var cls=getChkSelected('metc-chk');
   var subs=getChkSelected('mets-chk');
   var classTeacher=document.getElementById('metct').value;
+
+  // ── Gap 6: Reassignment guard ──
+  var oldClassTeacher = t.classTeacher || '';
+  if(oldClassTeacher && classTeacher !== oldClassTeacher){
+    var oldCls = DB.classes.find(function(c){return c.id===oldClassTeacher;});
+    var newCls = classTeacher ? DB.classes.find(function(c){return c.id===classTeacher;}) : null;
+    // Count marks entered for the old class
+    var oldStudents = yearStudents().filter(function(s){return s.classId===oldClassTeacher;});
+    var marksCount = 0;
+    var activeTermIds = DB.terms.filter(function(t){return t.active;}).map(function(t){return t.id;});
+    oldStudents.forEach(function(st){
+      Object.keys(DB.marks).forEach(function(k){
+        if(k.startsWith(st.id+'_') && !k.startsWith('qz_')) marksCount++;
+      });
+    });
+    var approval = (DB.approvals||{})[oldClassTeacher+'_'+(activeTermIds[0]||'')];
+    var approved = approval && approval.approved;
+
+    // Build warning message
+    var warnMsg = '⚠️ CLASS TEACHER REASSIGNMENT\n\n';
+    warnMsg += 'You are moving '+name+' from '+(oldCls?oldCls.name:'?')+' to '+(newCls?newCls.name:'(none)')+'\n\n';
+    if(marksCount>0) warnMsg += '• '+marksCount+' marks already entered for '+(oldCls?oldCls.name:'')+'\n';
+    if(approved) warnMsg += '• ✅ Marks are APPROVED — changing teacher does not unapprove them\n';
+    warnMsg += '\nThe existing marks remain assigned to '+(oldCls?oldCls.name:'')+'. ';
+    warnMsg += (newCls?newCls.name+' will be the new class teacher.':'No new class teacher will be assigned.');
+    warnMsg += '\n\nProceed with reassignment?';
+
+    if(!confirm(warnMsg)) return;
+
+    // Log the reassignment with full detail
+    addLog('🔄 Class teacher reassigned: '+name
+      +' | FROM: '+(oldCls?oldCls.name:'none')
+      +' → TO: '+(newCls?newCls.name:'none')
+      +' | '+marksCount+' marks on record'
+      +(approved?' | was APPROVED':''));
+  }
+
   t.name=name;t.username=uname;t.classes=cls;t.subjects=subs;t.classTeacher=classTeacher;
   if(u){u.name=name;u.username=uname;u.classes=cls;u.subjects=subs;u.classTeacher=classTeacher;if(pass)u.password=pass;}
   addLog('Updated teacher: '+name);dbSave();rebuildUserIndex();renderTeachers();cm('met');
@@ -2458,7 +2916,7 @@ function renderOverview(){
   var html='';
   classesToShow.forEach(function(cls){
     var classTeacher=DB.users.find(function(u){return u.role==='teacher'&&u.classTeacher===cls.id;});
-    var students=DB.students.filter(function(s){
+    var students=yearStudents().filter(function(s){
       var matchCls=s.classId===cls.id;
       var matchQ=!q||s.name.toLowerCase().includes(q.toLowerCase())||s.sid.includes(q);
       return matchCls&&matchQ;
@@ -2544,7 +3002,7 @@ function renderClasses(){
   var list=myClasses();
   if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes yet.</p></div></td></tr>';return;}
   tb.innerHTML=list.map(function(c,i){
-    var cnt=DB.students.filter(function(s){return s.classId===c.id;}).length;
+    var cnt=yearStudents().filter(function(s){return s.classId===c.id;}).length;
     return'<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td>'+cnt+'</td>'
       +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div></td></tr>';
   }).join('');
@@ -2768,7 +3226,7 @@ function renderStudents(){
   var admin=isAdmin();
   var q=document.getElementById('stSearch').value.toLowerCase();
   var cf=document.getElementById('stCls').value;
-  var list=admin?DB.students.slice():DB.students.filter(function(s){return myClasses().some(function(c){return c.id===s.classId;});});
+  var list=admin?yearStudents().slice():yearStudents().filter(function(s){return myClasses().some(function(c){return c.id===s.classId;});});
   if(q) list=list.filter(function(s){return s.name.toLowerCase().includes(q)||s.sid.includes(q);});
   if(cf) list=list.filter(function(s){return s.classId===cf;});
   // Sort A to Z
@@ -2823,6 +3281,7 @@ function addStudent(){
     name:name,
     sid:sid,
     classId:cid,
+    termYearId: CURRENT_TERM_YEAR_ID || null,
     dob:(document.getElementById('mstdob')||{}).value||'',
     gender:(document.getElementById('mstgender')||{}).value||'',
     parentName:(document.getElementById('mstparent')||{}).value.trim()||'',
@@ -2842,9 +3301,29 @@ function delStudent(id){
   dbSave();renderStudents();renderClasses();
 }
 
-// ═══════════════════════════════════════
-//  MARKS
-// ═══════════════════════════════════════
+// ── Gap 3: Live validation for ALL mark inputs ──
+// Sanitize: allow digits and a single dot only; enforce min/max bounds
+function sanitizeMarkInput(el, maxVal){
+  var raw = el.value;
+  // Remove anything that is not a digit or dot
+  var cleaned = raw.replace(/[^0-9.]/g,'');
+  // Only one dot allowed
+  var parts = cleaned.split('.');
+  if(parts.length > 2) cleaned = parts[0]+'.'+parts.slice(1).join('');
+  // Enforce max
+  if(cleaned!=='' && !isNaN(parseFloat(cleaned))){
+    var v = parseFloat(cleaned);
+    if(v < 0) cleaned = '0';
+    if(maxVal && v > maxVal){ cleaned = String(maxVal); }
+  }
+  if(cleaned !== raw) el.value = cleaned;
+  // Visual feedback
+  if(cleaned==='' || isNaN(parseFloat(cleaned))){
+    el.style.borderColor = '';
+  } else {
+    el.style.borderColor = 'var(--gold)';
+  }
+}
 function calcGrade(v,sub){
   if(v===''||v==null)return'—';
   if(sub.scale==='letter')return v;
@@ -2883,7 +3362,9 @@ function getMarkValue(studentId, subjectId, termId, sub){
   if(comps){
     var tot = calcCompTotal(studentId, subjectId, termId, comps, null);
     if(tot===null) return '';
-    var totMax = comps.reduce(function(s,c){return s+c.maxMark;},0);
+    // Each component has max = sub.scale, so total max = sub.scale × numComponents
+    var totMax = parseFloat(sub.scale) * comps.length;
+    // Return as percentage of sub.scale for grade calculation
     return (tot/totMax*parseFloat(sub.scale)).toFixed(1);
   }
   var v = DB.marks[studentId+'_'+subjectId+'_'+termId];
@@ -3128,17 +3609,33 @@ function loadMkTable(){
       wrap.innerHTML='<div class="al warn">⛔ You are not assigned to this subject.</div>';
       return;
     }
+    // ── TERM YEAR LOCK ── If current term year is closed, block editing
+    var activeTY2 = getActiveTermYear();
+    if(activeTY2 && activeTY2.locked){
+      wrap.innerHTML='<div style="padding:1.2rem;background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-radius:10px;text-align:center;">'
+        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">🔒</div>'
+        +'<div style="font-weight:700;color:var(--red);font-size:.95rem;margin-bottom:.4rem;">Academic Year Closed</div>'
+        +'<div style="font-size:.78rem;color:var(--ink3);">The academic year "'+activeTY2.label+'" is closed. Term marks are read-only.</div>'
+        +'</div>';
+      return;
+    }
+
     // ── APPROVAL LOCK ── If class teacher has approved, block all mark editing
-    var approval=getApproval(cid, tid);
-    if(approval&&approval.approved){
+    var approval=getApproval(cid, actualTid);
+    if(approval&&(approval.approved||approval.directorPrinted)){
       var isClassTeacher = ME&&ME.classTeacher===cid;
+      var lockReason = approval.directorPrinted
+        ? 'The director has already printed the report cards for this term. Marks are permanently locked.'
+        : 'The class teacher has approved these marks for printing. No changes are allowed.';
+      var lockIcon = approval.directorPrinted ? '🖨️' : '✅';
+      var lockTitle = approval.directorPrinted ? 'Printed & Locked by Director' : 'Marks Approved — Locked for Editing';
       wrap.innerHTML='<div style="padding:1.2rem;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:10px;text-align:center;">'
-        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">✅</div>'
-        +'<div style="font-weight:700;color:var(--green);font-size:.95rem;margin-bottom:.4rem;">Marks Approved — Locked for Editing</div>'
-        +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:.9rem;">The class teacher has approved these marks for printing. No changes are allowed.</div>'
-        +(isClassTeacher
-          ?'<button class="btn red" onclick="unapproveReports(\''+cid+'\',\''+tid+'\')">🔓 Unapprove to Edit Again</button>'
-          :'<div style="font-size:.75rem;color:var(--ink3);">Ask the class teacher to unapprove if changes are needed.</div>')
+        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">'+lockIcon+'</div>'
+        +'<div style="font-weight:700;color:var(--green);font-size:.95rem;margin-bottom:.4rem;">'+lockTitle+'</div>'
+        +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:.9rem;">'+lockReason+'</div>'
+        +(isClassTeacher&&!approval.directorPrinted
+          ?'<button class="btn red" onclick="unapproveReports(\''+cid+'\',\''+actualTid+'\')">🔓 Unapprove to Edit Again</button>'
+          :'<div style="font-size:.75rem;color:var(--ink3);">'+(approval.directorPrinted?'Contact the director if changes are needed.':'Ask the class teacher to unapprove if changes are needed.')+'</div>')
         +'</div>';
       return;
     }
@@ -3146,7 +3643,7 @@ function loadMkTable(){
 
   // ── OVERALL CLASS VIEW for class teachers ──
   if(sid==='__overall__'){
-    var students2=DB.students.filter(function(s){return s.classId===cid;});
+    var students2=yearStudents().filter(function(s){return s.classId===cid;});
     if(!students2.length){wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>';return;}
     var thead2='<tr><th>#</th><th>Student</th>'+DB.subjects.map(function(s){return'<th style="text-align:center;font-size:.7rem;">'+s.name+'</th>';}).join('')+'<th style="text-align:center;">Average</th><th style="text-align:center;">Position</th></tr>';
     var rows2=students2.map(function(s,i){
@@ -3177,7 +3674,7 @@ function loadMkTable(){
     return;
   }
 
-  var students = DB.students.filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var students = yearStudents().filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
   var sub      = DB.subjects.find(function(s){ return s.id===sid; });
   // Use actualTid to find the correct term for this component
   var term = DB.terms.find(function(t){ return t.id===actualTid; }) || DB.terms.find(function(t){ return t.id===tid; });
@@ -3189,21 +3686,26 @@ function loadMkTable(){
   var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
   var isL = sub.scale==='letter';
 
+  // ── Per-subject max for this period ──
+  // sub.scale = the subject's max mark per component (e.g. Math=90 means EU out of 90, ET out of 90)
+  // component.maxMark is a global period default — we always use sub.scale for subject entry
+  var subMaxMark = isL ? null : parseFloat(sub.scale);
+
   // Banner showing what period we are entering
   var banner = '';
   if(selectedComp){
-    var isEUcomp = selectedComp.name.toLowerCase().indexOf('midterm')>=0;
+    var isEUcomp = selectedComp.name.toLowerCase().indexOf('midterm')>=0 || (term&&term.periodType==='Midterm');
     var termLbl = term&&(term.termLabel||term.name)||'Term';
     var compDisplayName = (isEUcomp?'EU':'ET')+' — '+termLbl;
     banner = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:.9rem;padding:.7rem 1rem;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.25);border-radius:8px;">'
       +'<span style="font-size:1.1rem;">'+(isEUcomp?'📘':'📗')+'</span>'
       +'<span style="font-size:.85rem;font-weight:600;color:var(--gold);">'+compDisplayName+'</span>'
-      +'<span style="font-size:.75rem;color:var(--ink3);margin-left:4px;">— Enter marks out of <strong style="color:var(--ink);">'+selectedComp.maxMark+'</strong></span>'
+      +'<span style="font-size:.75rem;color:var(--ink3);margin-left:4px;">— Enter marks out of <strong style="color:var(--ink);">'+subMaxMark+'</strong></span>'
       +'</div>';
   }
 
-  // Build table header
-  var maxMark = selectedComp ? selectedComp.maxMark : parseFloat(sub.scale);
+  // Build table header — max = sub.scale (per component)
+  var maxMark = subMaxMark || parseFloat(sub.scale);
   var thead = '<tr><th>#</th><th>Student</th><th>No.</th>'
     +'<th style="text-align:center;">Mark <span style="font-weight:400;color:var(--ink3);">/'+maxMark+'</span></th>'
     +'<th style="text-align:center;">Grade</th>'
@@ -3212,10 +3714,12 @@ function loadMkTable(){
 
   // Build rows — one mark input per student for this period
   var rows = students.map(function(s,i){
-    var markKey = selectedComp
+    var baseKey = selectedComp
       ? s.id+'_'+sid+'_'+actualTid+'_'+selectedComp.id
       : s.id+'_'+sid+'_'+actualTid;
-    var val = DB.marks[markKey]!==undefined ? DB.marks[markKey] : '';
+    // Read from year-scoped key first, then fall back to bare key (legacy)
+    var val = getTermMark(baseKey);
+    if(val===undefined) val='';
     var gr  = val!=='' ? calcGrade((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : '—';
     var ps  = val!=='' ? checkPass((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : null;
 
@@ -3223,7 +3727,7 @@ function loadMkTable(){
       ? '<select class="mksel" id="mk_'+s.id+'" onchange="prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')"><option value="">—</option>'
         +['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(val===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>'
       : '<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+maxMark+'" step="0.5" value="'+val+'"'
-        +' oninput="prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')">';
+        +' oninput="sanitizeMarkInput(this,'+maxMark+');prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')">';
 
     return '<tr>'
       +'<td>'+(i+1)+'</td>'
@@ -3263,7 +3767,9 @@ function calcCompTotal(stid, subid, tid, comps, liveOverrides){
   var tot = 0; var hasSome = false;
   comps.forEach(function(c){
     var liveEl = document.getElementById('mkc_'+stid+'_'+c.id);
-    var v = liveEl ? liveEl.value : (DB.marks[stid+'_'+subid+'_'+tid+'_'+c.id]!==undefined ? DB.marks[stid+'_'+subid+'_'+tid+'_'+c.id] : '');
+    var baseKey = stid+'_'+subid+'_'+tid+'_'+c.id;
+    var stored = getTermMark(baseKey);
+    var v = liveEl ? liveEl.value : (stored!==undefined ? stored : '');
     if(v!==''&&!isNaN(parseFloat(v))){ tot+=parseFloat(v); hasSome=true; }
   });
   return hasSome ? Math.round(tot*10)/10 : null;
@@ -3274,28 +3780,31 @@ function prevMarkComp(stid, subid, tid){
   var comps = term&&term.components&&term.components.length ? term.components : null;
   var sub   = DB.subjects.find(function(s){ return s.id===subid; });
   if(!comps||!sub) return;
-  // Validate each component — deny over maximum
+  var subScale = parseFloat(sub.scale||100);
+  // Each component max = sub.scale
   comps.forEach(function(c){
     var el=document.getElementById('mkc_'+stid+'_'+c.id);
     if(el&&el.value!==''){
       var v=parseFloat(el.value);
-      if(v>c.maxMark){
-        el.value=c.maxMark;
+      if(v>subScale){
+        el.value=subScale;
         el.style.borderColor='var(--red)';
         setTimeout(function(){el.style.borderColor='';},1500);
       } else { el.style.borderColor=''; }
     }
   });
-  var totMax = comps.reduce(function(s,c){return s+c.maxMark;},0);
+  // totMax = sub.scale × numComponents
+  var totMax = subScale * comps.length;
   var tot    = calcCompTotal(stid, subid, tid, comps, null);
   var totEl  = document.getElementById('mktot_'+stid);
   if(totEl) totEl.textContent = tot!==null ? tot : '—';
-  var syntheticV = tot!==null ? (tot/totMax*parseFloat(sub.scale)).toFixed(1) : '';
+  // Synthetic percentage for grade (tot / totMax * sub.scale)
+  var syntheticV = tot!==null ? (tot/totMax*subScale).toFixed(1) : '';
   var gr = calcGrade(syntheticV, sub);
   var grEl = document.getElementById('gr_'+stid);
   if(grEl) grEl.innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
   var cid=document.getElementById('mkCls').value;
-  var students=DB.students.filter(function(s){return s.classId===cid;});
+  var students=yearStudents().filter(function(s){return s.classId===cid;});
   students.forEach(function(st){
     var psEl2=document.getElementById('ps_'+st.id);
     if(psEl2) psEl2.innerHTML='<span style="font-size:.78rem;font-weight:600;color:var(--blue);">'+getSubjectPosition(st.id,cid,subid,tid,students,sub)+'</span>';
@@ -3315,10 +3824,10 @@ function prevMarkSingle(stid, subid, maxMark){
     v=maxMark;
   } else { el.style.borderColor=''; }
   var val=el.value;
-  // Convert to subject scale for grade calc
-  var scaled = val!=='' ? (parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1) : '';
+  // val is out of sub.scale — grade directly from percentage of sub.scale
+  var scaled = val!=='' ? parseFloat(val).toFixed(1) : '';
   var gr=calcGrade(scaled,sub);
-  var ps=checkPass(scaled,sub);
+  var ps=checkPass(parseFloat(val||0),sub);
   var grEl=document.getElementById('gr_'+stid);
   var psEl=document.getElementById('ps_'+stid);
   if(grEl) grEl.innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
@@ -3339,31 +3848,44 @@ function saveAllMarks(){
     var sp=compRaw.split('__'); actualTid=sp[0]; compId=sp[1];
   }
 
-  // Block saving if approved
+  // Block saving if approved or director has printed
   if(!isAdmin()){
     var approval=getApproval(cid,actualTid);
-    if(approval&&approval.approved){
-      alert('⛔ Marks are locked. The class teacher has approved this term. Ask them to unapprove first.');
+    if(approval&&(approval.approved||approval.directorPrinted)){
+      alert(approval.directorPrinted
+        ? '⛔ Marks are permanently locked. The director has printed the report cards.'
+        : '⛔ Marks are locked. The class teacher has approved this term. Ask them to unapprove first.');
       return;
     }
   }
 
-  var students = DB.students.filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var students = yearStudents().filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
   var termObj = DB.terms.find(function(t){ return t.id===actualTid; }) || DB.terms.find(function(t){ return t.id===tid; });
   var allComps = (termObj&&termObj.components&&termObj.components.length) ? termObj.components : null;
   var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
+  var subObj = DB.subjects.find(function(x){return x.id===sid;});
+  // sub.scale = max per component (EU out of 90, ET out of 90 if scale=90)
+  var subCompMax = parseFloat((subObj&&subObj.scale)||100);
+
+  // Block saving if current term year is locked
+  var activeTY = getActiveTermYear();
+  if(activeTY && activeTY.locked){
+    alert('🔒 This academic year is closed. Term marks cannot be edited.');
+    return;
+  }
+
   var cnt = 0;
 
   students.forEach(function(s){
     var el=document.getElementById('mk_'+s.id);
     if(el&&el.value!==''){
       var v=parseFloat(el.value);
-      var maxMark = selectedComp ? selectedComp.maxMark : parseFloat(DB.subjects.find(function(x){return x.id===sid;}).scale);
-      v=Math.min(v,maxMark);
-      var markKey = selectedComp
+      v=Math.min(v, subCompMax);
+      var baseKey = selectedComp
         ? s.id+'_'+sid+'_'+actualTid+'_'+selectedComp.id
         : s.id+'_'+sid+'_'+actualTid;
-      DB.marks[markKey]=String(v);
+      // Write to year-scoped key
+      DB.marks[termMarkKey(baseKey)]=String(v);
       cnt++;
     }
   });
@@ -3413,8 +3935,8 @@ function processCSV(text){
       if(!cls){cls={id:'C'+Date.now()+Math.random(),name:cname,level:cname};DB.classes.push(cls);}
       classId=cls.id;
     }
-    if(DB.students.find(function(s){return s.sid===sid;})){skipped++;return;}
-    DB.students.push({id:'ST'+Date.now()+Math.random(),name:name,sid:sid,classId:classId});
+    if(DB.students.find(function(s){return s.sid===sid&&(s.termYearId||null)===(CURRENT_TERM_YEAR_ID||null);})){skipped++;return;}
+    DB.students.push({id:'ST'+Date.now()+Math.random(),name:name,sid:sid,classId:classId,termYearId:CURRENT_TERM_YEAR_ID||null});
     added++;
   });
   addLog('Imported '+added+' students');dbSave();renderStudents();renderClasses();syncAll();
@@ -3445,7 +3967,7 @@ function setupReports(){
       document.getElementById('rpOut').innerHTML='<div class="empty"><div class="ei">🔒</div><p>You are not assigned as a class teacher of any class.</p></div>';
       syncTerms(); return;
     }
-    var list=DB.students.filter(function(s){return s.classId===ct;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+    var list=yearStudents().filter(function(s){return s.classId===ct;}).sort(function(a,b){return a.name.localeCompare(b.name);});
     document.getElementById('rpSt2').innerHTML='<option value="">— Select Student —</option>'+
       list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
     syncTerms();
@@ -3459,7 +3981,7 @@ function rpLoadStudents(){
   var cid=document.getElementById('rpCls').value;
   var stSel=document.getElementById('rpSt');
   if(!cid){ stSel.innerHTML='<option value="">— Select Student —</option>'; genReport(); return; }
-  var list=DB.students.filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var list=yearStudents().filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
   stSel.innerHTML='<option value="">— Select Student —</option>'+
     list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
   renderApprovalStatus();
@@ -3475,7 +3997,7 @@ function getApproval(classId, termId){
 }
 
 function calcProgress(classId, termId){
-  var students=DB.students.filter(function(s){return s.classId===classId;});
+  var students=yearStudents().filter(function(s){return s.classId===classId;});
   var subjects=DB.subjects;
   if(!students.length||!subjects.length) return 0;
   var total=students.length*subjects.length;
@@ -3595,7 +4117,10 @@ function genReport(){
   var selectedCompId=selectedTp.compId;
 
   var selectedTermObj=allActive.find(function(t){return t.id===selectedTermId;});
-  var academicYear = selectedTermObj && selectedTermObj.academicYear ? selectedTermObj.academicYear : (DB.settings.academicYear || '');
+  var academicYear = DB.settings.academicYear || (selectedTermObj && selectedTermObj.academicYear) || '';
+  // Auto-correct "2025-2025" → "2025-2026" (same-year typo)
+  var _ayFix = academicYear.match(/^(\d{4})-(\d{4})$/);
+  if(_ayFix && _ayFix[1]===_ayFix[2]) academicYear = _ayFix[1]+'-'+(parseInt(_ayFix[1])+1);
   var selectedComp=selectedTermObj&&selectedTermObj.components
     ? selectedTermObj.components.find(function(c){return c.id===selectedCompId;})
     : null;
@@ -3612,9 +4137,9 @@ function genReport(){
     }
   }
 
-  var isMidterm = selectedComp && selectedComp.name && (
+  var isMidterm = (selectedComp && selectedComp.name && (
     selectedComp.name.toLowerCase().indexOf('midterm')>=0
-  );
+  )) || (selectedTermObj && selectedTermObj.periodType === 'Midterm');
 
   // ── Group terms: old format stores each period separately (Midterm 1, Exam 1 as separate DB.terms entries)
   // We need to group them by termLabel so Term 1 appears only once
@@ -3697,12 +4222,15 @@ function genReport(){
   var lastTerm=allTermsSorted[allTermsSorted.length-1];
   var lastTermComps=lastTerm&&lastTerm.components&&lastTerm.components.length?lastTerm.components:null;
   var lastComp=lastTermComps?lastTermComps[lastTermComps.length-1]:null;
-  // Promotion only appears on the ET (Exam) of the last term, and only if there are 3+ terms
+  // Promotion only appears on the ET (Exam) of Term 3 (the last term), and only if there are exactly 3 active terms
+  var lastTermLabel = lastTerm && (lastTerm.termLabel||lastTerm.name||'');
+  var isLastTermLabel = /3/i.test(lastTermLabel) || allTermsSorted.indexOf(lastTerm)===allTermsSorted.length-1;
   var isFinalTerm = !isMidterm
     && allTermsSorted.length >= 3
     && selectedGroupTerm && selectedGroupTerm.id===lastTerm.id
+    && isLastTermLabel
     && lastComp && selectedCompId===lastComp.id
-    && lastComp.name.toLowerCase().indexOf('exam')>=0;
+    && (lastComp.name.toLowerCase().indexOf('exam')>=0 || lastComp.name.toLowerCase().indexOf('et')>=0 || lastTerm.periodType==='Exam');
 
   // ── Active subjects ──
   if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
@@ -3717,30 +4245,34 @@ function genReport(){
   // ── Logo ──
   var logoSrc=DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var logoHtml=logoSrc
-    ?'<div style="margin-bottom:10px;"><img src="'+logoSrc+'" style="max-height:80px;max-width:180px;object-fit:contain;display:block;margin:0 auto;"></div>'
-    :'<div style="width:76px;height:76px;border-radius:50%;background:#e8eaf6;border:2px dashed #c8b88a;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:.6rem;color:#aaa;text-align:center;padding:8px;line-height:1.3;">SCHOOL<br>LOGO</div>';
+    ?'<div style="width:90px;height:90px;border-radius:50%;overflow:hidden;border:3px solid #c8b020;background:#e8eaf6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;"><img src="'+logoSrc+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+    :'<div style="width:90px;height:90px;border-radius:50%;background:#e8eaf6;border:2px dashed #c8b88a;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:.6rem;color:#aaa;text-align:center;padding:8px;line-height:1.3;">SCHOOL<br>LOGO</div>';
 
   // ── Classmates ──
-  var classmates=cls?DB.students.filter(function(s){return s.classId===st.classId;}):[st];
+  var classmates=cls?yearStudents().filter(function(s){return s.classId===st.classId;}):[st];
 
   // ── Helper: get EU (midterm) and ET (exam) component for a term ──
   function getTermEU(term){
     if(!term.components||!term.components.length) return null;
-    return term.components.find(function(c){return c.name.toLowerCase().indexOf('midterm')>=0;})||term.components[0];
+    // Check periodType field first (new format), then fall back to name check
+    return term.components.find(function(c){
+      return c.name.toLowerCase().indexOf('midterm')>=0 || (term.periodType==='Midterm');
+    })||term.components[0];
   }
   function getTermET(term){
     if(!term.components||!term.components.length) return null;
-    return term.components.find(function(c){return c.name.toLowerCase().indexOf('exam')>=0;})||
-           (term.components.length>1?term.components[1]:null);
+    return term.components.find(function(c){
+      return c.name.toLowerCase().indexOf('exam')>=0 || (term.periodType==='Exam');
+    })||(term.components.length>1?term.components[1]:null);
   }
 
   // ── Helper: get a component mark for a student ──
   // Searches all possible termIds since old data stores EU/ET under different term entries
   function getCompMark(sid_,subId,termId,comp){
     if(!comp) return null;
-    // Try primary key first
-    var key=sid_+'_'+subId+'_'+termId+'_'+comp.id;
-    var v=DB.marks[key];
+    // Try year-scoped key first
+    var baseKey=sid_+'_'+subId+'_'+termId+'_'+comp.id;
+    var v = getTermMark(baseKey);
     if(v!==undefined&&v!=='') return parseFloat(v);
     // Try all DB.terms that share the same termLabel (sibling search)
     var termObj=DB.terms.find(function(t){return t.id===termId;});
@@ -3751,8 +4283,8 @@ function genReport(){
         return tk===tLabel && t.id!==termId;
       });
       for(var i=0;i<siblings.length;i++){
-        var altKey=sid_+'_'+subId+'_'+siblings[i].id+'_'+comp.id;
-        var av=DB.marks[altKey];
+        var altBase=sid_+'_'+subId+'_'+siblings[i].id+'_'+comp.id;
+        var av = getTermMark(altBase);
         if(av!==undefined&&av!=='') return parseFloat(av);
       }
     }
@@ -3760,15 +4292,16 @@ function genReport(){
   }
 
   // ── For a term, get EU mark, ET mark, total, max ──
-  // isMidtermReport: only show EU column (ET empty/locked)
+  // sub.scale = max per component. EU out of sub.scale, ET out of sub.scale, total = sub.scale × 2
   function getTermMarks(sid_,subId,term,onlyEU){
     var sub=DB.subjects.find(function(s){return s.id===subId;});
     var subScale=parseFloat((sub&&sub.scale)||100);
     var eu=getTermEU(term);
     var et=onlyEU?null:getTermET(term);
-    var euMax=eu?eu.maxMark:subScale;
-    var etMax=(et&&!onlyEU)?et.maxMark:0;
-    var totMax=euMax+(etMax||0);
+    // Each component max = sub.scale (e.g. Math EU=90, ET=90, total=180)
+    var euMax = subScale;
+    var etMax = (et&&!onlyEU) ? subScale : 0;
+    var totMax = euMax + etMax;
     var euMark=getCompMark(sid_,subId,term.id,eu);
     var etMark=(et&&!onlyEU)?getCompMark(sid_,subId,term.id,et):null;
     var tot=(euMark!==null||etMark!==null)?((euMark||0)+(etMark||0)):null;
@@ -3808,48 +4341,44 @@ function genReport(){
   var reportTypeTitle;
   function getTermNumber(t){
     if(!t) return '';
-    var m=(t.name||'').match(/(\d+)/);
-    return m?m[1]:'';
+    // Prefer termLabel (e.g. "Term 1") — extract digit from it
+    var src = t.termLabel || t.name || '';
+    // termLabel = "Term 1" → match last number
+    var m = src.match(/(\d+)\s*$/);
+    if(m) return m[1];
+    // Fallback: strip year prefix "2025-2026 | EU 1" → grab last digit group
+    var m2 = src.replace(/^\d{4}[-–]\d{4}\s*\|?\s*/,'').match(/(\d+)/);
+    return m2 ? m2[1] : '';
   }
   var termNumber=getTermNumber(selectedGroupTerm||selectedTermObj||{});
 
+  var acYearLabel = DB.settings.academicYear || academicYear || '';
   if(isMidterm){
-    reportTypeTitle = 'MIDTERM '+termNumber+' REPORT CARD';
-  } else if(!isMidterm && termsToShow.length===1){
-    reportTypeTitle = 'TERM '+termNumber+' REPORT CARD';
-  } else if(isFinalTerm){
-    reportTypeTitle = 'TERM '+termNumber+' REPORT CARD';
+    reportTypeTitle = 'MIDTERM '+termNumber+' REPORT CARD'+(acYearLabel?' — '+acYearLabel:'');
   } else {
-    reportTypeTitle = 'TERM '+termNumber+' REPORT CARD';
+    reportTypeTitle = 'TERM '+termNumber+' REPORT CARD'+(acYearLabel?' — '+acYearLabel:'');
   }
 
   var html=''
-  +'<div style="background:#ffffff;color:#1a1a2e;font-family:\'Outfit\',Arial,sans-serif;max-width:1050px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.15);border-radius:8px;">'
+  +'<div style="background:#ffffff;color:#1a1a2e;font-family:\'Outfit\',Arial,sans-serif;width:100%;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.15);border-radius:8px;">'
 
   // ── TOP ACCENT BAR ──
   +'<div style="height:8px;background:linear-gradient(90deg,#1a237e,#283593,#1565c0,#0d47a1);"></div>'
 
-  +'<div style="padding:2rem 2.4rem 1.8rem;">'
+  +'<div style="padding:1.4rem 1.8rem 1.4rem;">'
 
-  // ── HEADER: school info left | logo+title center ──
-  +'<div style="display:flex;align-items:flex-start;gap:2rem;padding-bottom:1.4rem;margin-bottom:1.4rem;border-bottom:3px double #c8b020;">'
-
-  // Left: school contact
-  +'<div style="min-width:190px;font-size:.72rem;color:#444;line-height:2;border-right:1px solid #e0d060;padding-right:1.5rem;">'
-  +'<div style="font-size:.95rem;font-weight:800;color:#1a237e;letter-spacing:.02em;margin-bottom:2px;">'+school+'</div>'
-  +(DB.settings.schoolAddress?'<div style="color:#666;">'+DB.settings.schoolAddress+'</div>':'')
-  +(DB.settings.schoolCode?'<div><span style="color:#888;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">School Code</span><br><strong style="color:#1a237e;">'+DB.settings.schoolCode+'</strong></div>':'')
-  +(DB.settings.schoolEmail?'<div><span style="color:#888;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">E-mail</span><br><strong style="color:#1a237e;">'+DB.settings.schoolEmail+'</strong></div>':'')
-  +(DB.settings.schoolPhone?'<div><span style="color:#888;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Phone</span><br><strong style="color:#1a237e;">'+DB.settings.schoolPhone+'</strong></div>':'')
-  +'</div>'
-
-  // Center: logo + school name + title
-  +'<div style="flex:1;text-align:center;">'
+  // ── HEADER: logo + school name + title centered, contact info below ──
+  +'<div style="text-align:center;padding-bottom:1.2rem;margin-bottom:1.2rem;border-bottom:3px double #c8b020;">'
   +logoHtml
-  +'<div style="font-size:1.55rem;font-weight:800;color:#1a237e;letter-spacing:.03em;font-family:\'Playfair Display\',Georgia,serif;line-height:1.2;">'+school+'</div>'
-  +(DB.settings.schoolMotto?'<div style="font-size:.72rem;color:#b8920a;font-style:italic;margin-top:3px;letter-spacing:.04em;">"'+DB.settings.schoolMotto+'"</div>':'')
-  +'<div style="display:inline-block;margin-top:8px;padding:4px 18px;background:#1a237e;color:#fff;font-size:.65rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;border-radius:20px;">'+reportTypeTitle+'</div>'
-  +'</div>'
+  +'<div style="font-size:1.15rem;font-weight:800;color:#1a237e;letter-spacing:.02em;font-family:\'Playfair Display\',Georgia,serif;line-height:1.3;margin-bottom:4px;">'+school+'</div>'
+  +(DB.settings.schoolMotto?'<div style="font-size:.68rem;color:#b8920a;font-style:italic;margin-bottom:4px;letter-spacing:.03em;">"'+DB.settings.schoolMotto+'"</div>':'')
+  +(DB.settings.schoolAddress||DB.settings.schoolPhone||DB.settings.schoolEmail
+    ?'<div style="font-size:.65rem;color:#666;margin-bottom:6px;">'
+      +(DB.settings.schoolAddress?DB.settings.schoolAddress:'')
+      +(DB.settings.schoolPhone?' &nbsp;|&nbsp; Tel: '+DB.settings.schoolPhone:'')
+      +(DB.settings.schoolEmail?' &nbsp;|&nbsp; '+DB.settings.schoolEmail:'')
+    +'</div>':'')
+  +'<div style="display:inline-block;margin-top:6px;padding:5px 20px;background:#1a237e;color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:20px;">'+reportTypeTitle+'</div>'
   +'</div>'
 
   // ── STUDENT INFO GRID ──
@@ -3857,7 +4386,7 @@ function genReport(){
   +'<div style="padding:8px 14px;background:#e8eaf6;border-right:1px solid #c5cae9;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Names</div><div style="font-size:.88rem;font-weight:700;color:#1a237e;">'+st.name+'</div></div>'
   +'<div style="padding:8px 14px;background:#fff;border-right:1px solid #c5cae9;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Student Unique Identifier</div><div style="font-size:.88rem;font-weight:600;color:#1a237e;font-family:monospace;">'+st.sid+'</div></div>'
   +'<div style="padding:8px 14px;background:#e8eaf6;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Class</div><div style="font-size:.88rem;font-weight:700;color:#1a237e;">'+(cls?cls.name:'—')+'</div></div>'
-  +'<div style="padding:8px 14px;background:#fff;border-right:1px solid #c5cae9;border-top:1px solid #c5cae9;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Academic Year</div><div style="font-size:.88rem;font-weight:600;color:#1a237e;">'+(DB.settings.academicYear||'—')+'</div></div>'
+  +'<div style="padding:8px 14px;background:#fff;border-right:1px solid #c5cae9;border-top:1px solid #c5cae9;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Academic Year</div><div style="font-size:.88rem;font-weight:600;color:#1a237e;">'+(academicYear||'—')+'</div></div>'
   +'<div style="padding:8px 14px;background:#e8eaf6;border-right:1px solid #c5cae9;border-top:1px solid #c5cae9;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Level</div><div style="font-size:.88rem;font-weight:600;color:#1a237e;">PRIMARY</div></div>'
   +'<div style="padding:8px 14px;background:#fff;border-top:1px solid #c5cae9;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Date Issued</div><div style="font-size:.88rem;font-weight:600;color:#1a237e;">'+date+'</div></div>'
   +(st.dob?'<div style="padding:8px 14px;background:#e8eaf6;border-right:1px solid #c5cae9;border-top:1px solid #c5cae9;"><div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Date of Birth</div><div style="font-size:.88rem;font-weight:600;color:#1a237e;">'+st.dob+'</div></div>':'')
@@ -4018,10 +4547,11 @@ function genReport(){
     var forPromotion=cfg.forPromotion!==false;
     var rowBg=si%2===0?'background:#fafafa;':'background:#ffffff;';
 
-    // MAX cols: EU ET TOT for first term reference
-    var euMaxRef=refEU?refEU.maxMark:parseFloat(sub.scale||100)/2;
-    var etMaxRef=(!isMidterm&&refET)?refET.maxMark:0;
-    var totMaxRef=euMaxRef+(etMaxRef||0);
+    // MAX cols: sub.scale = max per component (EU=sub.scale, ET=sub.scale, TOT=sub.scale×2)
+    var subTotalMax = parseFloat(sub.scale||100);
+    var euMaxRef = subTotalMax;
+    var etMaxRef = (!isMidterm && refET) ? subTotalMax : 0;
+    var totMaxRef = euMaxRef + etMaxRef;
 
     html+='<tr style="'+rowBg+'">';
     html+='<td style="'+tdSL+'font-weight:600;font-size:.72rem;">'+sub.name+'</td>';
@@ -4082,14 +4612,13 @@ function genReport(){
   var grandGr=grandPct!==null?(grandPct>=(g.grA||80)?'A':grandPct>=(g.grB||70)?'B':grandPct>=(g.grC||60)?'C':grandPct>=(g.grD||50)?'D':'F'):'—';
   html+='<tr style="background:#1a237e;color:#ffffff;font-weight:700;">';
   html+='<td style="'+tdSL+'color:#ffffff;font-weight:700;">Total</td>';
-  // Max totals — sum each subject's EU and ET maxMark correctly
+  // Max totals — each component has sub.scale as its max (EU=sub.scale, ET=sub.scale)
   var eu0=0,et0=0;
   sortedSubjects.forEach(function(sub){
     if(sub.scale==='letter') return;
-    var eu=getTermEU(refTerm);
-    var et=(!isMidterm)?getTermET(refTerm):null;
-    eu0+=eu?eu.maxMark:parseFloat(sub.scale||100)/2;
-    if(et) et0+=et.maxMark;
+    var subMax = parseFloat(sub.scale||100);
+    eu0 += subMax;
+    if(!isMidterm) et0 += subMax;
   });
   if(isMidterm){
     html+='<td style="'+tdS+'color:#c5cae9;border-left:2px solid #5c6bc0;">'+eu0+'</td>';
@@ -4220,7 +4749,7 @@ function genReport(){
 
   html+='</div><div style="height:8px;background:linear-gradient(90deg,#1a237e,#283593,#1565c0,#0d47a1);"></div></div>';
 
-  out.innerHTML='<button class="btn ghost noprint" onclick="printReport()" style="margin-bottom:.9rem;">🖨️ Print Report Card</button>'+html;
+  out.innerHTML=html;
 }
 
 
@@ -4256,7 +4785,7 @@ function renderAnalytics(){
   var sid=document.getElementById('anSub').value;
   var out=document.getElementById('anOut');
 
-  var students=cid?DB.students.filter(function(s){return s.classId===cid;}):DB.students;
+  var students=cid?yearStudents().filter(function(s){return s.classId===cid;}):yearStudents();
   var subjects=sid?DB.subjects.filter(function(s){return s.id===sid;}):DB.subjects.filter(function(s){return s.scale!=='letter';});
 
   if(!students.length||!subjects.length||!tid){
@@ -4357,7 +4886,7 @@ function genProcl(){
   if(!isAdmin()&&ME.classTeacher&&cid!==ME.classTeacher){
     out.innerHTML='<div class="empty"><div class="ei">🔒</div><p>Access denied.</p></div>';return;
   }
-  var list=DB.students.filter(function(s){return s.classId===cid;});
+  var list=yearStudents().filter(function(s){return s.classId===cid;});
   var g=DB.settings;
   var promotionMark=DB.settings.promotionMark!=null?DB.settings.promotionMark:g.grD||50;
 
@@ -4427,12 +4956,69 @@ function genProcl(){
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.25rem;">🏆 Proclamation List</div>'
     +'<div style="font-size:.78rem;color:var(--ink3);margin-top:3px;">'+tl+' — '+cn+'</div></div>'
 
+    // ── FULL PROCLAMATION TABLE ──
+    +'<div class="card" style="margin-bottom:1rem;padding:0;">'
+    +'<div style="padding:.9rem 1.1rem .3rem;"><div class="ctitle" style="margin-bottom:.5rem;">🎖️ Student Rankings — All Marks</div></div>'
+    +'<div class="tw"><table style="width:100%;border-collapse:collapse;font-size:.78rem;">'
+    +'<thead><tr style="background:#1a237e;color:#fff;">'
+    +'<th style="padding:7px 8px;text-align:center;border:1px solid #3949ab;white-space:nowrap;">Rank</th>'
+    +'<th style="padding:7px 8px;text-align:left;border:1px solid #3949ab;min-width:120px;">Student</th>'
+    +DB.subjects.filter(function(s){return s.scale!=='letter';}).map(function(sub){
+      return'<th style="padding:7px 5px;text-align:center;border:1px solid #3949ab;white-space:nowrap;font-size:.65rem;">'+sub.name+'<div style="font-weight:400;opacity:.8;">/'+sub.scale+'</div></th>';
+    }).join('')
+    +'<th style="padding:7px 8px;text-align:center;border:1px solid #3949ab;background:#0d47a1;white-space:nowrap;">Total %</th>'
+    +'<th style="padding:7px 8px;text-align:center;border:1px solid #3949ab;background:#0d47a1;">GR</th>'
+    +'<th style="padding:7px 8px;text-align:center;border:1px solid #3949ab;background:#0d47a1;white-space:nowrap;">Status</th>'
+    +'</tr></thead><tbody>'
+    +(function(){
+      // Rebuild ranked list with per-subject marks
+      var numericSubs = DB.subjects.filter(function(s){return s.scale!=='letter';});
+      var rankedFull = list.map(function(s){
+        var tot=0,cnt=0;
+        numericSubs.forEach(function(sub){
+          var v=getMk(s.id,sub.id);
+          if(v!==undefined&&v!==''){tot+=(parseFloat(v)/parseFloat(sub.scale))*100;cnt++;}
+        });
+        return Object.assign({},s,{avg:cnt?(tot/cnt):null,cnt:cnt});
+      }).sort(function(a,b){
+        if(b.avg===null&&a.avg===null) return 0;
+        if(b.avg===null) return -1;
+        if(a.avg===null) return 1;
+        return b.avg-a.avg;
+      });
+      var GCt={'A':'#2e7d32','B':'#1565c0','C':'#e65100','D':'#6a1b9a','F':'#c62828'};
+      return rankedFull.map(function(s,i){
+        var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+        var grade=s.avg!==null?(s.avg>=g.grA?'A':s.avg>=g.grB?'B':s.avg>=g.grC?'C':s.avg>=g.grD?'D':'F'):'—';
+        var promoted=s.avg!==null&&s.avg>=promotionMark;
+        var rowBg=i%2===0?'background:#f9f9fb;':'background:#ffffff;';
+        var cells=numericSubs.map(function(sub){
+          var v=getMk(s.id,sub.id);
+          var val=(v!==undefined&&v!=='')?parseFloat(v):null;
+          var pct=val!==null?(val/parseFloat(sub.scale))*100:null;
+          var col=pct===null?'#aaa':pct>=(g.grA||80)?GCt.A:pct>=(g.grB||70)?GCt.B:pct>=(g.grC||60)?GCt.C:pct>=(g.grD||50)?GCt.D:GCt.F;
+          return'<td style="padding:6px 5px;text-align:center;border:1px solid #e0e0e0;font-weight:'+(val!==null?'600':'400')+';color:'+col+';">'
+            +(val!==null?val.toFixed(0):'<span style="color:#ccc;">—</span>')+'</td>';
+        }).join('');
+        return'<tr style="'+rowBg+'">'
+          +'<td style="padding:6px 8px;text-align:center;border:1px solid #e0e0e0;font-size:.9rem;">'+medal+'</td>'
+          +'<td style="padding:6px 8px;border:1px solid #e0e0e0;"><strong style="font-size:.82rem;">'+s.name+'</strong><div style="font-size:.65rem;color:#888;">No.'+s.sid+'</div></td>'
+          +cells
+          +'<td style="padding:6px 8px;text-align:center;border:1px solid #e0e0e0;font-weight:700;color:'+(s.avg!==null?GCt[grade]:'#aaa')+';background:#f0f0f8;">'+(s.avg!==null?s.avg.toFixed(1)+'%':'—')+'</td>'
+          +'<td style="padding:6px 8px;text-align:center;border:1px solid #e0e0e0;font-weight:700;background:#f0f0f8;color:'+(s.avg!==null?GCt[grade]:'#aaa')+';">'+grade+'</td>'
+          +'<td style="padding:6px 8px;text-align:center;border:1px solid #e0e0e0;font-size:.7rem;font-weight:700;background:#f0f0f8;color:'+(promoted?'#1a7a4a':'#c62828')+';white-space:nowrap;">'+(s.avg!==null?(promoted?'✅ PASS':'❌ FAIL'):'—')+'</td>'
+          +'</tr>';
+      }).join('');
+    })()
+    +'</tbody></table></div></div>'
+
     // ── SUBJECT AVERAGES SECTION ──
     +'<div class="card" style="margin-bottom:1rem;">'
     +'<div class="ctitle" style="margin-bottom:.9rem;">📊 Subject Averages — '+cn+' ('+tl+')</div>'
     +'<div class="tw"><table>'
     +'<thead><tr>'
     +'<th>Subject</th>'
+    +'<th style="text-align:center;">Max</th>'
     +'<th style="text-align:center;">Class Average</th>'
     +'<th style="text-align:center;">Highest</th>'
     +'<th style="text-align:center;">Lowest</th>'
@@ -4447,6 +5033,7 @@ function genProcl(){
       var bg=i%2===0?'var(--s2)':'var(--s1)';
       return'<tr style="background:'+bg+';">'
         +'<td style="font-weight:600;">'+x.sub.name+'</td>'
+        +'<td style="text-align:center;color:var(--ink2);">'+x.sub.scale+'</td>'
         +'<td style="text-align:center;">'
         +'<div style="display:flex;align-items:center;gap:6px;justify-content:center;">'
         +'<div style="width:60px;height:6px;background:var(--bd);border-radius:3px;overflow:hidden;">'
@@ -4459,27 +5046,7 @@ function genProcl(){
         +'<td style="text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:10px;font-weight:700;font-size:.78rem;background:'+GC[grade]+'22;color:'+GC[grade]+';border:1px solid '+GC[grade]+'44;">'+grade+'</span></td>'
         +'</tr>';
     }).join('')
-    +'</tbody></table></div></div>'
-
-    // ── STUDENT RANKINGS ──
-    +'<div class="card">'
-    +'<div class="ctitle" style="margin-bottom:.9rem;">🎖️ Student Rankings</div>'
-    +(ranked.length?ranked.map(function(s,i){
-      var cls=DB.classes.find(function(c){return c.id===s.classId;});
-      var grade=s.avg>=g.grA?'A':s.avg>=g.grB?'B':s.avg>=g.grC?'C':s.avg>=g.grD?'D':'F';
-      var promoted=s.avg>=promotionMark;
-      var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':String(i+1);
-      var rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
-      return'<div class="pcard"><div class="rcirc '+rc+'">'+medal+'</div>'
-        +'<div style="flex:1;"><div style="font-weight:600;">'+s.name+'</div>'
-        +'<div style="font-size:.76rem;color:var(--ink3);margin-top:2px;">No. '+s.sid+' · '+(cls?cls.name:'—')+' · '+s.cnt+' subject'+(s.cnt!==1?'s':'')+'</div></div>'
-        +'<div style="text-align:right;">'
-        +'<div style="font-size:1.35rem;font-weight:600;color:var(--gold);">'+s.avg.toFixed(1)+'%</div>'
-        +'<div style="font-size:.7rem;color:var(--ink3);">Grade '+grade+'</div>'
-        +'<div style="font-size:.72rem;font-weight:700;color:'+(promoted?'var(--green)':'var(--red)')+';">'+(promoted?'✅ PROMOTED':'❌ NOT PROMOTED')+'</div>'
-        +'</div></div>';
-    }).join(''):'<div class="empty"><p>No marks recorded yet.</p></div>')
-    +'</div>';
+    +'</tbody></table></div></div>';
 }
 
 // ═══════════════════════════════════════
@@ -4496,7 +5063,13 @@ function setupSettings(){
   document.getElementById('schin').value=DB.settings.schoolName||'';
   var mottoEl=document.getElementById('schmotto'); if(mottoEl) mottoEl.value=DB.settings.schoolMotto||'';
   var addrEl=document.getElementById('schaddr');   if(addrEl)  addrEl.value=DB.settings.schoolAddress||'';
-  var ayEl=document.getElementById('schAcadYear'); if(ayEl) ayEl.value=DB.settings.academicYear||'';
+  var ayEl=document.getElementById('schAcadYear');
+  if(ayEl){
+    var _ayStored=DB.settings.academicYear||'';
+    var _ayFixS=_ayStored.match(/^(\d{4})-(\d{4})$/);
+    if(_ayFixS&&_ayFixS[1]===_ayFixS[2]) _ayStored=_ayFixS[1]+'-'+(parseInt(_ayFixS[1])+1);
+    ayEl.value=_ayStored;
+  }
   var codeEl=document.getElementById('schCode');   if(codeEl)  codeEl.value=DB.settings.schoolCode||'';
   var emailEl=document.getElementById('schEmail'); if(emailEl) emailEl.value=DB.settings.schoolEmail||'';
   var phoneEl=document.getElementById('schPhone'); if(phoneEl) phoneEl.value=DB.settings.schoolPhone||'';
@@ -4512,6 +5085,10 @@ function setupSettings(){
   initLogoAdminPreview();
   // Load quiz ranges
   if(admin) renderQuizRangeEditor();
+  // Load quiz years
+  if(admin) renderQuizYearsList();
+  // Load term years
+  if(admin) renderTermYearsList();
 }
 
 function savePromotionMark(){
@@ -4781,6 +5358,9 @@ function syncTerms(){
     var now=new Date(); var yr=now.getFullYear(); var mo=now.getMonth()+1;
     return mo<=7?(yr-1)+'-'+yr:yr+'-'+(yr+1);
   })();
+  // Auto-correct same-year typo e.g. "2025-2025" → "2025-2026"
+  var _ayFix2=academicYear.match(/^(\d{4})-(\d{4})$/);
+  if(_ayFix2&&_ayFix2[1]===_ayFix2[2]) academicYear=_ayFix2[1]+'-'+(parseInt(_ayFix2[1])+1);
 
   // Group old individual period-terms into full terms (prevents doubling)
   var seen={};
@@ -4910,6 +5490,8 @@ function switchMarkMode(mode){
     if(quizDiv) quizDiv.style.display='none';
     if(termBtn){termBtn.style.background='var(--gold)';termBtn.style.color='#1a1200';}
     if(quizBtn){quizBtn.style.background='none';quizBtn.style.color='var(--ink2)';}
+    syncTermYearBanner();
+    syncTerms();
   } else {
     if(termDiv) termDiv.style.display='none';
     if(quizDiv) quizDiv.style.display='';
@@ -4968,6 +5550,635 @@ function updateTopbarModeBtn(){
   }
 }
 
+
+// ═══════════════════════════════════════
+//  QUIZ YEAR MANAGEMENT
+// ═══════════════════════════════════════
+
+function getActiveQuizYear(){
+  if(!DB.quizYears||!DB.quizYears.length) return null;
+  return DB.quizYears.find(function(y){return y.id===CURRENT_QUIZ_YEAR_ID;})||null;
+}
+
+function quizMarkKey(stId, subId, weekId){
+  // New format: qz_studentId_subId_yearId_weekId
+  return 'qz_'+stId+'_'+subId+'_'+(CURRENT_QUIZ_YEAR_ID||'noyr')+'_'+weekId;
+}
+
+function syncQuizWeekDropdowns(){
+  var yr = getActiveQuizYear();
+  var opts = yr && yr.weeks && yr.weeks.length
+    ? yr.weeks.map(function(w){return'<option value="'+w.id+'">'+w.label+'</option>';}).join('')
+    : '<option value="">— No weeks — ask director —</option>';
+  ['qzWeek','qpWeek'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){
+      var cur=el.value;
+      el.innerHTML='<option value="">— Select Week —</option>'+opts;
+      if(cur) el.value=cur;
+    }
+  });
+  // Update year labels
+  var lbl = yr ? yr.label : '—';
+  var locked = yr && yr.locked;
+  ['qz-year-label','qp-year-label'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.textContent=lbl;
+  });
+  var badge = document.getElementById('qz-year-locked-badge');
+  if(badge) badge.style.display = locked ? 'inline-block' : 'none';
+}
+
+// Show year selector screen (called when quiz mode entered)
+function addQuizYearFromSelector(){
+  var label = prompt('Enter academic year label (e.g. 2025-2026):');
+  if(!label||!label.trim()) return;
+  label = label.trim();
+  if(DB.quizYears.find(function(y){return y.label===label;})){
+    alert('A year with this label already exists.');return;
+  }
+  var id = 'QY'+Date.now();
+  DB.quizYears.push({id:id, label:label, weeks:[], locked:false, createdAt:new Date().toISOString()});
+  addLog('Created quiz year: '+label);
+  dbSave();
+  renderQuizYearsList();
+  showQuizYearSelector();
+  setTimeout(function(){ selectQuizYear(id); }, 300);
+}
+
+function showQuizYearSelector(onSelectCallback){
+  var qs = document.getElementById('quizYearSelect');
+  var list = document.getElementById('qys-list');
+  // Show "+ New Academic Year" button only for admins
+  var newBtn = document.getElementById('qys-new-btn');
+  if(newBtn) newBtn.style.display = isAdmin() ? 'inline-flex' : 'none';
+
+  if(!DB.quizYears||!DB.quizYears.length){
+    // Show proper in-app message — no alert/confirm
+    if(isAdmin()){
+      list.innerHTML =
+        '<div style="text-align:center;padding:1.5rem 1rem;background:rgba(240,180,41,.08);border:2px dashed rgba(240,180,41,.3);border-radius:12px;">'
+        +'<div style="font-size:2rem;margin-bottom:.5rem;">📅</div>'
+        +'<div style="font-size:.95rem;font-weight:700;color:var(--ink);margin-bottom:.4rem;">No Academic Years Yet</div>'
+        +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:1rem;">Create a quiz academic year first, then add weeks to it.</div>'
+        +'<button class="btn gold" onclick="document.getElementById(\'quizYearSelect\').style.display=\'none\';_launchApp(\'quiz\');showPage(\'settings\');setTimeout(function(){var e=document.getElementById(\'quizYearsCard\');if(e)e.scrollIntoView({behavior:\'smooth\'});},300);">⚙️ Go to Settings → Create Year</button>'
+        +'</div>';
+    } else {
+      list.innerHTML =
+        '<div style="text-align:center;padding:1.5rem 1rem;background:rgba(74,143,255,.08);border:2px dashed rgba(74,143,255,.25);border-radius:12px;">'
+        +'<div style="font-size:2rem;margin-bottom:.5rem;">📅</div>'
+        +'<div style="font-size:.95rem;font-weight:700;color:var(--ink);margin-bottom:.4rem;">No Academic Years Set Up</div>'
+        +'<div style="font-size:.78rem;color:var(--ink3);">Ask the director to create a quiz academic year in Settings.</div>'
+        +'</div>';
+    }
+    qs.style.display='flex';
+    return;
+  }
+
+  var adminQ = isAdmin();
+  list.innerHTML = DB.quizYears.slice().reverse().map(function(yr){
+    var isSelected = yr.id === CURRENT_QUIZ_YEAR_ID;
+    var locked = yr.locked;
+    return '<div style="display:flex;align-items:center;gap:6px;">'
+      +'<button onclick="selectQuizYear(\''+yr.id+'\')" style="'
+        +'flex:1;padding:1rem 1.2rem;border-radius:10px;border:2px solid '+(isSelected?'var(--gold)':'var(--bd)')+';'
+        +'background:'+(isSelected?'rgba(240,180,41,.12)':'var(--s1)')+';'
+        +'color:var(--ink);text-align:left;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:space-between;gap:1rem;">'
+        +'<div>'
+          +'<div style="font-size:.95rem;font-weight:700;">'+(isSelected?'✓ ':'')+yr.label+'</div>'
+          +'<div style="font-size:.7rem;color:var(--ink3);margin-top:3px;">'+(yr.weeks?yr.weeks.length:0)+' weeks'
+            +(locked?' &nbsp;|&nbsp; <span style="color:var(--red);font-weight:600;">🔒 Closed</span>':' &nbsp;|&nbsp; <span style="color:var(--green);font-weight:600;">● Active</span>')
+          +'</div>'
+        +'</div>'
+        +(locked?'<span style="font-size:.7rem;padding:3px 10px;background:rgba(224,82,82,.1);color:var(--red);border-radius:10px;border:1px solid rgba(224,82,82,.2);">Read Only</span>':'')
+      +'</button>'
+      +(adminQ
+        ? '<button onclick="editQuizYear(\''+yr.id+'\');showQuizYearSelector();" title="Rename year" style="flex-shrink:0;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s1);color:var(--ink2);cursor:pointer;font-size:1rem;transition:all .15s;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'var(--bd)\'">✏️</button>'
+          +'<button onclick="deleteQuizYear(\''+yr.id+'\');showQuizYearSelector();" title="Delete year" style="flex-shrink:0;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s1);color:var(--red);cursor:pointer;font-size:1rem;transition:all .15s;" onmouseover="this.style.borderColor=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--bd)\'">🗑️</button>'
+        : '')
+      +'</div>';
+  }).join('');
+  qs.style.display='flex';
+}
+
+function selectQuizYear(yearId){
+  CURRENT_QUIZ_YEAR_ID = yearId;
+  document.getElementById('quizYearSelect').style.display='none';
+  syncQuizWeekDropdowns();
+  // If app not yet shown, launch it in quiz mode
+  var appWrap = document.getElementById('appWrap');
+  if(appWrap.style.display==='none'||!appWrap.style.display){
+    _launchApp('quiz');
+    return;
+  }
+  // Already in app — just refresh quiz pages
+  var qzEl=document.getElementById('quiz-marks-mode');
+  if(qzEl&&qzEl.style.display!=='none') loadQuizTable();
+  setupQuizProcl();
+}
+
+function cancelQuizYear(){
+  document.getElementById('quizYearSelect').style.display='none';
+  // If app not yet open, go back to diamond switch
+  var appWrap = document.getElementById('appWrap');
+  if(!appWrap||appWrap.style.display==='none'||appWrap.style.display===''){
+    var ds = document.getElementById('diamondSwitch');
+    if(ds) ds.style.display='flex';
+  }
+}
+
+// Switch quiz year from within the app (topbar or settings)
+function switchQuizYear(){
+  showQuizYearSelector();
+}
+
+// ── Director: add quiz year ──
+function addQuizYear(){
+  var label = prompt('Enter academic year label (e.g. 2025-2026):');
+  if(!label||!label.trim()) return;
+  label = label.trim();
+  if(DB.quizYears.find(function(y){return y.label===label;})){
+    alert('A year with this label already exists.');return;
+  }
+  var id = 'QY'+Date.now();
+  DB.quizYears.push({id:id, label:label, weeks:[], locked:false, createdAt:new Date().toISOString()});
+  addLog('Created quiz year: '+label);
+  dbSave();
+  renderQuizYearsList();
+  flash('qyal','ok','✅ Year "'+label+'" created.');
+}
+
+function addQuizWeek(yearId){
+  var yr = DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr){return;}
+  if(yr.locked){alert('This year is locked.');return;}
+  var num = (yr.weeks.length+1);
+  var label = prompt('Week label (e.g. Week '+num+'):','Week '+num);
+  if(!label||!label.trim()) return;
+  var wid = 'W'+Date.now();
+  yr.weeks.push({id:wid, label:label.trim()});
+  addLog('Added week "'+label.trim()+'" to '+yr.label);
+  dbSave();
+  renderQuizYearsList();
+  syncQuizWeekDropdowns();
+}
+
+function removeQuizWeek(yearId, weekId){
+  var yr = DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr||yr.locked) return;
+  if(!confirm('Remove this week? Any quiz marks for this week will be lost.')) return;
+  yr.weeks = yr.weeks.filter(function(w){return w.id!==weekId;});
+  dbSave();
+  renderQuizYearsList();
+  syncQuizWeekDropdowns();
+}
+
+function lockQuizYear(yearId){
+  if(!confirm('Close this academic year?\n\nThis will lock ALL quiz data for this year permanently. Teachers will not be able to edit quiz marks for this year anymore.\n\nThis cannot be undone.')) return;
+  var yr = DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  yr.locked = true;
+  yr.lockedAt = new Date().toISOString();
+  addLog('🔒 Closed quiz year: '+yr.label);
+  dbSave();
+  renderQuizYearsList();
+  syncQuizWeekDropdowns();
+  flash('qyal','ok','🔒 Year "'+yr.label+'" is now closed and read-only.');
+}
+
+function deleteQuizYear(yearId){
+  var yr = DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  if(!confirm('Delete year "'+yr.label+'"?\n\nAll quiz marks for this year will be deleted. This cannot be undone.')) return;
+  // Remove all quiz marks for this year
+  Object.keys(DB.marks).forEach(function(k){
+    if(k.indexOf('_'+yearId+'_')>=0) delete DB.marks[k];
+  });
+  DB.quizYears = DB.quizYears.filter(function(y){return y.id!==yearId;});
+  if(CURRENT_QUIZ_YEAR_ID===yearId) CURRENT_QUIZ_YEAR_ID=null;
+  addLog('Deleted quiz year: '+yr.label);
+  dbSave();
+  renderQuizYearsList();
+  syncQuizWeekDropdowns();
+}
+
+function editQuizYear(yearId){
+  var yr = DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  var newLabel = prompt('Rename academic year:', yr.label);
+  if(!newLabel || !newLabel.trim()) return;
+  newLabel = newLabel.trim();
+  if(newLabel === yr.label) return;
+  if(DB.quizYears.find(function(y){return y.label===newLabel && y.id!==yearId;})){
+    alert('An academic year with that label already exists.');
+    return;
+  }
+  yr.label = newLabel;
+  addLog('✏️ Renamed quiz year to: '+newLabel);
+  dbSave();
+  renderQuizYearsList();
+  flash('qyal','ok','✅ Year renamed to "'+newLabel+'".');
+}
+
+function renderQuizYearsList(){
+  var el = document.getElementById('quiz-years-list');
+  if(!el) return;
+  if(!DB.quizYears||!DB.quizYears.length){
+    el.innerHTML='<div class="empty" style="padding:1rem;"><p>No academic years yet. Click "+ New Academic Year" to get started.</p></div>';
+    return;
+  }
+  el.innerHTML = DB.quizYears.slice().reverse().map(function(yr){
+    var locked = yr.locked;
+    return '<div style="border:1px solid '+(locked?'rgba(224,82,82,.3)':'var(--bd)')+';border-radius:10px;padding:.9rem 1rem;margin-bottom:.7rem;background:'+(locked?'rgba(224,82,82,.04)':'var(--s2)') +'">'
+      // Header
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.7rem;">'
+        +'<div>'
+          +'<div style="font-size:.92rem;font-weight:700;color:var(--ink);">📅 '+yr.label+'</div>'
+          +'<div style="font-size:.68rem;color:var(--ink3);margin-top:2px;">'+(yr.weeks?yr.weeks.length:0)+' weeks'+(yr.lockedAt?' · Closed '+new Date(yr.lockedAt).toLocaleDateString('en-GB'):'')+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
+          +(!locked?'<button class="btn sm ghost" onclick="addQuizWeek(\''+yr.id+'\')">+ Week</button>':'')
+          +'<button class="btn sm ghost" onclick="editQuizYear(\''+yr.id+'\')" title="Rename year">✏️</button>'
+          +(!locked?'<button class="btn sm gold" onclick="lockQuizYear(\''+yr.id+'\')">🔒 Close Year</button>':'<span style="font-size:.7rem;font-weight:700;color:var(--red);padding:3px 10px;background:rgba(224,82,82,.1);border-radius:10px;">🔒 CLOSED</span>')
+          +'<button class="btn sm red" onclick="deleteQuizYear(\''+yr.id+'\')">🗑️</button>'
+        +'</div>'
+      +'</div>'
+      // Weeks
+      +(yr.weeks&&yr.weeks.length
+        ? '<div style="display:flex;flex-wrap:wrap;gap:5px;">'
+          +yr.weeks.map(function(w){
+            return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:var(--s3);border:1px solid var(--bd);color:var(--ink2);">'
+              +w.label
+              +(!locked?'<button onclick="removeQuizWeek(\''+yr.id+'\',\''+w.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.7rem;padding:0 0 0 3px;line-height:1;">✕</button>':'')
+              +'</span>';
+          }).join('')
+          +'</div>'
+        : '<div style="font-size:.74rem;color:var(--ink3);font-style:italic;">'+(locked?'No weeks recorded.':'No weeks yet. Click "+ Week" to add.')+'</div>')
+      +'</div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+//  TERM YEAR MANAGEMENT
+// ═══════════════════════════════════════
+
+function getActiveTermYear(){
+  if(!DB.termYears||!DB.termYears.length) return null;
+  return DB.termYears.find(function(y){return y.id===CURRENT_TERM_YEAR_ID;})||null;
+}
+
+// Build mark key scoped to term year: yearId::stId_subId_termId_compId
+function termMarkKey(base){
+  // base = "studentId_subjectId_termId" or "studentId_subjectId_termId_compId"
+  if(!CURRENT_TERM_YEAR_ID) return base; // backwards compat — no year selected
+  return CURRENT_TERM_YEAR_ID+'::'+base;
+}
+
+// Read a mark — tries year-scoped key first, then falls back to bare key (legacy)
+function getTermMark(base){
+  if(CURRENT_TERM_YEAR_ID){
+    var scoped = DB.marks[CURRENT_TERM_YEAR_ID+'::'+base];
+    if(scoped!==undefined) return scoped;
+  }
+  return DB.marks[base]; // legacy / no year
+}
+
+function syncTermYearBanner(){
+  var yr = getActiveTermYear();
+  var lbl = yr ? yr.label : '— Select Year —';
+  var locked = yr && yr.locked;
+  // Marks page banner
+  var el = document.getElementById('term-year-label');
+  if(el) el.textContent = lbl;
+  var badge = document.getElementById('term-year-locked-badge');
+  if(badge) badge.style.display = locked ? 'inline-block' : 'none';
+  // Report cards page year labels
+  ['rp-year-label','rp-year-label-t'].forEach(function(id){
+    var e=document.getElementById(id);
+    if(e) e.textContent = lbl;
+  });
+}
+
+// ── New Academic Year: full migration modal ──
+function addTermYearFromSelector(){
+  openNewYearModal(function(newId){
+    showTermYearSelector();
+    setTimeout(function(){ selectTermYear(newId); }, 300);
+  });
+}
+
+function addTermYear(){
+  openNewYearModal(function(){
+    renderTermYearsList();
+    flash('tyal','ok','✅ New academic year created.');
+  });
+}
+
+var _newYearCallback = null;
+
+function openNewYearModal(cb){
+  _newYearCallback = cb || null;
+  var prevOpts = '<option value="">— None (start fresh) —</option>';
+  DB.termYears.slice().reverse().forEach(function(y){
+    prevOpts += '<option value="'+y.id+'">'+y.label+'</option>';
+  });
+  var wrap = document.createElement('div');
+  wrap.id = 'newYearModalWrap';
+  wrap.innerHTML =
+    '<div class="mbg open" style="z-index:9999;">'
+    +'<div class="modal" style="max-width:500px;">'
+    +'<div class="mhead"><div class="mtitle">📅 New Academic Year</div>'
+    +'<button class="mx" onclick="closeNewYearModal()">✕</button></div>'
+    +'<div class="fg" style="margin-bottom:1rem;">'
+    +'<label>Academic Year Label</label>'
+    +'<input type="text" id="nyLabel" placeholder="e.g. 2025-2026" style="font-size:1rem;font-weight:600;">'
+    +'</div>'
+    +'<div class="fg" style="margin-bottom:1rem;">'
+    +'<label>Copy setup from previous year</label>'
+    +'<select id="nyCopyFrom" onchange="toggleMigrateOptions()">'+prevOpts+'</select>'
+    +'</div>'
+    +'<div id="nyMigrateOpts" style="display:none;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:1rem;margin-bottom:1rem;">'
+    +'<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.8rem;">What to carry over:</div>'
+    +'<label class="chk-item checked" id="nyOptStudents" onclick="toggleNyChk(this)" style="margin-bottom:.4rem;">'
+      +'<div class="chk-box" style="background:var(--gold);border-color:var(--gold);color:#1a1200;">✓</div>'
+      +'<div><strong>Students</strong><div style="font-size:.72rem;color:var(--ink3);">Keep all students with their class assignments</div></div>'
+    +'</label>'
+    +'<label class="chk-item checked" id="nyOptTerms" onclick="toggleNyChk(this)" style="margin-bottom:.4rem;">'
+      +'<div class="chk-box" style="background:var(--gold);border-color:var(--gold);color:#1a1200;">✓</div>'
+      +'<div><strong>Term Setup</strong><div style="font-size:.72rem;color:var(--ink3);">Keep term names, components and max marks</div></div>'
+    +'</label>'
+    +'<label class="chk-item" id="nyOptPromo" onclick="toggleNyChk(this)" style="margin-bottom:.4rem;">'
+      +'<div class="chk-box"></div>'
+      +'<div><strong>Promote Students</strong><div style="font-size:.72rem;color:var(--ink3);">Move each student up one class (based on class list order)</div></div>'
+    +'</label>'
+    +'<div style="font-size:.7rem;color:var(--ink3);margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--bd);">ℹ️ Teachers, classes and subjects are always shared across all years.</div>'
+    +'</div>'
+    +'<div id="nyAlert"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn gold" onclick="confirmCreateNewYear()">✅ Create Year</button>'
+    +'<button class="btn ghost" onclick="closeNewYearModal()">Cancel</button>'
+    +'</div>'
+    +'</div></div>';
+  document.body.appendChild(wrap);
+  setTimeout(function(){ var el=document.getElementById('nyLabel'); if(el) el.focus(); },100);
+}
+
+function closeNewYearModal(){
+  var w = document.getElementById('newYearModalWrap');
+  if(w) w.remove();
+  _newYearCallback = null;
+}
+
+function toggleMigrateOptions(){
+  var sel = document.getElementById('nyCopyFrom');
+  var opts = document.getElementById('nyMigrateOpts');
+  if(opts) opts.style.display = (sel && sel.value) ? 'block' : 'none';
+}
+
+function toggleNyChk(el){
+  var isChecked = el.classList.contains('checked');
+  el.classList.toggle('checked', !isChecked);
+  var box = el.querySelector('.chk-box');
+  if(!box) return;
+  if(!isChecked){
+    box.style.background='var(--gold)'; box.style.borderColor='var(--gold)';
+    box.style.color='#1a1200'; box.textContent='✓';
+  } else {
+    box.style.background=''; box.style.borderColor='';
+    box.style.color=''; box.textContent='';
+  }
+}
+
+function confirmCreateNewYear(){
+  var labelEl = document.getElementById('nyLabel');
+  var label = labelEl ? labelEl.value.trim() : '';
+  if(!label){ flashNyAlert('warn','⚠️ Please enter an academic year label.'); return; }
+  if(DB.termYears.find(function(y){ return y.label===label; })){
+    flashNyAlert('warn','⚠️ A year with this label already exists.'); return;
+  }
+  var sourceId     = (document.getElementById('nyCopyFrom')||{}).value || '';
+  var copyStudents = !!(document.getElementById('nyOptStudents') && document.getElementById('nyOptStudents').classList.contains('checked'));
+  var copyTerms    = !!(document.getElementById('nyOptTerms')    && document.getElementById('nyOptTerms').classList.contains('checked'));
+  var doPromo      = !!(document.getElementById('nyOptPromo')    && document.getElementById('nyOptPromo').classList.contains('checked'));
+
+  var newId = 'TY'+Date.now();
+  DB.termYears.push({id:newId, label:label, locked:false, createdAt:new Date().toISOString()});
+
+  var parts = [];
+  if(sourceId){
+    if(copyStudents){
+      // Get students from the source year (scoped or legacy)
+      var srcStudents = DB.students.filter(function(s){
+        return !s.termYearId || s.termYearId === sourceId;
+      });
+      var classOrder = DB.classes.map(function(c){ return c.id; });
+      srcStudents.forEach(function(s){
+        var newCls = s.classId;
+        if(doPromo && s.classId){
+          var idx = classOrder.indexOf(s.classId);
+          if(idx >= 0 && idx < classOrder.length-1) newCls = classOrder[idx+1];
+        }
+        // Only copy if not already duplicated into this new year
+        var already = DB.students.find(function(x){ return x.sid===s.sid && x.termYearId===newId; });
+        if(!already){
+          DB.students.push({
+            id:'ST'+Date.now()+'-'+Math.random().toString(36).slice(2),
+            name:s.name, sid:s.sid, classId:newCls,
+            termYearId:newId,
+            dob:s.dob||'', gender:s.gender||'',
+            parentName:s.parentName||'', parentPhone:s.parentPhone||''
+          });
+        }
+      });
+      parts.push(doPromo
+        ? 'students promoted ('+srcStudents.length+')'
+        : 'students copied ('+srcStudents.length+')');
+    }
+    if(copyTerms) parts.push('term setup kept');
+  }
+
+  addLog('Created term year: '+label+(parts.length?' ('+parts.join(', ')+')':''));
+  dbSave();
+  closeNewYearModal();
+  if(_newYearCallback){ var cb=_newYearCallback; _newYearCallback=null; cb(newId); }
+}
+
+function flashNyAlert(type, msg){
+  var el = document.getElementById('nyAlert');
+  if(!el) return;
+  el.innerHTML = '<div class="al '+type+'" style="margin-bottom:.8rem;">'+msg+'</div>';
+  setTimeout(function(){ if(el) el.innerHTML=''; }, 3500);
+}
+
+
+function showTermYearSelector(){
+  var sel = document.getElementById('termYearSelect');
+  var list = document.getElementById('tys-list');
+  if(!list||!sel) return;
+  // Show "+ New Academic Year" button only for admins
+  var newBtn = document.getElementById('tys-new-btn');
+  if(newBtn) newBtn.style.display = isAdmin() ? 'inline-flex' : 'none';
+
+  if(!DB.termYears||!DB.termYears.length){
+    list.innerHTML = isAdmin()
+      ? '<div style="text-align:center;padding:1.5rem 1rem;background:rgba(240,180,41,.08);border:2px dashed rgba(240,180,41,.3);border-radius:12px;">'
+          +'<div style="font-size:2rem;margin-bottom:.5rem;">📝</div>'
+          +'<div style="font-size:.95rem;font-weight:700;color:var(--ink);margin-bottom:.4rem;">No Academic Years Yet</div>'
+          +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:1rem;">Create a term academic year first.</div>'
+          +'<button class="btn gold" onclick="document.getElementById(\'termYearSelect\').style.display=\'none\';_launchApp(\'term\');showPage(\'settings\');setTimeout(function(){var e=document.getElementById(\'termYearsCard\');if(e)e.scrollIntoView({behavior:\'smooth\'});},300);">⚙️ Go to Settings → Create Year</button>'
+        +'</div>'
+      : '<div style="text-align:center;padding:1.5rem 1rem;background:rgba(74,143,255,.08);border:2px dashed rgba(74,143,255,.25);border-radius:12px;">'
+          +'<div style="font-size:2rem;margin-bottom:.5rem;">📝</div>'
+          +'<div style="font-size:.95rem;font-weight:700;color:var(--ink);margin-bottom:.4rem;">No Academic Years Set Up</div>'
+          +'<div style="font-size:.78rem;color:var(--ink3);">Ask the director to create a term academic year in Settings.</div>'
+        +'</div>';
+    sel.style.display='flex';
+    return;
+  }
+
+  var admin = isAdmin();
+  list.innerHTML = DB.termYears.slice().reverse().map(function(yr){
+    var isSel = yr.id===CURRENT_TERM_YEAR_ID;
+    var locked = yr.locked;
+    return '<div style="display:flex;align-items:center;gap:6px;">'
+      +'<button onclick="selectTermYear(\''+yr.id+'\')" style="'
+        +'flex:1;padding:1rem 1.2rem;border-radius:10px;border:2px solid '+(isSel?'var(--gold)':'var(--bd)')+';'
+        +'background:'+(isSel?'rgba(240,180,41,.12)':'var(--s1)')+';'
+        +'color:var(--ink);text-align:left;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:space-between;gap:1rem;">'
+        +'<div>'
+          +'<div style="font-size:.95rem;font-weight:700;">'+(isSel?'✓ ':'')+yr.label+'</div>'
+          +'<div style="font-size:.7rem;color:var(--ink3);margin-top:3px;">'
+            +(locked?'<span style="color:var(--red);font-weight:600;">🔒 Closed — Read Only</span>':'<span style="color:var(--green);font-weight:600;">● Active</span>')
+            +(yr.createdAt?' &nbsp;|&nbsp; Created '+new Date(yr.createdAt).toLocaleDateString('en-GB'):'')
+          +'</div>'
+        +'</div>'
+        +(locked?'<span style="font-size:.7rem;padding:3px 10px;background:rgba(224,82,82,.1);color:var(--red);border-radius:10px;border:1px solid rgba(224,82,82,.2);">Read Only</span>':'')
+      +'</button>'
+      +(admin
+        ? '<button onclick="editTermYear(\''+yr.id+'\');showTermYearSelector();" title="Rename year" style="flex-shrink:0;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s1);color:var(--ink2);cursor:pointer;font-size:1rem;transition:all .15s;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'var(--bd)\'">✏️</button>'
+          +'<button onclick="deleteTermYear(\''+yr.id+'\');showTermYearSelector();" title="Delete year" style="flex-shrink:0;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s1);color:var(--red);cursor:pointer;font-size:1rem;transition:all .15s;" onmouseover="this.style.borderColor=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--bd)\'">🗑️</button>'
+        : '')
+      +'</div>';
+  }).join('');
+  sel.style.display='flex';
+}
+
+function selectTermYear(yearId){
+  CURRENT_TERM_YEAR_ID = yearId;
+  document.getElementById('termYearSelect').style.display='none';
+  syncTermYearBanner();
+  // If app not yet shown, launch it
+  var appWrap = document.getElementById('appWrap');
+  if(!appWrap||appWrap.style.display==='none'||!appWrap.style.display){
+    _launchApp('term');
+    return;
+  }
+  // Already in app — refresh marks and report pages
+  syncTerms();
+  if(typeof setupMarks==='function') setupMarks();
+}
+
+function cancelTermYear(){
+  document.getElementById('termYearSelect').style.display='none';
+  var appWrap = document.getElementById('appWrap');
+  if(!appWrap||appWrap.style.display==='none'||appWrap.style.display===''){
+    var ds = document.getElementById('diamondSwitch');
+    if(ds) ds.style.display='flex';
+  }
+}
+
+function switchTermYear(){
+  showTermYearSelector();
+}
+
+// ── Director: manage term years ──
+
+function lockTermYear(yearId){
+  if(!confirm('Close this academic year?\n\nThis will permanently lock ALL term marks for this year. Teachers will not be able to edit marks anymore.\n\nThis cannot be undone.')) return;
+  var yr = DB.termYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  yr.locked = true;
+  yr.lockedAt = new Date().toISOString();
+  addLog('🔒 Closed term year: '+yr.label);
+  dbSave();
+  renderTermYearsList();
+  syncTermYearBanner();
+  flash('tyal','ok','🔒 Year "'+yr.label+'" is now closed and read-only.');
+}
+
+function deleteTermYear(yearId){
+  var yr = DB.termYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  var stCount = DB.students.filter(function(s){ return s.termYearId===yearId; }).length;
+  var msg = 'Delete year "'+yr.label+'"?\n\nThis will permanently delete:\n'
+    +'\u2022 All term marks for this year\n'
+    +'\u2022 '+stCount+' student record'+(stCount!==1?'s':'')+' added in this year\n\nThis cannot be undone.';
+  if(!confirm(msg)) return;
+  // Remove all marks for this year
+  Object.keys(DB.marks).forEach(function(k){
+    if(k.startsWith(yearId+'::')) delete DB.marks[k];
+  });
+  // Remove students that were added for this year only
+  DB.students = DB.students.filter(function(s){ return s.termYearId !== yearId; });
+  DB.termYears = DB.termYears.filter(function(y){return y.id!==yearId;});
+  if(CURRENT_TERM_YEAR_ID===yearId) CURRENT_TERM_YEAR_ID=null;
+  addLog('Deleted term year: '+yr.label);
+  dbSave();
+  renderTermYearsList();
+  syncTermYearBanner();
+}
+
+function editTermYear(yearId){
+  var yr = DB.termYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  var newLabel = prompt('Rename academic year:', yr.label);
+  if(!newLabel || !newLabel.trim()) return;
+  newLabel = newLabel.trim();
+  if(newLabel === yr.label) return;
+  if(DB.termYears.find(function(y){return y.label===newLabel && y.id!==yearId;})){
+    alert('An academic year with that label already exists.');
+    return;
+  }
+  yr.label = newLabel;
+  addLog('✏️ Renamed term year to: '+newLabel);
+  dbSave();
+  renderTermYearsList();
+  syncTermYearBanner();
+  flash('tyal','ok','✅ Year renamed to "'+newLabel+'".');
+}
+
+function renderTermYearsList(){
+  var el = document.getElementById('term-years-list');
+  if(!el) return;
+  if(!DB.termYears||!DB.termYears.length){
+    el.innerHTML='<div class="empty" style="padding:1rem;"><p>No academic years yet. Click "+ New Academic Year" to get started.</p></div>';
+    return;
+  }
+  // Count marks per year
+  function countMarks(yid){
+    return Object.keys(DB.marks).filter(function(k){return k.startsWith(yid+'::');}).length;
+  }
+  el.innerHTML = DB.termYears.slice().reverse().map(function(yr){
+    var locked = yr.locked;
+    var mcount = countMarks(yr.id);
+    return '<div style="border:1px solid '+(locked?'rgba(224,82,82,.3)':'var(--bd)')+';border-radius:10px;padding:.9rem 1rem;margin-bottom:.7rem;background:'+(locked?'rgba(224,82,82,.04)':'var(--s2)') +'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">'
+        +'<div>'
+          +'<div style="font-size:.92rem;font-weight:700;color:var(--ink);">📝 '+yr.label+'</div>'
+          +'<div style="font-size:.68rem;color:var(--ink3);margin-top:2px;">'
+            +mcount+' mark'+(mcount!==1?'s':'')+' recorded'
+            +(yr.lockedAt?' &nbsp;·&nbsp; Closed '+new Date(yr.lockedAt).toLocaleDateString('en-GB'):'')
+          +'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
+          +(!locked?'<button class="btn sm gold" onclick="lockTermYear(\''+yr.id+'\')">🔒 Close Year</button>':'<span style="font-size:.7rem;font-weight:700;color:var(--red);padding:3px 10px;background:rgba(224,82,82,.1);border-radius:10px;">🔒 CLOSED</span>')
+          +'<button class="btn sm ghost" onclick="editTermYear(\''+yr.id+'\')" title="Rename year">✏️</button>'
+          +'<button class="btn sm red" onclick="deleteTermYear(\''+yr.id+'\')">🗑️</button>'
+        +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
 // ═══════════════════════════════════════
 //  MORNING QUIZ — Entry + Proclamation
 // ═══════════════════════════════════════
@@ -4975,8 +6186,13 @@ function loadQuizTable(){
   var cid=document.getElementById('qzCls').value;
   var week=document.getElementById('qzWeek').value;
   var wrap=document.getElementById('qzWrap');
-  if(!cid){wrap.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week to enter quiz marks.</p></div>';return;}
-  var students=DB.students.filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var yr = getActiveQuizYear();
+  var locked = yr && yr.locked;
+
+  if(!cid||!week){
+    wrap.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week to enter quiz marks.</p></div>';return;
+  }
+  var students=yearStudents().filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
   if(!students.length){wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>';return;}
   var subjects=DB.subjects.filter(function(s){return s.scale!=='letter';});
   if(!subjects.length){wrap.innerHTML='<div class="empty"><p>No subjects configured yet.</p></div>';return;}
@@ -4988,21 +6204,28 @@ function loadQuizTable(){
     var row='<tr><td>'+(i+1)+'</td><td><strong>'+st.name+'</strong><div style="font-size:.7rem;color:var(--ink3);">'+st.sid+'</div></td>';
     var tot=0;var cnt=0;
     subjects.forEach(function(sub){
-      var key='qz_'+st.id+'_'+sub.id+'_'+week;
+      var key=quizMarkKey(st.id,sub.id,week);
       var val=DB.marks[key]!==undefined?DB.marks[key]:'';
       if(val!==''&&!isNaN(parseFloat(val))){tot+=parseFloat(val);cnt++;}
-      row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="20" step="0.5" value="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
+      if(locked){
+        row+='<td style="text-align:center;font-weight:600;color:var(--ink2);">'+(val!==''?parseFloat(val).toFixed(1):'—')+'</td>';
+      } else {
+        row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="20" step="0.5" value="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
+      }
     });
     row+='<td style="text-align:center;font-weight:700;color:var(--gold);" id="qztot_'+st.id+'">'+(cnt>0?tot.toFixed(1):'—')+'</td>';
     row+='<td style="text-align:center;font-size:.82rem;color:var(--blue);" id="qzavg_'+st.id+'">'+(cnt>0?((tot/(subjects.length*20))*100).toFixed(1)+'%':'—')+'</td>';
     return row+'</tr>';
   }).join('');
+
   wrap.innerHTML='<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
-    +'<div style="margin-top:.9rem;display:flex;gap:8px;flex-wrap:wrap;">'
-    +'<button class="btn green" onclick="saveQuizMarks()">💾 Save Quiz Marks</button>'
-    +'<button class="btn gold" onclick="viewQuizProclamation()">🏆 View Proclamation</button>'
-    +'</div>'
-    +'<div id="qzSaveFlash" style="margin-top:.5rem;"></div>';
+    +(locked
+      ? '<div class="al warn" style="margin-top:.9rem;">🔒 This academic year is closed. Quiz marks are read-only.</div>'
+      : '<div style="margin-top:.9rem;display:flex;gap:8px;flex-wrap:wrap;">'
+          +'<button class="btn green" onclick="saveQuizMarks()">💾 Save Quiz Marks</button>'
+          +'<button class="btn gold" onclick="viewQuizProclamation()">🏆 View Proclamation</button>'
+        +'</div>'
+        +'<div id="qzSaveFlash" style="margin-top:.5rem;"></div>');
 }
 
 function previewQuizRow(stid,subIdsStr){
@@ -5022,7 +6245,6 @@ function previewQuizRow(stid,subIdsStr){
 function viewQuizProclamation(){
   var cid=document.getElementById('qzCls').value;
   var week=document.getElementById('qzWeek').value;
-  // Navigate to quiz proclamation with same class and week
   showPage('quizprocl');
   setTimeout(function(){
     var qpCls=document.getElementById('qpCls');
@@ -5034,10 +6256,12 @@ function viewQuizProclamation(){
 }
 
 function saveQuizMarks(){
+  var yr = getActiveQuizYear();
+  if(yr&&yr.locked){alert('🔒 This year is closed. Quiz marks cannot be edited.');return;}
   var cid=document.getElementById('qzCls').value;
   var week=document.getElementById('qzWeek').value;
-  if(!cid){alert('Select a class first.');return;}
-  var students=DB.students.filter(function(s){return s.classId===cid;});
+  if(!cid||!week){alert('Select a class and week first.');return;}
+  var students=yearStudents().filter(function(s){return s.classId===cid;});
   var subjects=DB.subjects.filter(function(s){return s.scale!=='letter';});
   var cnt=0;
   students.forEach(function(st){
@@ -5045,21 +6269,20 @@ function saveQuizMarks(){
       var el=document.getElementById('qzk_'+st.id+'_'+sub.id);
       if(el&&el.value!==''){
         var v=Math.min(parseFloat(el.value),20);
-        DB.marks['qz_'+st.id+'_'+sub.id+'_'+week]=String(v);cnt++;
+        DB.marks[quizMarkKey(st.id,sub.id,week)]=String(v);cnt++;
       }
     });
   });
-  addLog('Saved '+cnt+' quiz marks — '+(DB.classes.find(function(c){return c.id===cid;})||{}).name+' / '+week);
+  addLog('Saved '+cnt+' quiz marks — '+(DB.classes.find(function(c){return c.id===cid;})||{}).name+' / '+(yr?yr.label:'?')+' / '+week);
   dbSave();
   var fl=document.getElementById('qzSaveFlash');
   if(fl){
-    fl.innerHTML='<div class="al ok">✅ '+cnt+' quiz marks saved for '+week+'! <button class="btn sm gold" onclick="viewQuizProclamation()" style="margin-left:8px;">🏆 View Proclamation</button></div>';
+    fl.innerHTML='<div class="al ok">✅ '+cnt+' quiz marks saved! <button class="btn sm gold" onclick="viewQuizProclamation()" style="margin-left:8px;">🏆 View Proclamation</button></div>';
     setTimeout(function(){fl.innerHTML='';},5000);
   }
 }
 
 function setupQuizProcl(){
-  // Populate class dropdown for proclamation
   var isTeacher=!isAdmin()&&!isSuperAdmin();
   var qpEl=document.getElementById('qpCls');
   if(qpEl){
@@ -5071,6 +6294,10 @@ function setupQuizProcl(){
       qpEl.innerHTML='<option value="">— Select Class —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
     }
   }
+  var yrLbl = document.getElementById('qp-year-label');
+  var yr = getActiveQuizYear();
+  if(yrLbl) yrLbl.textContent = yr ? yr.label : '—';
+  syncQuizWeekDropdowns();
   genQuizProcl();
 }
 
@@ -5078,15 +6305,17 @@ function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
   var out=document.getElementById('qpOut');
-  // Reset view to rankings whenever filters change
   _quizView='rankings';
   var outDiv2=document.getElementById('qpOut'); if(outDiv2) outDiv2.style.display='';
   var bdDiv2=document.getElementById('qpBreakdown'); if(bdDiv2) bdDiv2.style.display='none';
   var tb2=document.getElementById('qpViewToggleBtn'); if(tb2) tb2.innerHTML='&#128202; Subject Breakdown';
-  if(!cid){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week.</p></div>';return;}
-  var students=DB.students.filter(function(s){return s.classId===cid;});
+  if(!cid||!week){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>Select class and week.</p></div>';return;}
+  var students=yearStudents().filter(function(s){return s.classId===cid;});
   var subjects=DB.subjects.filter(function(s){return s.scale!=='letter';});
   var cls=DB.classes.find(function(c){return c.id===cid;});
+  var yr=getActiveQuizYear();
+  var weekObj=yr&&yr.weeks?yr.weeks.find(function(w){return w.id===week;}):null;
+  var weekLabel=weekObj?weekObj.label:week;
   var ranges=getQuizRanges();
   if(!students.length){out.innerHTML='<div class="empty"><p>No students.</p></div>';return;}
   if(!subjects.length){out.innerHTML='<div class="empty"><p>No subjects configured.</p></div>';return;}
@@ -5094,18 +6323,18 @@ function genQuizProcl(){
   var ranked=students.map(function(st){
     var tot=0;var cnt=0;
     subjects.forEach(function(sub){
-      var v=DB.marks['qz_'+st.id+'_'+sub.id+'_'+week];
+      var v=DB.marks[quizMarkKey(st.id,sub.id,week)];
       if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
     });
     return Object.assign({},st,{quizTotal:cnt>0?tot:null,quizPct:cnt>0?(tot/maxTotal)*100:null});
   }).filter(function(s){return s.quizTotal!==null;}).sort(function(a,b){return b.quizPct-a.quizPct;});
-  if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>No quiz marks recorded for '+week+' yet. Enter marks first.</p></div>';return;}
+  if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>No quiz marks recorded for '+weekLabel+' yet.</p></div>';return;}
   function getRangeLabel(pct){for(var i=0;i<ranges.length;i++){if(pct>=ranges[i].min&&pct<=ranges[i].max)return ranges[i];}return{label:'—',color:'#888'};}
   var html='<div style="text-align:center;padding:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;">🌅 Morning Quiz Rankings</div>'
-    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' · '+week+'</div>'
+    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' · '+(yr?yr.label:'?')+' · '+weekLabel+'</div>'
     +'<div style="display:inline-block;margin-top:.5rem;padding:3px 12px;border-radius:20px;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);font-size:.7rem;color:var(--blue);font-weight:600;">⚠️ These marks have NO impact on term results or report cards</div></div>';
-  html+='<div class="card"><div class="ctitle">🎖️ Student Rankings — '+week+'</div>';
+  html+='<div class="card"><div class="ctitle">🎖️ Student Rankings — '+weekLabel+'</div>';
   ranked.forEach(function(s,i){
     var r=getRangeLabel(s.quizPct);
     var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'<span style="font-size:.85rem;font-weight:700;color:var(--ink3);">'+(i+1)+'</span>';
@@ -5120,9 +6349,7 @@ function genQuizProcl(){
   });
   html+='</div>';
   out.innerHTML=html;
-
-  // ── Build per-subject breakdown table ──
-  genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges);
+  genQuizBreakdown(students,subjects,cid,week,maxTotal,ranges);
 }
 
 // ── Quiz view toggle (rankings <-> subject breakdown) ──
@@ -5147,12 +6374,15 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
   var bdDiv = document.getElementById('qpBreakdown');
   if(!bdDiv) return;
   var cls = DB.classes.find(function(c){return c.id===cid;});
+  var yr = getActiveQuizYear();
+  var weekObj = yr&&yr.weeks ? yr.weeks.find(function(w){return w.id===week;}) : null;
+  var weekLabel = weekObj ? weekObj.label : week;
 
   // Build ranked list for position column
   var ranked = students.map(function(st){
     var tot=0; var cnt=0;
     subjects.forEach(function(sub){
-      var v=DB.marks['qz_'+st.id+'_'+sub.id+'_'+week];
+      var v=DB.marks[quizMarkKey(st.id,sub.id,week)];
       if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
     });
     return {id:st.id, total:cnt>0?tot:null};
@@ -5166,7 +6396,6 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
   var rankMap={};
   ranked.forEach(function(r,i){ rankMap[r.id]=(r.total!==null?i+1:null); });
 
-  // Table header
   var thead = '<tr>'
     +'<th style="text-align:center;">#</th>'
     +'<th>Student</th>';
@@ -5180,11 +6409,10 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
     +'<th style="text-align:center;font-size:.68rem;">Level</th>'
     +'</tr>';
 
-  // Table rows
   var tbody = students.map(function(st,i){
     var tot=0; var cnt=0;
     var cells = subjects.map(function(sub){
-      var v = DB.marks['qz_'+st.id+'_'+sub.id+'_'+week];
+      var v = DB.marks[quizMarkKey(st.id,sub.id,week)];
       var val = (v!==undefined&&v!==''&&!isNaN(parseFloat(v))) ? parseFloat(v) : null;
       if(val!==null){tot+=val;cnt++;}
       var pct = val!==null ? (val/20)*100 : null;
@@ -5210,9 +6438,9 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
 
   var html = '<div style="text-align:center;padding:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;">&#128202; Quiz Subject Breakdown</div>'
-    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' &middot; '+week+'</div>'
+    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' &middot; '+(yr?yr.label:'?')+' &middot; '+weekLabel+'</div>'
     +'</div>'
-    +'<div class="card"><div class="ctitle">&#128218; Per-Student Subject Scores &mdash; '+week+'</div>'
+    +'<div class="card"><div class="ctitle">&#128218; Per-Student Subject Scores &mdash; '+weekLabel+'</div>'
     +'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>'
     +'</div>';
   bdDiv.innerHTML=html;
@@ -5367,12 +6595,83 @@ function togglePauseSchool(sid,pause){
 }
 
 function superDeleteSchool(sid){
-  if(!confirm('Delete this school and ALL its data? This cannot be undone.')) return;
-  SUPERDB.schools=SUPERDB.schools.filter(function(s){return s.id!==sid;});
+  var sc = SUPERDB.schools.find(function(s){ return s.id===sid; });
+  if(!sc) return;
+  var existing = document.getElementById('deleteSchoolModalWrap');
+  if(existing) existing.remove();
+  var wrap = document.createElement('div');
+  wrap.id = 'deleteSchoolModalWrap';
+  var safeName = sc.name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  var safeNameJs = sc.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  wrap.innerHTML =
+    '<div class="mbg open" style="z-index:9999;">'
+    +'<div class="modal" style="max-width:420px;">'
+    +'<div class="mhead"><div class="mtitle" style="color:var(--red);">\uD83D\uDDD1\uFE0F Delete School</div>'
+    +'<button class="mx" onclick="document.getElementById(\'deleteSchoolModalWrap\').remove()">\u2715</button></div>'
+    +'<div style="background:rgba(224,82,82,.09);border:1px solid rgba(224,82,82,.25);border-radius:10px;padding:1rem;margin-bottom:1rem;">'
+    +'<div style="font-weight:700;font-size:.95rem;margin-bottom:.4rem;">\u26A0\uFE0F You are about to permanently delete:</div>'
+    +'<div style="font-size:1rem;font-weight:700;color:var(--red);margin-bottom:.6rem;">\uD83C\uDFEB '+safeName+'</div>'
+    +'<div style="font-size:.8rem;color:var(--ink2);line-height:1.6;">'
+    +'This will erase <strong>all data</strong> for this school including:<br>'
+    +'&nbsp;\u2022 All students, teachers &amp; classes<br>'
+    +'&nbsp;\u2022 All marks, reports &amp; term records<br>'
+    +'&nbsp;\u2022 All admin accounts for this school<br>'
+    +'&nbsp;\u2022 All data stored in the cloud (Supabase)<br><br>'
+    +'<strong style="color:var(--red);">This action cannot be undone.</strong>'
+    +'</div></div>'
+    +'<div class="fg" style="margin-bottom:1rem;">'
+    +'<label>Type the school name to confirm deletion</label>'
+    +'<input type="text" id="deleteSchoolConfirmInput" placeholder="'+safeName+'" oninput="checkDeleteConfirm(\''+sid+'\',\''+safeNameJs+'\')">'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn red" id="deleteSchoolConfirmBtn" disabled onclick="executeDeleteSchool(\''+sid+'\')" style="opacity:.4;cursor:not-allowed;">\uD83D\uDDD1\uFE0F Delete Permanently</button>'
+    +'<button class="btn ghost" onclick="document.getElementById(\'deleteSchoolModalWrap\').remove()">Cancel</button>'
+    +'</div></div></div>';
+  document.body.appendChild(wrap);
+  setTimeout(function(){ var el=document.getElementById('deleteSchoolConfirmInput'); if(el) el.focus(); },100);
+}
+
+function checkDeleteConfirm(sid, schoolName){
+  var inp = document.getElementById('deleteSchoolConfirmInput');
+  var btn = document.getElementById('deleteSchoolConfirmBtn');
+  if(!inp||!btn) return;
+  var match = inp.value.trim().toLowerCase() === schoolName.trim().toLowerCase();
+  btn.disabled = !match;
+  btn.style.opacity = match ? '1' : '.4';
+  btn.style.cursor = match ? 'pointer' : 'not-allowed';
+}
+
+async function executeDeleteSchool(sid){
+  var btn = document.getElementById('deleteSchoolConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Deleting\u2026'; }
+  // 1. Remove from SUPERDB
+  SUPERDB.schools = SUPERDB.schools.filter(function(s){ return s.id!==sid; });
+  // 2. Remove from localStorage
   localStorage.removeItem(schoolDbKey(sid));
+  // 3. Clean user index cache
+  if(_userIndexCache){
+    Object.keys(_userIndexCache).forEach(function(uname){
+      if(_userIndexCache[uname]&&_userIndexCache[uname].schoolId===sid) delete _userIndexCache[uname];
+    });
+  }
+  // 4. Delete from Supabase
+  try{ await supabaseClient.from('epaza_data').delete().eq('id', schoolDbKey(sid)); }
+  catch(e){ console.warn('Supabase school delete failed:', e); }
+  try{
+    var idxKey='epaza_user_index';
+    var idxRes=await supabaseClient.from('epaza_data').select('data').eq('id',idxKey).single();
+    if(idxRes.data&&idxRes.data.data){
+      var idx=idxRes.data.data;
+      Object.keys(idx).forEach(function(u){ if(idx[u]&&idx[u].schoolId===sid) delete idx[u]; });
+      await supabaseClient.from('epaza_data').upsert({id:idxKey,data:idx});
+    }
+  } catch(e){ console.warn('Supabase user index cleanup failed:', e); }
+  // 5. Save SUPERDB & refresh
   superSave();
+  var w=document.getElementById('deleteSchoolModalWrap'); if(w) w.remove();
   renderSuperPanel();
 }
+
 
 async function openEditSchool(sid){
   var sc=SUPERDB.schools.find(function(s){return s.id===sid;});
@@ -5531,7 +6830,16 @@ function saveSchool(){
   DB.settings.schoolMotto=(document.getElementById('schmotto')||{}).value||'';
   DB.settings.schoolAddress=(document.getElementById('schaddr')||{}).value||'';
   var ayEl=document.getElementById('schAcadYear');
-  if(ayEl&&ayEl.value.trim()) DB.settings.academicYear=ayEl.value.trim();
+  if(ayEl&&ayEl.value.trim()){
+    var ayRaw=ayEl.value.trim();
+    // Auto-fix "2025-2025" → "2025-2026"
+    var ayMatch=ayRaw.match(/^(\d{4})-(\d{4})$/);
+    if(ayMatch&&ayMatch[1]===ayMatch[2]){
+      ayRaw=ayMatch[1]+'-'+(parseInt(ayMatch[1])+1);
+      ayEl.value=ayRaw;
+    }
+    DB.settings.academicYear=ayRaw;
+  }
   DB.settings.schoolCode=(document.getElementById('schCode')||{}).value||'';
   DB.settings.schoolEmail=(document.getElementById('schEmail')||{}).value||'';
   DB.settings.schoolPhone=(document.getElementById('schPhone')||{}).value||'';
@@ -5608,18 +6916,37 @@ function showDiamondSwitch(){
 function enterMode(mode){
   var ds=document.getElementById('diamondSwitch');
   ds.style.display='none';
+
+  if(mode==='quiz'){
+    showQuizYearSelector();
+    return;
+  }
+
+  if(mode==='term'){
+    showTermYearSelector();
+    return;
+  }
+
+  _launchApp(mode);
+}
+
+function _launchApp(mode){
   document.getElementById('appWrap').style.display='flex';
   _markMode=mode;
   var tmb=document.getElementById('topbar-mode-btn');
   if(tmb) tmb.style.display=isSuperAdmin()?'none':'inline-flex';
   updateTopbarModeBtn();
   if(isSuperAdmin()){showPage('super');}else{showPage('dashboard');}
+  // Sync banners for both modes
+  syncTermYearBanner();
+  syncQuizWeekDropdowns();
   if(mode==='quiz'){
     setTimeout(function(){
       var tb=document.getElementById('mode-quiz-btn');var tm=document.getElementById('mode-term-btn');
       if(tb&&tm){tb.style.background='var(--blue)';tb.style.color='#fff';tm.style.background='none';tm.style.color='var(--ink2)';}
       var termDiv=document.getElementById('term-marks-mode');var quizDiv=document.getElementById('quiz-marks-mode');
       if(termDiv) termDiv.style.display='none';if(quizDiv) quizDiv.style.display='';
+      syncQuizWeekDropdowns();
     },200);
   }
 }
@@ -5871,20 +7198,107 @@ function startSunriseAnimation(elId){
 // ═══════════════════════════════════════
 //  SMART PRINT — CSS-based, works on Android/mobile
 // ═══════════════════════════════════════
+function _resolveCssVars(html){
+  var map = {
+    'var(--s1)':'#ffffff','var(--s2)':'#f5f7fc','var(--s3)':'#eaecf4','var(--bg)':'#f0f2f7',
+    'var(--bd)':'#d0d5e8','var(--ink)':'#1a1d2e','var(--ink2)':'#4a5070','var(--ink3)':'#8890b0',
+    'var(--gold)':'#d09010','var(--green)':'#1a7a4a','var(--red)':'#c0392b',
+    'var(--blue)':'#2563eb','var(--purple)':'#7c3aed'
+  };
+  Object.keys(map).forEach(function(v){
+    html = html.replace(new RegExp(v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'), map[v]);
+  });
+  return html;
+}
+
+function _openPrintWindow(bodyHtml){
+  // Build a self-contained HTML page that works as both print and PDF on any device
+  var fullHtml = '<!DOCTYPE html><html><head>'
+    +'<meta charset="UTF-8">'
+    +'<meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Report Card — SCORIX</title>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'
+    +'body{font-family:Outfit,Arial,sans-serif;background:#fff;color:#1a1d2e;padding:8mm;}'
+    +'@page{size:A4 portrait;margin:8mm;}'
+    +'@media print{'
+    +'  body{padding:0;}'
+    +'  .no-print{display:none!important;}'
+    +'  table{page-break-inside:auto;}'
+    +'  tr{page-break-inside:avoid;}'
+    +'}'
+    +'table{border-collapse:collapse;width:100%;}'
+    +'.no-print{text-align:center;padding:12px;background:#f0f0f0;font-family:Outfit,sans-serif;font-size:.85rem;color:#444;margin-bottom:12px;border-radius:6px;}'
+    +'</style>'
+    +'</head><body>'
+    +'<div class="no-print">'
+    +'<strong>📄 Report Card ready.</strong> &nbsp; '
+    +'Tap the menu (⋮) → <strong>Print</strong> or <strong>Share → Save as PDF</strong>'
+    +'&nbsp;&nbsp;<button onclick="window.print()" style="padding:6px 16px;background:#1a237e;color:#fff;border:none;border-radius:6px;font-size:.85rem;cursor:pointer;font-family:Outfit,sans-serif;">🖨️ Print / Save PDF</button>'
+    +'</div>'
+    + bodyHtml
+    +'<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script>'
+    +'</body></html>';
+
+  var win = window.open('','_blank');
+  if(win){
+    win.document.open();
+    win.document.write(fullHtml);
+    win.document.close();
+  } else {
+    // Popup blocked — fallback to print-area method
+    var pa = document.getElementById('print-area');
+    pa.innerHTML = '<div style="background:#fff;color:#1a1d2e;font-family:Outfit,Arial,sans-serif;">' + bodyHtml + '</div>';
+    requestAnimationFrame(function(){
+      window.print();
+      setTimeout(function(){ pa.innerHTML=''; }, 2500);
+    });
+  }
+}
+
 function _doPrint(sourceId){
   var src = document.getElementById(sourceId);
   if(!src || !src.innerHTML.trim() || src.querySelector('.empty')){
     alert('Nothing to print yet. Please generate the report first.');
     return;
   }
-  var pa = document.getElementById('print-area');
-  pa.innerHTML = src.innerHTML;
-  window.print();
-  // Clean up after print dialog closes
-  setTimeout(function(){ pa.innerHTML=''; }, 2000);
+
+  // Lock report cards when director prints
+  if(sourceId==='rpOut' && isAdmin()){
+    var cid2 = (document.getElementById('rpCls')||{}).value||'';
+    var termRaw2 = (document.getElementById('rpTerm')||{}).value||'';
+    var tp2 = parseTermPeriod(termRaw2);
+    var tid2 = tp2.termId;
+    if(cid2 && tid2){
+      if(!DB.approvals) DB.approvals={};
+      var existing = DB.approvals[cid2+'_'+tid2]||{};
+      if(!existing.directorPrinted){
+        existing.directorPrinted=true;
+        existing.directorPrintedAt=new Date().toISOString();
+        existing.approved=true;
+        DB.approvals[cid2+'_'+tid2]=existing;
+        addLog('🖨️ Director printed report cards — '+cid2+' / '+tid2+' — LOCKED');
+        dbSave();
+      }
+    }
+  }
+
+  _openPrintWindow(_resolveCssVars(src.innerHTML));
 }
 function printReport(){ _doPrint('rpOut'); }
 function printProcl(){ _doPrint('prOut'); }
+function printQuizProcl(){
+  var out = document.getElementById('qpOut');
+  var bd  = document.getElementById('qpBreakdown');
+  var combined = (out&&out.innerHTML?out.innerHTML:'')
+               + (bd&&bd.style.display!=='none'&&bd.innerHTML?bd.innerHTML:'');
+  if(!combined.trim() || combined.indexOf('class="empty"')>=0){
+    alert('Nothing to print yet. Select class and week first.');
+    return;
+  }
+  _openPrintWindow(_resolveCssVars(combined));
+}
 
 function stopSunriseAnimation(){
   if(_sunriseTimer){ clearInterval(_sunriseTimer); _sunriseTimer = null; }
