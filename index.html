@@ -664,7 +664,50 @@ tr:hover td{background:var(--s2);}
 }
 
 
-/* ── ACCESSIBILITY ── */
+/* ── DIRECTOR FLOATING SETTINGS ── */
+#dirSettingsBtn{
+  position:fixed;bottom:24px;right:24px;z-index:500;
+  width:50px;height:50px;border-radius:50%;
+  background:var(--gold);color:#1a1200;
+  border:none;font-size:1.25rem;cursor:pointer;
+  box-shadow:0 4px 18px rgba(240,180,41,.45);
+  display:none;align-items:center;justify-content:center;
+  transition:transform .2s,box-shadow .2s;
+}
+#dirSettingsBtn:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(240,180,41,.55);}
+#dirSettingsBtn:active{transform:scale(.95);}
+
+/* Drawer */
+#dirSettingsDrawer{
+  position:fixed;top:0;right:-440px;width:420px;max-width:100vw;height:100vh;
+  background:var(--s1);border-left:1px solid var(--bd);
+  z-index:600;overflow-y:auto;
+  transition:right .28s cubic-bezier(.16,1,.3,1);
+  box-shadow:-8px 0 32px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;
+}
+#dirSettingsDrawer.open{right:0;}
+#dirSettingsOverlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:599;
+  display:none;backdrop-filter:blur(2px);
+}
+#dirSettingsOverlay.open{display:block;}
+.ds-head{
+  padding:1.2rem 1.4rem .9rem;border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  background:var(--s1);position:sticky;top:0;z-index:2;
+}
+.ds-title{font-family:'Playfair Display',serif;font-size:1.15rem;}
+.ds-close{background:none;border:1px solid var(--bd);color:var(--ink3);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:.95rem;display:flex;align-items:center;justify-content:center;}
+.ds-close:hover{border-color:var(--red);color:var(--red);}
+.ds-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1.1rem;flex:1;}
+.ds-section{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:1rem;}
+.ds-section-title{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:.8rem;}
+@media(max-width:700px){
+  #dirSettingsBtn{bottom:80px;right:12px;width:44px;height:44px;font-size:1.1rem;}
+  #dirSettingsDrawer{width:100vw;right:-100vw;}
+}
+
 /* Keyboard focus ring — only show for keyboard nav, not mouse */
 :focus-visible{
   outline:2px solid var(--gold)!important;
@@ -2002,20 +2045,23 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 </div></div>
 
 <!-- ══ EDIT SCHOOL MODAL ══════════════════════════════════════════════ -->
-<div class="mbg" id="mEditSchool"><div class="modal" style="max-width:500px;">
-  <div class="mhead"><div class="mtitle">✏️ Edit School</div><button class="mx" onclick="cm('mEditSchool')" aria-label="Close dialog">✕</button></div>
+<div class="mbg" id="mEditSchool"><div class="modal" style="max-width:580px;">
+  <div class="mhead"><div class="mtitle">✏️ Edit School &amp; Directors</div><button class="mx" onclick="cm('mEditSchool')" aria-label="Close dialog">✕</button></div>
   <div id="mEditSchoolAlert"></div>
   <input type="hidden" id="esSchoolId">
-  <div class="fg" style="margin-bottom:.8rem;">
-    <label>School Name</label>
-    <input type="text" id="esSchoolName" placeholder="School name">
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.5rem;">🏫 School Name</div>
+  <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:1.2rem;">
+    <div class="fg" style="flex:1;">
+      <input type="text" id="esSchoolName" placeholder="School name">
+    </div>
+    <button class="btn gold" style="flex-shrink:0;" onclick="superSaveSchool()">💾 Save Name</button>
   </div>
-  <button class="btn gold" style="margin-bottom:1.2rem;" onclick="superSaveSchool()">💾 Save Name</button>
 
-  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;padding-top:.6rem;border-top:1px solid var(--bd);">Admins</div>
-  <div id="esAdminList" style="margin-bottom:1rem;display:flex;flex-direction:column;gap:6px;"></div>
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;padding-top:.6rem;border-top:1px solid var(--bd);">🔑 Directors (Admins)</div>
+  <div style="font-size:.74rem;color:var(--ink3);margin-bottom:.8rem;">Edit director username or set a new password. Leave the password field blank to keep the existing one.</div>
+  <div id="esAdminList" style="margin-bottom:1rem;"></div>
 
-  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;">Add New Admin</div>
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;padding-top:.6rem;border-top:1px solid var(--bd);">➕ Add New Director</div>
   <div class="g2" style="margin-bottom:.8rem;">
     <div class="fg"><label>Full Name</label><input type="text" id="esNewAdminName" placeholder="e.g. Marie Curie"></div>
     <div class="fg"><label>Username</label><input type="text" id="esNewAdminUser" placeholder="e.g. marie.curie"></div>
@@ -2026,7 +2072,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       </div>
     </div>
   </div>
-  <button class="btn green" onclick="superAddAdminToSchool()">➕ Add Admin</button>
+  <button class="btn green" onclick="superAddAdminToSchool()">➕ Add Director</button>
 </div></div>
 
 <script>
@@ -3103,6 +3149,8 @@ function doLogout(){
   document.getElementById('luser').value='';document.getElementById('lpass').value='';
   var tmb=document.getElementById('topbar-mode-btn');if(tmb) tmb.style.display='none';
   var pb=document.getElementById('pauseBanner');if(pb) pb.remove();
+  closeDirSettings();
+  syncDirSettingsBtn();
   // Restart voice welcome on landing page after logout
   setTimeout(function(){
     startSunriseAnimation('landing-typing');
@@ -8340,12 +8388,86 @@ function renderEsAdminList(admins,sid){
   var el=document.getElementById('esAdminList');
   if(!admins.length){ el.innerHTML='<div style="font-size:.8rem;color:var(--ink3);padding:6px;">No admins yet.</div>'; return; }
   el.innerHTML=admins.map(function(u){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;">'
-      +'<div><div style="font-size:.85rem;font-weight:600;">'+u.name+'</div><div style="font-size:.68rem;color:var(--ink3);">@'+u.username+'</div></div>'
-      +'<button class="btn sm red" onclick="superRemoveAdmin(\''+sid+'\',\''+u.id+'\')">🗑️</button>'
+    // Decode stored password for display (sha256 stored, show placeholder; plain shown directly)
+    var pwDisplay = u.password&&u.password.startsWith('sha256:') ? '' : (u.password||'');
+    var safeId = u.id.replace(/[^a-zA-Z0-9_]/g,'_');
+    return '<div style="background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:10px 12px;margin-bottom:6px;">'
+      // Header row
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+          +'<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d09010);color:#1a1200;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">'+u.name.charAt(0).toUpperCase()+'</div>'
+          +'<div>'
+            +'<div style="font-size:.86rem;font-weight:700;color:var(--ink);">'+esc(u.name)+'</div>'
+            +'<div style="font-size:.68rem;color:var(--gold);">Director / Admin</div>'
+          +'</div>'
+        +'</div>'
+        +'<button class="btn sm red" onclick="superRemoveAdmin(\''+sid+'\',\''+u.id+'\')">🗑️ Remove</button>'
+      +'</div>'
+      // Editable fields
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;">'
+        +'<div class="fg">'
+          +'<label>Username</label>'
+          +'<input type="text" id="es_uname_'+safeId+'" value="'+esc(u.username)+'" style="font-size:.82rem;padding:6px 9px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;color:var(--ink);width:100%;">'
+        +'</div>'
+        +'<div class="fg">'
+          +'<label>New Password <span style="color:var(--ink3);font-weight:400;">(leave blank to keep)</span></label>'
+          +'<div style="position:relative;">'
+            +'<input type="password" id="es_pass_'+safeId+'" placeholder="Enter new password" style="font-size:.82rem;padding:6px 32px 6px 9px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;color:var(--ink);width:100%;">'
+            +'<button type="button" onclick="togglePwField(\'es_pass_'+safeId+'\',this)" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--ink3);cursor:pointer;font-size:.8rem;padding:0;line-height:1;">👁</button>'
+          +'</div>'
+        +'</div>'
+      +'</div>'
+      +'<button class="btn sm gold" onclick="superSaveAdminCreds(\''+sid+'\',\''+u.id+'\')">💾 Save Changes</button>'
       +'</div>';
   }).join('');
 }
+async function superSaveAdminCreds(sid, uid){
+  var safeId = uid.replace(/[^a-zA-Z0-9_]/g,'_');
+  var unameEl = document.getElementById('es_uname_'+safeId);
+  var passEl  = document.getElementById('es_pass_'+safeId);
+  if(!unameEl) return;
+  var newUsername = unameEl.value.trim();
+  var newPass     = passEl ? passEl.value : '';
+  if(!newUsername){ flash('mEditSchoolAlert','warn','⚠️ Username cannot be empty.'); return; }
+
+  // Load school data
+  var d=null;
+  try{ var res=await supabaseClient.from('epaza_data').select('*').eq('id',schoolDbKey(sid)).single(); if(res.data&&res.data.data) d=res.data.data; }catch(e){}
+  if(!d){ var raw=localStorage.getItem(schoolDbKey(sid)); if(raw) try{d=JSON.parse(raw);}catch(e){} }
+  if(!d){ flash('mEditSchoolAlert','warn','⚠️ Could not load school data.'); return; }
+
+  // Check username uniqueness (within this school, excluding self)
+  var existingUser = (d.users||[]).find(function(u){ return u.username===newUsername && u.id!==uid; });
+  if(existingUser){ flash('mEditSchoolAlert','warn','⚠️ Username "'+newUsername+'" is already taken.'); return; }
+
+  var admin = (d.users||[]).find(function(u){ return u.id===uid; });
+  if(!admin){ flash('mEditSchoolAlert','warn','⚠️ Admin not found.'); return; }
+
+  var oldUsername = admin.username;
+  admin.username = newUsername;
+  if(newPass){ admin.password = await sha256(newPass); }
+
+  localStorage.setItem(schoolDbKey(sid), JSON.stringify(d));
+  try{ await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid), data:d}); }catch(e){}
+
+  // Update user index if username changed
+  if(oldUsername !== newUsername){
+    try{
+      var idxKey='epaza_user_index';
+      var idxRes=await supabaseClient.from('epaza_data').select('data').eq('id',idxKey).single();
+      var idx=(idxRes.data&&idxRes.data.data)||{};
+      if(idx[oldUsername]) { idx[newUsername]=idx[oldUsername]; delete idx[oldUsername]; }
+      if(newPass) idx[newUsername].password = await sha256(newPass);
+      await supabaseClient.from('epaza_data').upsert({id:idxKey,data:idx});
+    }catch(e){ console.warn('User index update failed',e); }
+    rebuildUserIndex();
+  }
+
+  var admins=d.users.filter(function(u){return u.role==='admin';});
+  renderEsAdminList(admins,sid);
+  flash('mEditSchoolAlert','ok','✅ Director credentials updated successfully.');
+}
+
 async function superRemoveAdmin(sid,uid){
   // Load from Supabase first
   var d=null;
@@ -8596,6 +8718,7 @@ function _launchApp(mode){
       syncQuizWeekDropdowns();
     },200);
   }
+  syncDirSettingsBtn();
 }
 
 // ═══════════════════════════════════════
@@ -8987,6 +9110,145 @@ function speakWelcome(name){
 
 // Keep stopSpeech as no-op for compatibility
 function stopSpeech(){ window.speechSynthesis && window.speechSynthesis.cancel(); }
+
+// ██████████████████████████████████████████████████████████████████
+// █  DIRECTOR FLOATING SETTINGS DRAWER
+// █  openDirSettings(), closeDirSettings(), dsSaveAll(), dsChangePw()
+// ██████████████████████████████████████████████████████████████████
+
+function openDirSettings(){
+  var s = DB.settings || {};
+  setDsVal('ds_name',    s.schoolName||'');
+  setDsVal('ds_motto',   s.schoolMotto||'');
+  setDsVal('ds_acadYear',s.academicYear||'');
+  setDsVal('ds_code',    s.schoolCode||'');
+  setDsVal('ds_email',   s.schoolEmail||'');
+  setDsVal('ds_phone',   s.schoolPhone||'');
+  setDsVal('ds_address', s.schoolAddress||'');
+  setDsVal('ds_level',   s.schoolLevel||'PRIMARY');
+  var imgEl=document.getElementById('ds_logoImg');
+  var ph=document.getElementById('ds_logoPlaceholder');
+  var rmBtn=document.getElementById('ds_logoRemoveBtn');
+  if(s.schoolLogo){
+    imgEl.src=s.schoolLogo; imgEl.style.display='';
+    if(ph) ph.style.display='none';
+    if(rmBtn) rmBtn.style.display='';
+  } else {
+    imgEl.style.display='none'; imgEl.src='';
+    if(ph) ph.style.display='';
+    if(rmBtn) rmBtn.style.display='none';
+  }
+  document.getElementById('dsAlert').innerHTML='';
+  document.getElementById('dsPwAlert').innerHTML='';
+  document.getElementById('ds_pwold').value='';
+  document.getElementById('ds_pwnew').value='';
+  document.getElementById('ds_pwcf').value='';
+  document.getElementById('dirSettingsDrawer').classList.add('open');
+  document.getElementById('dirSettingsOverlay').classList.add('open');
+}
+
+function closeDirSettings(){
+  document.getElementById('dirSettingsDrawer').classList.remove('open');
+  document.getElementById('dirSettingsOverlay').classList.remove('open');
+}
+
+function setDsVal(id,val){
+  var el=document.getElementById(id);
+  if(!el) return;
+  if(el.tagName==='SELECT'){
+    for(var i=0;i<el.options.length;i++){ if(el.options[i].value===val){el.selectedIndex=i;break;} }
+  } else { el.value=val; }
+}
+
+function dsSaveAll(){
+  var name=(document.getElementById('ds_name').value||'').trim();
+  if(!name){ flash('dsAlert','warn','⚠️ School name cannot be empty.'); return; }
+  DB.settings.schoolName    = name;
+  DB.settings.schoolMotto   = (document.getElementById('ds_motto').value||'').trim();
+  DB.settings.academicYear  = (document.getElementById('ds_acadYear').value||'').trim();
+  DB.settings.schoolCode    = (document.getElementById('ds_code').value||'').trim();
+  DB.settings.schoolEmail   = (document.getElementById('ds_email').value||'').trim();
+  DB.settings.schoolPhone   = (document.getElementById('ds_phone').value||'').trim();
+  DB.settings.schoolAddress = (document.getElementById('ds_address').value||'').trim();
+  DB.settings.schoolLevel   = (document.getElementById('ds_level').value||'PRIMARY');
+  dbSave(); applySchool(); syncTerms(); syncTermYearBanner();
+  var dw=document.getElementById('dwelcome');
+  if(dw&&ME) dw.textContent=(name?name+' — ':'')+L('welcomeBack')+', '+ME.name;
+  // Mirror to settings page fields
+  ['schin','schoolName'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=name; });
+  var m=document.getElementById('schmotto'); if(m) m.value=DB.settings.schoolMotto||'';
+  var a=document.getElementById('schaddr'); if(a) a.value=DB.settings.schoolAddress||'';
+  var c=document.getElementById('schCode'); if(c) c.value=DB.settings.schoolCode||'';
+  var em=document.getElementById('schEmail'); if(em) em.value=DB.settings.schoolEmail||'';
+  var ph=document.getElementById('schPhone'); if(ph) ph.value=DB.settings.schoolPhone||'';
+  flash('dsAlert','ok','✅ Settings saved successfully!');
+}
+
+function dsHandleLogo(event){
+  var file=event.target.files[0];
+  if(!file) return;
+  if(file.size>2*1024*1024){ flash('dsAlert','warn','⚠️ Image too large. Max 2MB.'); return; }
+  var reader=new FileReader();
+  reader.onload=function(e){
+    DB.settings.schoolLogo=e.target.result; dbSave();
+    var imgEl=document.getElementById('ds_logoImg');
+    var ph2=document.getElementById('ds_logoPlaceholder');
+    var rm=document.getElementById('ds_logoRemoveBtn');
+    imgEl.src=e.target.result; imgEl.style.display='';
+    if(ph2) ph2.style.display='none'; if(rm) rm.style.display='';
+    // Sync admin logo card
+    var la=document.getElementById('logoImgAdmin');
+    if(la){ la.src=e.target.result; la.style.display=''; }
+    var lp=document.getElementById('logoPlaceholder'); if(lp) lp.style.display='none';
+    var lb=document.getElementById('logoRemoveBtn'); if(lb) lb.style.display='';
+    flash('dsAlert','ok','✅ Logo uploaded and saved.');
+  };
+  reader.readAsDataURL(file);
+}
+
+function dsRemoveLogo(){
+  if(!confirm('Remove school logo?')) return;
+  DB.settings.schoolLogo=''; dbSave();
+  var imgEl=document.getElementById('ds_logoImg');
+  var ph2=document.getElementById('ds_logoPlaceholder');
+  var rm=document.getElementById('ds_logoRemoveBtn');
+  imgEl.style.display='none'; imgEl.src='';
+  if(ph2) ph2.style.display=''; if(rm) rm.style.display='none';
+  var la=document.getElementById('logoImgAdmin'); if(la){ la.style.display='none'; la.src=''; }
+  var lp=document.getElementById('logoPlaceholder'); if(lp) lp.style.display='';
+  var lb=document.getElementById('logoRemoveBtn'); if(lb) lb.style.display='none';
+  flash('dsAlert','ok','Logo removed.');
+}
+
+async function dsChangePw(){
+  var oldpw=document.getElementById('ds_pwold').value;
+  var newpw=document.getElementById('ds_pwnew').value;
+  var cfpw=document.getElementById('ds_pwcf').value;
+  if(!oldpw||!newpw||!cfpw){ flash('dsPwAlert','warn','Fill all password fields.'); return; }
+  if(newpw!==cfpw){ flash('dsPwAlert','warn','New passwords do not match.'); return; }
+  if(newpw.length<6){ flash('dsPwAlert','warn','Password must be at least 6 characters.'); return; }
+  if(!pwMatch(ME.password,oldpw)){ flash('dsPwAlert','warn','⚠️ Current password is incorrect.'); return; }
+  var hashed=await sha256(newpw);
+  ME.password=hashed;
+  var userInDB=(DB.users||[]).find(function(u){return u.id===ME.id;});
+  if(userInDB) userInDB.password=hashed;
+  dbSave();
+  document.getElementById('ds_pwold').value='';
+  document.getElementById('ds_pwnew').value='';
+  document.getElementById('ds_pwcf').value='';
+  flash('dsPwAlert','ok','✅ Password changed successfully.');
+}
+
+function syncDirSettingsBtn(){
+  var btn=document.getElementById('dirSettingsBtn');
+  if(!btn) return;
+  if(ME && isAdmin() && !isSuperAdmin()){
+    btn.style.display='flex';
+  } else {
+    btn.style.display='none';
+  }
+}
+
 //  UI fully translates EN/FR
 //  Report cards always stay in English
 // ═══════════════════════════════════════
@@ -9232,6 +9494,94 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+
+<!-- ══ DIRECTOR FLOATING SETTINGS BUTTON ══ -->
+<button id="dirSettingsBtn" title="School Settings" onclick="openDirSettings()">⚙️</button>
+
+<!-- ══ DIRECTOR SETTINGS DRAWER OVERLAY ══ -->
+<div id="dirSettingsOverlay" onclick="closeDirSettings()"></div>
+
+<!-- ══ DIRECTOR SETTINGS DRAWER ══ -->
+<div id="dirSettingsDrawer">
+  <div class="ds-head">
+    <div>
+      <div class="ds-title">⚙️ School Settings</div>
+      <div style="font-size:.7rem;color:var(--ink3);margin-top:2px;">Update your school info anytime</div>
+    </div>
+    <button class="ds-close" onclick="closeDirSettings()">✕</button>
+  </div>
+  <div class="ds-body">
+    <div id="dsAlert"></div>
+
+    <!-- SCHOOL IDENTITY -->
+    <div class="ds-section">
+      <div class="ds-section-title">🏫 School Identity</div>
+      <div style="display:flex;flex-direction:column;gap:.75rem;">
+        <div class="fg"><label>School Name</label><input type="text" id="ds_name" placeholder="e.g. St. Mary's Academy"></div>
+        <div class="fg"><label>Motto / Tagline</label><input type="text" id="ds_motto" placeholder="e.g. Excellence in Education"></div>
+        <div class="fg"><label>Academic Year</label><input type="text" id="ds_acadYear" placeholder="e.g. 2025-2026"></div>
+        <div class="fg"><label>School Code / Reference</label><input type="text" id="ds_code" placeholder="e.g. SCH-001"></div>
+      </div>
+    </div>
+
+    <!-- SCHOOL LOGO -->
+    <div class="ds-section">
+      <div class="ds-section-title">🖼️ School Logo</div>
+      <div style="font-size:.74rem;color:var(--ink3);margin-bottom:.8rem;">Appears on all report cards. PNG, JPG or SVG, max 2MB.</div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div id="ds_logoPreview" style="width:80px;height:80px;border-radius:9px;border:2px dashed var(--bd);background:var(--s3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+          <img id="ds_logoImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;display:none;">
+          <span id="ds_logoPlaceholder" style="font-size:.6rem;color:var(--ink3);text-align:center;padding:6px;">No logo</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.5rem;">
+          <button class="btn gold sm" onclick="document.getElementById('ds_logoFile').click()">📁 Upload Logo</button>
+          <button class="btn red sm" id="ds_logoRemoveBtn" onclick="dsRemoveLogo()" style="display:none;">✕ Remove</button>
+          <input type="file" id="ds_logoFile" accept="image/*" style="display:none;" onchange="dsHandleLogo(event)">
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTACT INFO -->
+    <div class="ds-section">
+      <div class="ds-section-title">📬 Contact Information</div>
+      <div style="display:flex;flex-direction:column;gap:.75rem;">
+        <div class="fg"><label>Email Address</label><input type="email" id="ds_email" placeholder="school@example.com"></div>
+        <div class="fg"><label>Phone Number</label><input type="tel" id="ds_phone" placeholder="+250 788 000 000"></div>
+        <div class="fg"><label>Address / Location</label><input type="text" id="ds_address" placeholder="e.g. Kigali, Rwanda"></div>
+      </div>
+    </div>
+
+    <!-- SCHOOL LEVEL -->
+    <div class="ds-section">
+      <div class="ds-section-title">🎓 School Level</div>
+      <div class="fg">
+        <label>Default Level</label>
+        <select id="ds_level">
+          <option value="PRIMARY">🏫 Primary</option>
+          <option value="NURSERY">🌱 Nursery</option>
+          <option value="SECONDARY">🎓 Secondary</option>
+        </select>
+        <div style="font-size:.7rem;color:var(--ink3);margin-top:3px;">Nursery schools: no midterm report cards — EU marks on term cards only.</div>
+      </div>
+    </div>
+
+    <!-- SAVE BUTTON -->
+    <button class="btn gold" style="width:100%;padding:11px;font-size:.95rem;" onclick="dsSaveAll()">💾 Save All Settings</button>
+
+    <!-- CHANGE PASSWORD SECTION -->
+    <div class="ds-section">
+      <div class="ds-section-title">🔐 Change My Password</div>
+      <div id="dsPwAlert" style="margin-bottom:.5rem;"></div>
+      <div style="display:flex;flex-direction:column;gap:.7rem;">
+        <div class="fg"><label>Current Password</label><input type="password" id="ds_pwold" placeholder="••••••"></div>
+        <div class="fg"><label>New Password</label><input type="password" id="ds_pwnew" placeholder="Min. 6 characters"></div>
+        <div class="fg"><label>Confirm New Password</label><input type="password" id="ds_pwcf" placeholder="Repeat new password"></div>
+      </div>
+      <button class="btn ghost" style="margin-top:.8rem;width:100%;" onclick="dsChangePw()">🔑 Update Password</button>
+    </div>
+
+  </div>
+</div>
 
 </body>
 </html>
