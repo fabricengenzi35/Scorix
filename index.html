@@ -1096,20 +1096,49 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 
       <!-- DASHBOARD -->
       <div class="page" id="p-dashboard">
-        <div class="ph"><div><div class="phtitle">Dashboard</div><div class="phsub" id="dwelcome"></div></div></div>
-        <div class="sgrid">
-          <div class="scard gold" style="cursor:pointer;" onclick="showPage('students')"><div class="snum" id="ds0">0</div><div class="slbl">Students</div></div>
-          <div class="scard blue" style="cursor:pointer;" onclick="showPage('classes')"><div class="snum" id="ds1">0</div><div class="slbl">Classes</div></div>
-          <div class="scard green" style="cursor:pointer;" onclick="showPage('subjects')"><div class="snum" id="ds2">0</div><div class="slbl">Subjects</div></div>
-          <div class="scard purple"><div class="snum" id="ds3">0</div><div class="slbl">Marks Recorded</div></div>
+        <div class="ph" style="flex-wrap:wrap;gap:.7rem;">
+          <div><div class="phtitle">Dashboard</div><div class="phsub" id="dwelcome"></div></div>
+          <!-- MODE SWITCHER: Term Marks / Morning Quiz -->
+          <div style="display:flex;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:3px;gap:3px;flex-shrink:0;">
+            <button id="dash-mode-term" onclick="dashSwitchMode('term')"
+              style="padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:var(--gold);color:#1a1200;transition:all .2s;display:flex;align-items:center;gap:5px;">
+              📝 Term Marks
+            </button>
+            <button id="dash-mode-quiz" onclick="dashSwitchMode('quiz')"
+              style="padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;background:none;color:var(--ink2);transition:all .2s;display:flex;align-items:center;gap:5px;">
+              🌅 Morning Quiz
+            </button>
+          </div>
         </div>
-        <!-- QUICK ACTIONS — Admin only -->
-        <div id="dash-quickactions"></div>
-        <!-- ATTENDANCE — Teacher (class teacher) only -->
-        <div id="dash-attendance"></div>
-        <!-- APPROVAL STATUS — Teacher only -->
-        <div id="dash-approval"></div>
-        <div class="card admin-only"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
+
+        <!-- TERM MARKS VIEW -->
+        <div id="dash-term-view">
+          <div class="sgrid">
+            <div class="scard gold" style="cursor:pointer;" onclick="showPage('students')"><div class="snum" id="ds0">0</div><div class="slbl">Students</div></div>
+            <div class="scard blue" style="cursor:pointer;" onclick="showPage('classes')"><div class="snum" id="ds1">0</div><div class="slbl">Classes</div></div>
+            <div class="scard green" style="cursor:pointer;" onclick="showPage('subjects')"><div class="snum" id="ds2">0</div><div class="slbl">Subjects</div></div>
+            <div class="scard purple"><div class="snum" id="ds3">0</div><div class="slbl">Marks Recorded</div></div>
+          </div>
+          <!-- QUICK ACTIONS — Admin only -->
+          <div id="dash-quickactions"></div>
+          <!-- ATTENDANCE — Teacher (class teacher) only -->
+          <div id="dash-attendance"></div>
+          <!-- APPROVAL STATUS — Teacher only -->
+          <div id="dash-approval"></div>
+          <div class="card admin-only"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
+        </div>
+
+        <!-- MORNING QUIZ DASHBOARD VIEW -->
+        <div id="dash-quiz-view" style="display:none;">
+          <div class="sgrid admin-only" style="grid-template-columns:repeat(3,1fr);">
+            <div class="scard blue"><div class="snum" id="dq0">0</div><div class="slbl">Quiz Years</div></div>
+            <div class="scard purple"><div class="snum" id="dq1">0</div><div class="slbl">Total Weeks</div></div>
+            <div class="scard green"><div class="snum" id="dq2">0</div><div class="slbl">Quiz Entries</div></div>
+          </div>
+          <!-- Quiz year+week summary -->
+          <div id="dash-quiz-summary"></div>
+        </div>
+
       </div>
 
       <!-- DIRECTOR OVERVIEW -->
@@ -1117,12 +1146,26 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div class="ph">
           <div>
             <div class="phtitle">👁️ School Overview</div>
-            <div class="phsub">All teachers and students information</div>
+            <div class="phsub">All teachers, students &amp; quiz week management</div>
           </div>
           <div class="phact">
             <button class="btn ghost" onclick="refreshOverview()">🔄 Refresh</button>
           </div>
         </div>
+
+        <!-- ══ MORNING QUIZ ACADEMIC YEARS & WEEKS ══ -->
+        <div class="card admin-only" style="margin-bottom:1rem;border:1px solid rgba(74,143,255,.25);background:linear-gradient(135deg,rgba(74,143,255,.04),var(--s1));">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem;">
+            <div>
+              <div class="ctitle" style="margin-bottom:2px;color:var(--blue);">🌅 Morning Quiz — Academic Years &amp; Weeks</div>
+              <div style="font-size:.72rem;color:var(--ink3);">Manage quiz years and add/remove weeks per academic year. Closing a year locks all quiz data permanently.</div>
+            </div>
+            <button class="btn gold" onclick="ovAddQuizYear()" style="white-space:nowrap;">+ New Academic Year</button>
+          </div>
+          <div id="ov-qyal" style="margin-bottom:.5rem;"></div>
+          <div id="ov-quiz-years-list"></div>
+        </div>
+
         <!-- TEACHERS OVERVIEW -->
         <div class="card" style="margin-bottom:1rem;">
           <div class="ctitle">👨‍🏫 All Teachers</div>
@@ -1915,6 +1958,75 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     <div class="fg"><label>Parent Phone <span style="color:var(--ink3);font-weight:400;">(optional)</span></label><input type="text" id="mestpphone" placeholder="e.g. 0788123456"></div>
   </div>
   <button class="btn gold" onclick="saveEditStudent()">Save Changes</button>
+</div></div>
+
+<!-- ══ ADD SCHOOL MODAL ══════════════════════════════════════════════ -->
+<div class="mbg" id="mAddSchool"><div class="modal" style="max-width:480px;">
+  <div class="mhead"><div class="mtitle">🏫 Add New School</div><button class="mx" onclick="cm('mAddSchool')" aria-label="Close dialog">✕</button></div>
+  <div id="mAddSchoolAlert"></div>
+  <div style="font-size:.78rem;color:var(--ink3);margin-bottom:1rem;">Create a new school and its first admin account. The admin will be able to log in immediately.</div>
+  <div class="fg" style="margin-bottom:.8rem;">
+    <label>School Name</label>
+    <input type="text" id="saSchoolName" placeholder="e.g. St. Mary's Academy">
+  </div>
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;padding-top:.4rem;border-top:1px solid var(--bd);">Admin Account</div>
+  <div class="g2" style="margin-bottom:1rem;">
+    <div class="fg"><label>Admin Full Name</label><input type="text" id="saAdminName" placeholder="e.g. Jean Dupont"></div>
+    <div class="fg"><label>Username</label><input type="text" id="saAdminUser" placeholder="e.g. jean.dupont"></div>
+    <div class="fg span2"><label>Password</label>
+      <div class="pw-wrap-modal">
+        <input type="password" id="saAdminPass" placeholder="Min. 6 characters">
+        <button class="pw-eye-m" type="button" onclick="togglePwField('saAdminPass',this)">👁</button>
+      </div>
+    </div>
+  </div>
+  <button class="btn gold" style="width:100%;" onclick="superAddSchool()">✅ Create School</button>
+</div></div>
+
+<!-- ══ ADD SUPER USER MODAL ══════════════════════════════════════════ -->
+<div class="mbg" id="mAddSuperUser"><div class="modal" style="max-width:420px;">
+  <div class="mhead"><div class="mtitle">🛡️ Add Super User</div><button class="mx" onclick="cm('mAddSuperUser')" aria-label="Close dialog">✕</button></div>
+  <div id="mAddSuperUserAlert"></div>
+  <div style="font-size:.78rem;color:var(--ink3);margin-bottom:1rem;">Super users can access the Super Admin Panel and manage all schools.</div>
+  <div class="g2" style="margin-bottom:1rem;">
+    <div class="fg"><label>Full Name</label><input type="text" id="suName" placeholder="e.g. Fabrice Ngenzi"></div>
+    <div class="fg"><label>Username</label><input type="text" id="suUser" placeholder="e.g. fabrice"></div>
+    <div class="fg span2"><label>Password</label>
+      <div class="pw-wrap-modal">
+        <input type="password" id="suPass" placeholder="Min. 6 characters">
+        <button class="pw-eye-m" type="button" onclick="togglePwField('suPass',this)">👁</button>
+      </div>
+    </div>
+  </div>
+  <button class="btn gold" style="width:100%;" onclick="superAddSuperUser()">✅ Add Super User</button>
+</div></div>
+
+<!-- ══ EDIT SCHOOL MODAL ══════════════════════════════════════════════ -->
+<div class="mbg" id="mEditSchool"><div class="modal" style="max-width:500px;">
+  <div class="mhead"><div class="mtitle">✏️ Edit School</div><button class="mx" onclick="cm('mEditSchool')" aria-label="Close dialog">✕</button></div>
+  <div id="mEditSchoolAlert"></div>
+  <input type="hidden" id="esSchoolId">
+  <div class="fg" style="margin-bottom:.8rem;">
+    <label>School Name</label>
+    <input type="text" id="esSchoolName" placeholder="School name">
+  </div>
+  <button class="btn gold" style="margin-bottom:1.2rem;" onclick="superSaveSchool()">💾 Save Name</button>
+
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;padding-top:.6rem;border-top:1px solid var(--bd);">Admins</div>
+  <div id="esAdminList" style="margin-bottom:1rem;display:flex;flex-direction:column;gap:6px;"></div>
+
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;">Add New Admin</div>
+  <div class="g2" style="margin-bottom:.8rem;">
+    <div class="fg"><label>Full Name</label><input type="text" id="esNewAdminName" placeholder="e.g. Marie Curie"></div>
+    <div class="fg"><label>Username</label><input type="text" id="esNewAdminUser" placeholder="e.g. marie.curie"></div>
+    <div class="fg span2"><label>Password</label>
+      <div class="pw-wrap-modal">
+        <input type="password" id="esNewAdminPass" placeholder="Min. 6 characters">
+        <button class="pw-eye-m" type="button" onclick="togglePwField('esNewAdminPass',this)">👁</button>
+      </div>
+    </div>
+  </div>
+  <button class="btn green" onclick="superAddAdminToSchool()">➕ Add Admin</button>
 </div></div>
 
 <script>
@@ -3420,11 +3532,14 @@ function renderDash(){
   }
 
   if(!DB.activity.length){
-    el.innerHTML='<div class="empty"><div class="ei">📋</div><p>'+L('noActivity')+'</p></div>';return;
+    el.innerHTML='<div class="empty"><div class="ei">📋</div><p>'+L('noActivity')+'</p></div>';
+  } else {
+    el.innerHTML = DB.activity.slice(-8).reverse().map(function(a){
+      return'<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);"><span style="font-family:monospace;font-size:.7rem;color:var(--ink3);white-space:nowrap;">'+a.time+'</span><span style="font-size:.84rem;">'+a.text+'</span></div>';
+    }).join('');
   }
-  el.innerHTML = DB.activity.slice(-8).reverse().map(function(a){
-    return'<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);"><span style="font-family:monospace;font-size:.7rem;color:var(--ink3);white-space:nowrap;">'+a.time+'</span><span style="font-size:.84rem;">'+a.text+'</span></div>';
-  }).join('');
+  // Restore mode switcher state
+  dashSwitchMode(_dashMode||'term');
 }
 
 // Navigate to the right page and open the add modal
@@ -3433,6 +3548,241 @@ function dashQuickAdd(type){
   var modalMap = {student:'mst', class:'mc', teacher:'mt', subject:'ms', term:'mterm'};
   showPage(pageMap[type]);
   setTimeout(function(){ om(modalMap[type]); }, 120);
+}
+
+// ── Dashboard mode switcher: Term Marks ↔ Morning Quiz ──
+var _dashMode = 'term';
+function dashSwitchMode(mode){
+  _dashMode = mode;
+  var termBtn  = document.getElementById('dash-mode-term');
+  var quizBtn  = document.getElementById('dash-mode-quiz');
+  var termView = document.getElementById('dash-term-view');
+  var quizView = document.getElementById('dash-quiz-view');
+  if(!termBtn||!quizBtn||!termView||!quizView) return;
+  if(mode==='term'){
+    termBtn.style.cssText='padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:var(--gold);color:#1a1200;transition:all .2s;display:flex;align-items:center;gap:5px;';
+    quizBtn.style.cssText='padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;background:none;color:var(--ink2);transition:all .2s;display:flex;align-items:center;gap:5px;';
+    termView.style.display='';
+    quizView.style.display='none';
+  } else {
+    quizBtn.style.cssText='padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:var(--blue);color:#fff;transition:all .2s;display:flex;align-items:center;gap:5px;';
+    termBtn.style.cssText='padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;background:none;color:var(--ink2);transition:all .2s;display:flex;align-items:center;gap:5px;';
+    termView.style.display='none';
+    quizView.style.display='';
+    renderDashQuizView();
+  }
+}
+
+function renderDashQuizView(){
+  if(!DB.quizYears) DB.quizYears=[];
+  var totalWeeks = DB.quizYears.reduce(function(sum,yr){ return sum+(yr.weeks?yr.weeks.length:0); },0);
+  // Count quiz mark entries
+  var quizEntries = Object.keys(DB.marks).filter(function(k){ return k.indexOf('quiz_')>=0||k.indexOf('_QY')>=0; }).length;
+
+  var dq0=document.getElementById('dq0'),dq1=document.getElementById('dq1'),dq2=document.getElementById('dq2');
+  if(dq0) dq0.textContent=DB.quizYears.length;
+  if(dq1) dq1.textContent=totalWeeks;
+  if(dq2) dq2.textContent=quizEntries;
+
+  var sumEl = document.getElementById('dash-quiz-summary');
+  if(!sumEl) return;
+
+  // ── TEACHER VIEW: show shortcut to quiz entry + current year weeks ──
+  if(!isAdmin()){
+    var activeYr = DB.quizYears.find(function(y){return y.id===CURRENT_QUIZ_YEAR_ID&&!y.locked;})
+      || DB.quizYears.find(function(y){return !y.locked;})
+      || (DB.quizYears.length?DB.quizYears[DB.quizYears.length-1]:null);
+    if(!activeYr){
+      sumEl.innerHTML='<div class="card" style="text-align:center;padding:1.5rem 1rem;">'
+        +'<div style="font-size:2rem;margin-bottom:.5rem;">🌅</div>'
+        +'<div style="font-size:.88rem;font-weight:600;color:var(--ink);margin-bottom:.4rem;">No Quiz Years Available</div>'
+        +'<div style="font-size:.76rem;color:var(--ink3);">Ask the director to create a quiz academic year in the Overview panel.</div>'
+        +'</div>';
+      return;
+    }
+    var wc=activeYr.weeks?activeYr.weeks.length:0;
+    var html='<div class="card" style="border:1px solid rgba(74,143,255,.2);padding:1rem;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.8rem;">'
+        +'<div>'
+          +'<div style="font-size:.88rem;font-weight:700;color:var(--blue);">📅 Active Year: '+activeYr.label+'</div>'
+          +'<div style="font-size:.69rem;color:var(--ink3);margin-top:2px;">'+wc+' week'+(wc!==1?'s':'')+' available</div>'
+        +'</div>'
+        +'<button class="btn gold" onclick="dashSwitchMode(\'term\');showPage(\'marks\');setTimeout(function(){switchMarkMode(\'quiz\');},120);">✏️ Enter Quiz Marks</button>'
+      +'</div>'
+      +(wc?'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
+        +activeYr.weeks.map(function(w){
+          return '<span style="padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);color:var(--blue);">'+w.label+'</span>';
+        }).join('')+'</div>'
+      :'<div style="font-size:.74rem;color:var(--ink3);font-style:italic;">No weeks configured yet.</div>')
+      +'</div>';
+    sumEl.innerHTML=html;
+    return;
+  }
+
+  // ── ADMIN/DIRECTOR VIEW ──
+  if(!DB.quizYears.length){
+    sumEl.innerHTML='<div class="card" style="border:2px dashed rgba(74,143,255,.25);text-align:center;padding:2rem 1rem;">'
+      +'<div style="font-size:2.2rem;margin-bottom:.6rem;">🌅</div>'
+      +'<div style="font-size:.95rem;font-weight:700;color:var(--ink);margin-bottom:.4rem;">No Quiz Academic Years Yet</div>'
+      +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:1rem;">Create an academic year for morning quizzes first, then add weeks teachers can select from.</div>'
+      +'<button class="btn gold" onclick="ovAddQuizYear()">+ Create Academic Year</button>'
+      +'</div>';
+    return;
+  }
+  var html='';
+  DB.quizYears.slice().reverse().forEach(function(yr){
+    var locked=yr.locked;
+    var weeksCount=yr.weeks?yr.weeks.length:0;
+    html+='<div class="card" style="margin-bottom:.8rem;border:1px solid '+(locked?'rgba(224,82,82,.25)':'rgba(74,143,255,.2)')+';padding:.9rem 1rem;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:'+(weeksCount?'.7rem':'0')+'">'
+        +'<div>'
+          +'<div style="font-size:.9rem;font-weight:700;color:var(--ink);">📅 '+yr.label
+          +(locked?' <span style="font-size:.65rem;padding:2px 8px;border-radius:8px;background:rgba(224,82,82,.1);color:var(--red);border:1px solid rgba(224,82,82,.2);">🔒 CLOSED</span>':'<span style="font-size:.65rem;padding:2px 8px;border-radius:8px;background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.2);">● Active</span>')
+          +'</div>'
+          +'<div style="font-size:.68rem;color:var(--ink3);margin-top:2px;">'+weeksCount+' week'+(weeksCount!==1?'s':'')+' configured</div>'
+        +'</div>'
+        +(!locked
+          ?'<div style="display:flex;gap:5px;">'
+            +'<button class="btn sm gold" onclick="ovAddWeek(\''+yr.id+'\')">+ Add Week</button>'
+            +'<button class="btn sm ghost" onclick="ovEditYear(\''+yr.id+'\')">✏️</button>'
+            +'<button class="btn sm ghost" onclick="ovLockYear(\''+yr.id+'\')">🔒 Close</button>'
+          +'</div>'
+          :'<button class="btn sm red" onclick="ovDeleteYear(\''+yr.id+'\')">🗑️</button>')
+      +'</div>'
+      +(weeksCount
+        ?'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
+          +yr.weeks.map(function(w){
+            return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);color:var(--blue);">'
+              +w.label
+              +(!locked?'<button onclick="ovRemoveWeek(\''+yr.id+'\',\''+w.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.7rem;padding:0 0 0 3px;line-height:1;">✕</button>':'')
+            +'</span>';
+          }).join('')
+          +'</div>'
+        :'<div style="font-size:.73rem;color:var(--ink3);font-style:italic;">No weeks added yet.</div>')
+      +'</div>';
+  });
+  html+='<button class="btn ghost" onclick="ovAddQuizYear()" style="margin-top:.3rem;">+ New Academic Year</button>';
+  sumEl.innerHTML=html;
+}
+
+// ── Overview page quiz year/week helpers (call renderQuizYearsList + flash on ov-qyal) ──
+function ovAddQuizYear(){
+  var label=prompt('Enter academic year label (e.g. 2025-2026):');
+  if(!label||!label.trim()) return;
+  label=label.trim();
+  if(DB.quizYears.find(function(y){return y.label===label;})){alert('A year with this label already exists.');return;}
+  var id='QY'+Date.now();
+  DB.quizYears.push({id:id,label:label,weeks:[],locked:false,createdAt:new Date().toISOString()});
+  addLog('Created quiz year: '+label);
+  dbSave();
+  renderQuizYearsList();
+  ovRenderQuizYearsList();
+  renderDashQuizView();
+  syncQuizWeekDropdowns();
+  var fl=document.getElementById('ov-qyal'); if(fl) flash('ov-qyal','ok','✅ Year "'+label+'" created.');
+}
+function ovAddWeek(yearId){
+  var yr=DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr||yr.locked){alert('Year is locked.');return;}
+  var num=yr.weeks.length+1;
+  var label=prompt('Week label:','Week '+num);
+  if(!label||!label.trim()) return;
+  yr.weeks.push({id:'W'+Date.now(),label:label.trim()});
+  addLog('Added week to '+yr.label);
+  dbSave();
+  renderQuizYearsList();
+  ovRenderQuizYearsList();
+  renderDashQuizView();
+  syncQuizWeekDropdowns();
+}
+function ovRemoveWeek(yearId,weekId){
+  var yr=DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr||yr.locked) return;
+  if(!confirm('Remove this week? Any quiz marks for this week will be lost.')) return;
+  yr.weeks=yr.weeks.filter(function(w){return w.id!==weekId;});
+  dbSave();
+  renderQuizYearsList();
+  ovRenderQuizYearsList();
+  renderDashQuizView();
+  syncQuizWeekDropdowns();
+}
+function ovEditYear(yearId){
+  var yr=DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  var nl=prompt('Rename academic year:',yr.label);
+  if(!nl||!nl.trim()||nl.trim()===yr.label) return;
+  yr.label=nl.trim();
+  addLog('Renamed quiz year to: '+yr.label);
+  dbSave();
+  renderQuizYearsList();
+  ovRenderQuizYearsList();
+  renderDashQuizView();
+}
+function ovLockYear(yearId){
+  if(!confirm('Close this academic year?\n\nThis will permanently lock all quiz data for this year. Cannot be undone.')) return;
+  var yr=DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  yr.locked=true; yr.lockedAt=new Date().toISOString();
+  addLog('🔒 Closed quiz year: '+yr.label);
+  dbSave();
+  renderQuizYearsList();
+  ovRenderQuizYearsList();
+  renderDashQuizView();
+  syncQuizWeekDropdowns();
+}
+function ovDeleteYear(yearId){
+  var yr=DB.quizYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  if(!confirm('Delete year "'+yr.label+'"?\n\nAll quiz marks for this year will be deleted. Cannot be undone.')) return;
+  Object.keys(DB.marks).forEach(function(k){ if(k.indexOf('_'+yearId+'_')>=0) delete DB.marks[k]; });
+  DB.quizYears=DB.quizYears.filter(function(y){return y.id!==yearId;});
+  if(CURRENT_QUIZ_YEAR_ID===yearId) CURRENT_QUIZ_YEAR_ID=null;
+  addLog('Deleted quiz year: '+yr.label);
+  dbSave();
+  renderQuizYearsList();
+  ovRenderQuizYearsList();
+  renderDashQuizView();
+  syncQuizWeekDropdowns();
+}
+
+// Render the quiz years list in the Overview panel
+function ovRenderQuizYearsList(){
+  var el=document.getElementById('ov-quiz-years-list');
+  if(!el) return;
+  if(!DB.quizYears||!DB.quizYears.length){
+    el.innerHTML='<div style="font-size:.8rem;color:var(--ink3);font-style:italic;padding:.5rem 0;">No academic years yet. Click "+ New Academic Year" above to create one.</div>';
+    return;
+  }
+  el.innerHTML=DB.quizYears.slice().reverse().map(function(yr){
+    var locked=yr.locked;
+    var wc=yr.weeks?yr.weeks.length:0;
+    return '<div style="border:1px solid '+(locked?'rgba(224,82,82,.25)':'rgba(74,143,255,.2)')+';border-radius:10px;padding:.85rem 1rem;margin-bottom:.65rem;background:'+(locked?'rgba(224,82,82,.04)':'rgba(74,143,255,.04)')+';">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:'+(wc?'.65rem':'0')+'">'
+        +'<div>'
+          +'<div style="font-size:.88rem;font-weight:700;color:var(--ink);">📅 '+yr.label
+          +(locked?' <span style="font-size:.62rem;padding:2px 8px;border-radius:8px;background:rgba(224,82,82,.1);color:var(--red);border:1px solid rgba(224,82,82,.2);">🔒 CLOSED</span>':'<span style="font-size:.62rem;padding:2px 8px;border-radius:8px;background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.2);">● Active</span>')
+          +'</div>'
+          +'<div style="font-size:.67rem;color:var(--ink3);margin-top:2px;">'+wc+' week'+(wc!==1?'s':'')+' · '+(locked?'Closed '+new Date(yr.lockedAt||Date.now()).toLocaleDateString('en-GB'):'Open for editing')+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:4px;flex-wrap:wrap;">'
+          +(!locked?'<button class="btn sm gold" onclick="ovAddWeek(\''+yr.id+'\')">+ Week</button>':'')
+          +'<button class="btn sm ghost" onclick="ovEditYear(\''+yr.id+'\')">✏️</button>'
+          +(!locked?'<button class="btn sm ghost" onclick="ovLockYear(\''+yr.id+'\')">🔒 Close</button>':'')
+          +'<button class="btn sm red" onclick="ovDeleteYear(\''+yr.id+'\')">🗑️</button>'
+        +'</div>'
+      +'</div>'
+      +(wc
+        ?'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
+          +yr.weeks.map(function(w){
+            return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);color:var(--blue);">'
+              +w.label
+              +(!locked?'<button onclick="ovRemoveWeek(\''+yr.id+'\',\''+w.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.7rem;padding:0 0 0 3px;line-height:1;">✕</button>':'')
+            +'</span>';
+          }).join('')
+          +'</div>'
+        :'<div style="font-size:.72rem;color:var(--ink3);font-style:italic;">No weeks yet.</div>')
+      +'</div>';
+  }).join('');
 }
 
 // ██████████████████████████████████████████████████████████████████
@@ -3843,6 +4193,9 @@ async function refreshOverview(){
 
 function renderOverview(){
   if(!isAdmin()) return;
+
+  // ── QUIZ YEARS & WEEKS PANEL ──
+  ovRenderQuizYearsList();
 
   // ── TEACHERS TABLE ──
   var teachers = DB.users.filter(function(u){return u.role==='teacher';}).sort(function(a,b){return a.name.localeCompare(b.name);});
