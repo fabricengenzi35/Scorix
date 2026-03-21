@@ -1,7 +1,23 @@
 <!DOCTYPE html>
 <!--
-  SCORIX — School Marks Management System
-  Version: 2.1
+  SCORIX — International Academic Management System
+  Version: 3.0 International
+  International Features:
+  - 10 languages: EN, FR, ES, PT, SW, AR, DE, ZH, RW, HI
+  - 8 grading systems: Standard, US GPA, UK A-Level, French Bac, IB, German, East Africa, Rwanda
+  - School-isolated parent login (no cross-school data exposure)
+  - GPA calculation with credit hours weighting
+  - Academic transcript generation
+  - Honor Roll classification
+  - RTL support for Arabic
+  - International date formats per locale
+  - Timezone settings
+  - Fixed pwMatch async comparison
+  - Performance: debounced writes, offline queue, incremental user index
+  Improvements in v2.2:
+  - Quiz Rankings now renders a full proclamation-style table with rank circles, medals, per-subject columns, total, avg%, and level badge
+  - Print button added to Quiz Rankings page header
+  - Parent portal now shows child's class position, per-subject scores, avg% progress bar per week — child's data only (no full class list)
   Improvements in v2.1:
   - SHA-256 password hashing (security)
   - ARIA landmarks, skip link, screen reader support (accessibility)
@@ -26,14 +42,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f0b429" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
-<meta name="description" content="SCORIX — Complete school marks management system. Enter grades, generate report cards, track performance.">
+<meta name="description" content="SCORIX — International Academic Management System. Multi-language, multi-grading-system, school-isolated marks management platform.">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SCORIX">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com https://zabdtormeyrucjwjipzl.supabase.co data: blob:;">
 <meta name="referrer" content="no-referrer-when-downgrade">
-<title>SCORIX — School Marks System v2.1</title>
+<title>SCORIX — International Academic System v3.0 ✦ Best×∞</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <!--
   ╔══════════════════════════════════════════════════════════╗
@@ -744,6 +760,170 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
   overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
 }
 
+
+/* ── RTL SUPPORT (Arabic, Hebrew, Urdu) ── */
+[dir="rtl"] .sidebar { border-right: none; border-left: 1px solid var(--bd); }
+[dir="rtl"] .navbtn { border-left: none; border-right: 3px solid transparent; text-align: right; }
+[dir="rtl"] .navbtn.active { border-left: none; border-right-color: var(--gold); }
+[dir="rtl"] .ph { flex-direction: row-reverse; }
+[dir="rtl"] .topbar { flex-direction: row-reverse; }
+[dir="rtl"] .lf label { text-align: right; }
+[dir="rtl"] table { direction: rtl; }
+[dir="rtl"] th, [dir="rtl"] td { text-align: right; }
+
+/* ── ACADEMIC LEVEL BADGE ── */
+.acad-system-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(159,122,234,.12); color: var(--purple);
+  border: 1px solid rgba(159,122,234,.25); border-radius: 10px;
+  padding: 2px 9px; font-size: .7rem; font-weight: 600;
+}
+
+/* ── TRANSCRIPT STYLES ── */
+.transcript-container { background: var(--s1); border: 1px solid var(--bd); border-radius: 10px; padding: 1.4rem; margin-top: 1rem; }
+.gpa-display { font-size: 2.2rem; font-weight: 700; color: var(--gold); text-align: center; }
+.honor-roll-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 14px; border-radius: 20px; font-size: .8rem; font-weight: 700; }
+.honor-roll-badge.gold { background: rgba(240,180,41,.15); color: var(--gold); border: 1px solid rgba(240,180,41,.3); }
+.honor-roll-badge.silver { background: rgba(148,163,184,.15); color: #94a3b8; border: 1px solid rgba(148,163,184,.3); }
+.honor-roll-badge.bronze { background: rgba(205,127,50,.15); color: #cd7f32; border: 1px solid rgba(205,127,50,.3); }
+
+/* ── CREDIT HOURS ── */
+.credit-pill { display: inline-flex; align-items: center; background: rgba(74,143,255,.1); color: var(--blue); border: 1px solid rgba(74,143,255,.2); border-radius: 8px; padding: 1px 7px; font-size: .7rem; font-weight: 600; }
+
+/* ── LANGUAGE GRID ── */
+.lang-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-top: .5rem; }
+.lang-btn-intl { padding: 5px 11px; border-radius: 8px; border: 1.5px solid var(--bd); background: var(--s2); color: var(--ink2); font-size: .78rem; font-weight: 600; cursor: pointer; transition: all .15s; }
+.lang-btn-intl:hover { border-color: var(--gold); color: var(--gold); }
+.lang-btn-intl.active { border-color: var(--gold); background: rgba(240,180,41,.12); color: var(--gold); }
+
+
+/* ══ ACADEMIC BRIDGE — WORLD-CLASS ENHANCEMENTS ══ */
+
+/* Animated stat counters */
+@keyframes countUp { from { opacity:0; transform:scale(.7); } to { opacity:1; transform:scale(1); } }
+.snum { animation: countUp .5s cubic-bezier(.16,1,.3,1); }
+
+/* GPA Ring */
+.gpa-ring-wrap { position:relative; width:90px; height:90px; flex-shrink:0; }
+.gpa-ring-svg { transform:rotate(-90deg); }
+.gpa-ring-track { fill:none; stroke:var(--bd); stroke-width:8; }
+.gpa-ring-fill  { fill:none; stroke:var(--gold); stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset .8s cubic-bezier(.16,1,.3,1); }
+.gpa-ring-text  { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:700; }
+.gpa-ring-num   { font-size:1.3rem; line-height:1; color:var(--gold); }
+.gpa-ring-lbl   { font-size:.55rem; color:var(--ink3); text-transform:uppercase; letter-spacing:.06em; margin-top:1px; }
+
+/* Performance sparkline bars */
+.sparkbar-wrap { display:flex; align-items:flex-end; gap:2px; height:32px; }
+.sparkbar { flex:1; min-width:4px; border-radius:2px 2px 0 0; transition:height .4s ease; }
+
+/* Honor roll banner */
+.hr-banner {
+  background: linear-gradient(135deg, rgba(240,180,41,.18), rgba(240,180,41,.06));
+  border: 1px solid rgba(240,180,41,.35);
+  border-radius:10px; padding:.7rem 1rem;
+  display:flex; align-items:center; gap:.7rem; margin-bottom:.9rem;
+}
+.hr-banner .hr-medal { font-size:1.6rem; flex-shrink:0; }
+.hr-banner .hr-name  { font-weight:700; font-size:.92rem; }
+.hr-banner .hr-sub   { font-size:.72rem; color:var(--ink3); margin-top:1px; }
+
+/* Cambridge/IB/AP compatibility badges */
+.compat-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 9px; border-radius:20px; font-size:.68rem; font-weight:700;
+  letter-spacing:.04em; text-transform:uppercase;
+}
+.compat-badge.cambridge { background:rgba(0,130,100,.12); color:#008264; border:1px solid rgba(0,130,100,.3); }
+.compat-badge.ib        { background:rgba(0,52,120,.12);  color:#003478; border:1px solid rgba(0,52,120,.3); }
+.compat-badge.ap        { background:rgba(100,41,155,.12);color:#64299b; border:1px solid rgba(100,41,155,.3); }
+.compat-badge.national  { background:rgba(240,180,41,.12); color:var(--gold); border:1px solid rgba(240,180,41,.3); }
+
+/* Trend indicator */
+.trend-up   { color:var(--green); font-size:.75rem; font-weight:700; }
+.trend-down { color:var(--red);   font-size:.75rem; font-weight:700; }
+.trend-flat { color:var(--ink3);  font-size:.75rem; font-weight:700; }
+
+/* Student Card grid */
+.stcard-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.8rem; }
+.stcard {
+  background:var(--s1); border:1px solid var(--bd); border-radius:10px;
+  padding:1rem; cursor:pointer; transition:all .15s;
+  display:flex; flex-direction:column; gap:.4rem;
+}
+.stcard:hover { border-color:var(--gold); transform:translateY(-2px); box-shadow:0 4px 16px rgba(240,180,41,.12); }
+.stcard-av {
+  width:40px; height:40px; border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),#2a5fcf);
+  color:#fff; font-size:.9rem; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.stcard-name { font-weight:600; font-size:.88rem; }
+.stcard-meta { font-size:.72rem; color:var(--ink3); }
+
+/* Report card — international header */
+.rc-intl-header {
+  background: linear-gradient(135deg, #1a237e, #283593);
+  color: #fff; padding: 16px 20px; border-radius: 8px 8px 0 0;
+}
+.rc-country-flag { font-size:1.4rem; }
+
+/* Academic calendar */
+.cal-week { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+.cal-day {
+  aspect-ratio:1; border-radius:6px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; font-size:.72rem;
+  background:var(--s2); border:1px solid var(--bd); cursor:default;
+}
+.cal-day.has-event { background:rgba(74,143,255,.12); border-color:rgba(74,143,255,.3); color:var(--blue); font-weight:600; }
+.cal-day.today { background:rgba(240,180,41,.15); border-color:var(--gold); font-weight:700; color:var(--gold); }
+
+/* Remarks AI badge */
+.ai-remark-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  background:rgba(159,122,234,.1); color:var(--purple);
+  border:1px solid rgba(159,122,234,.25); border-radius:8px;
+  padding:2px 8px; font-size:.65rem; font-weight:600;
+}
+
+/* Skeleton pulse for loading states */
+.skel-line { height:14px; border-radius:4px; margin:4px 0; }
+.skel-line.w80 { width:80%; }
+.skel-line.w60 { width:60%; }
+.skel-line.w40 { width:40%; }
+
+/* Smooth page transitions */
+.page.on { animation: pageIn .22s cubic-bezier(.16,1,.3,1); }
+@keyframes pageIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+/* Print — A4 professional */
+@media print {
+  @page { size:A4; margin:8mm; }
+  .noprint, .no-print, .sidebar, .topbar, .tbtn, button { display:none!important; }
+  body { background:#fff!important; }
+  .main { padding:0!important; overflow:visible!important; }
+  .page { display:block!important; }
+}
+
+/* Mobile bottom nav */
+@media (max-width:700px) {
+  .mob-nav {
+    position:fixed; bottom:0; left:0; right:0; z-index:200;
+    background:var(--s1); border-top:1px solid var(--bd);
+    display:flex; height:58px;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .mob-nav-btn {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:2px; background:none; border:none; color:var(--ink3); cursor:pointer;
+    font-size:.55rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    transition:color .13s;
+  }
+  .mob-nav-btn .mni { font-size:1.2rem; }
+  .mob-nav-btn.active { color:var(--gold); }
+  .layout { padding-bottom:58px; }
+}
+
 /* ── Loading spinner ── */
 .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--bd);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -778,7 +958,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <span id="landing-typing" style="font-size:1.05rem;font-weight:600;color:var(--gold);letter-spacing:.02em;display:inline-block;opacity:0;transition:opacity 1.2s ease,transform 1.2s ease;"></span>
       </div>
       <h1 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,6vw,3.2rem);font-weight:700;line-height:1.15;margin-bottom:1rem;color:var(--ink);">Academic Excellence,<br><span style="color:var(--gold);">Precisely Tracked.</span></h1>
-      <p style="font-size:1rem;color:var(--ink2);margin-bottom:2.5rem;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;">The complete marks management platform — enter grades, generate report cards, track performance, and stay connected with parents.</p>
+      <p style="font-size:1rem;color:var(--ink2);margin-bottom:2.5rem;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;">The international academic management platform — 10 languages, 8 grading systems (IB, Cambridge, A-Level, GPA…), school-isolated data, honor roll, academic transcripts, GPA with credit hours, auto-generated remarks, bulk mark paste, and analytics PDF export.</p>
 
       <!-- ══ THREE LOGIN PORTALS ══ -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;max-width:680px;margin:0 auto 2rem;">
@@ -812,7 +992,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
              onmouseout="this.style.borderColor='rgba(62,207,142,.35)';this.style.transform='';this.style.boxShadow=''">
           <div style="font-size:2.4rem;margin-bottom:.7rem;">👪</div>
           <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:.4rem;">Parent</div>
-          <div style="font-size:.78rem;color:var(--ink3);line-height:1.5;">Follow your child's quiz progress and morning scores</div>
+          <div style="font-size:.78rem;color:var(--ink3);line-height:1.5;">Follow your child's morning quiz scores week by week</div>
           <div style="margin-top:1rem;display:inline-flex;align-items:center;gap:5px;background:var(--green);color:#0a3d2a;border-radius:7px;padding:6px 14px;font-size:.82rem;font-weight:700;">Sign In / Register →</div>
         </div>
 
@@ -837,7 +1017,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;"><div style="font-size:1.6rem;margin-bottom:.7rem;">✏️</div><div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Marks Entry</div><div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Enter grades by class, subject and term with component breakdown — EU, ET, Quiz.</div></div>
         <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;"><div style="font-size:1.6rem;margin-bottom:.7rem;">📄</div><div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Report Cards</div><div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Generate polished, printable report cards with school logo, motto and signatures.</div></div>
         <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;"><div style="font-size:1.6rem;margin-bottom:.7rem;">🌅</div><div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Morning Quiz</div><div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Weekly quiz tracking visible to teachers and parents — separate from term marks.</div></div>
-        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;"><div style="font-size:1.6rem;margin-bottom:.7rem;">👪</div><div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Parent Portal</div><div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Parents register with their child's academic code and follow quiz progress online.</div></div>
+        <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;"><div style="font-size:1.6rem;margin-bottom:.7rem;">👪</div><div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Parent Portal</div><div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Parents register with their child's academic code and follow morning quiz scores week by week.</div></div>
         <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;"><div style="font-size:1.6rem;margin-bottom:.7rem;">🏫</div><div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Multi-School</div><div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Superadmin manages multiple schools — each with their own isolated data.</div></div>
         <div style="background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.3rem;"><div style="font-size:1.6rem;margin-bottom:.7rem;">⏸</div><div style="font-weight:600;color:var(--ink);margin-bottom:.4rem;font-size:.95rem;">Access Control</div><div style="font-size:.82rem;color:var(--ink3);line-height:1.6;">Pause schools, manage admins, and control who sees what across your system.</div></div>
       </div>
@@ -870,9 +1050,17 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <span id="login-typing" style="font-size:.82rem;font-weight:600;color:var(--gold);letter-spacing:.02em;display:inline-block;opacity:0;transition:opacity 1.2s ease,transform 1.2s ease;"></span>
     </div>
     <!-- LANGUAGE TOGGLE -->
-    <div style="display:flex;justify-content:center;gap:8px;margin:.5rem 0 .5rem;">
-      <button id="lang-en-btn" onclick="setAppLang('en')" style="flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--gold);background:rgba(240,180,41,.15);color:var(--gold);font-weight:700;cursor:pointer;font-size:.82rem;transition:all .2s;">🇬🇧 English</button>
-      <button id="lang-fr-btn" onclick="setAppLang('fr')" style="flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--bd);background:var(--s2);color:var(--ink2);font-weight:600;cursor:pointer;font-size:.82rem;transition:all .2s;">🇫🇷 Français</button>
+    <div class="lang-grid" id="lang-grid-btns" style="justify-content:center;margin:.5rem 0 .5rem;">
+      <button class="lang-btn-intl active" id="lang-en-btn" onclick="setAppLang('en')">🇬🇧 EN</button>
+      <button class="lang-btn-intl" id="lang-fr-btn" onclick="setAppLang('fr')">🇫🇷 FR</button>
+      <button class="lang-btn-intl" id="lang-es-btn" onclick="setAppLang('es')">🇪🇸 ES</button>
+      <button class="lang-btn-intl" id="lang-pt-btn" onclick="setAppLang('pt')">🇧🇷 PT</button>
+      <button class="lang-btn-intl" id="lang-sw-btn" onclick="setAppLang('sw')">🌍 SW</button>
+      <button class="lang-btn-intl" id="lang-ar-btn" onclick="setAppLang('ar')">🇸🇦 AR</button>
+      <button class="lang-btn-intl" id="lang-de-btn" onclick="setAppLang('de')">🇩🇪 DE</button>
+      <button class="lang-btn-intl" id="lang-zh-btn" onclick="setAppLang('zh')">🇨🇳 ZH</button>
+      <button class="lang-btn-intl" id="lang-rw-btn" onclick="setAppLang('rw')">🇷🇼 RW</button>
+      <button class="lang-btn-intl" id="lang-hi-btn" onclick="setAppLang('hi')">🇮🇳 HI</button>
     </div>
     <div class="lerr" id="lerr">❌ Invalid username or password.</div>
     <div class="lf"><label id="lbl-username">Username</label><input type="text" id="luser" placeholder="Enter username" autocomplete="username"></div>
@@ -881,7 +1069,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     <button class="lreset" id="resetBtn">Can't login? Reset to defaults</button>
     <div style="margin-top:1rem;padding:.75rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.18);border-radius:8px;text-align:center;">
       <div style="font-size:.65rem;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">Having trouble? Contact support</div>
-      <a href="tel:0792580714" style="font-size:1rem;font-weight:700;color:var(--blue);text-decoration:none;letter-spacing:.04em;">📞 0792 580 714</a>
+      <a href="tel:+250792580714" style="font-size:1rem;font-weight:700;color:var(--blue);text-decoration:none;letter-spacing:.04em;">📞 0792 580 714</a>
     </div>
   </div>
 </div>
@@ -907,7 +1095,10 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     <!-- LOGIN TAB -->
     <div id="parent-login-tab">
       <div class="lerr" id="parent-lerr" style="display:none;">❌ Invalid email or password.</div>
-      <div class="lf"><label>Email Address</label><input type="email" id="p-email-login" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="lf"><label>School</label>
+        <select id="p-school-login" style="width:100%;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;"></select>
+      </div>
+      <div class="lf" style="margin-top:.6rem;"><label>Email Address</label><input type="email" id="p-email-login" placeholder="your@email.com" autocomplete="email"></div>
       <div class="lf" style="margin-top:.7rem;"><label>Password</label>
         <div class="pw-wrap"><input type="password" id="p-pass-login" placeholder="Your password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-login',this)">👁</button></div>
       </div>
@@ -937,7 +1128,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 
     <div style="margin-top:.9rem;padding:.6rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.18);border-radius:8px;text-align:center;">
       <div style="font-size:.65rem;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">Having trouble? Contact support</div>
-      <a href="tel:0792580714" style="font-size:1rem;font-weight:700;color:var(--blue);text-decoration:none;letter-spacing:.04em;">📞 0792 580 714</a>
+      <a href="tel:+250792580714" style="font-size:1rem;font-weight:700;color:var(--blue);text-decoration:none;letter-spacing:.04em;">📞 0792 580 714</a>
     </div>
   </div>
 </div>
@@ -948,7 +1139,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
   <div style="height:54px;background:var(--s1);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;position:sticky;top:0;z-index:100;">
     <div>
       <div id="parent-portal-logo" style="font-family:'Playfair Display',serif;font-size:1.15rem;">SC<span style="color:var(--gold)">ORIX</span></div>
-      <div style="font-size:.62rem;color:var(--ink3);">Parent Portal</div>
+      <div style="font-size:.62rem;color:var(--ink3);">Academic Results Portal</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="theme-toggle" onclick="toggleTheme()" style="font-size:.8rem;"><span class="tt-icon">🌙</span></button>
@@ -1139,6 +1330,11 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 
       <!-- DASHBOARD -->
       <div class="page" id="p-dashboard">
+        <div id="dash-cal-info" style="font-size:.74rem;color:var(--ink2);margin-bottom:.65rem;padding:.45rem .85rem;background:var(--s2);border-radius:7px;border:1px solid var(--bd);display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+        <div id="dash-honor-wrap" style="display:none;margin-bottom:.75rem;padding:.6rem 1rem;background:rgba(240,180,41,.07);border:1px solid rgba(240,180,41,.2);border-radius:8px;align-items:center;gap:7px;">
+          <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);">🏆 Honor Roll</span>
+          <span id="dash-honor-row" style="font-size:.82rem;color:var(--ink2);"></span>
+        </div>
         <div class="ph" style="flex-wrap:wrap;gap:.7rem;">
           <div><div class="phtitle">Dashboard</div><div class="phsub" id="dwelcome"></div></div>
           <!-- MODE SWITCHER: Term Marks / Morning Quiz -->
@@ -1362,13 +1558,16 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <div class="page" id="p-quizprocl">
         <div class="ph">
           <div>
-            <div class="phtitle">&#127749; Quiz Proclamation</div>
-            <div class="phsub">Student progress — morning quiz rankings &amp; per-subject breakdown</div>
+            <div class="phtitle">&#127749; Quiz Rankings</div>
+            <div class="phsub">Morning quiz progress &amp; per-subject breakdown — no report cards for quizzes</div>
           </div>
-          <div class="phact">
+          <div class="phact" style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn ghost" onclick="printQuizProcl()">🖨️ Print</button>
             <button class="btn ghost" onclick="toggleQuizView()" id="qpViewToggleBtn">&#128202; Subject Breakdown</button>
-            <button class="btn ghost" onclick="printQuizProcl()">&#128424; Print</button>
           </div>
+        </div>
+        <div class="al info noprint" style="margin-bottom:1rem;padding:9px 14px;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.22);border-radius:8px;font-size:.78rem;color:var(--blue);">
+          ℹ️ <strong>Morning Quiz rankings do not generate report cards.</strong> These scores are for tracking weekly progress only and have no impact on official term results.
         </div>
         <div class="card noprint" style="margin-bottom:1rem;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;flex-wrap:wrap;">
@@ -1628,10 +1827,133 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           </div>
           <button class="btn gold" onclick="saveGrades()">Save Grade Scale</button>
         </div>
+        
+        <div class="card" id="bridgeCard">
+          <div class="ctitle">🌉 Academic Bridge Compatibility</div>
+          <div style="font-size:.78rem;color:var(--ink2);margin-bottom:.9rem;line-height:1.6;">
+            Mark your school's curriculum compatibility. These badges appear on transcripts and report cards, helping students when transferring internationally.
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.9rem;" id="bridge-badges">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="bridge-cambridge" onchange="saveBridgeBadges()">
+              <span class="compat-badge cambridge">🎓 Cambridge</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="bridge-ib" onchange="saveBridgeBadges()">
+              <span class="compat-badge ib">🌐 IB</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="bridge-ap" onchange="saveBridgeBadges()">
+              <span class="compat-badge ap">⚡ AP</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="bridge-national" onchange="saveBridgeBadges()">
+              <span class="compat-badge national">🏫 National</span>
+            </label>
+          </div>
+          <div class="fg">
+            <label>Accreditation Body / Ministry</label>
+            <input type="text" id="bridge-accred" placeholder="e.g. REB, Cambridge, WAEC, Edexcel…" oninput="saveBridgeBadges()">
+          </div>
+          <div style="margin-top:.7rem;padding:.6rem .9rem;background:var(--s2);border:1px solid var(--bd);border-radius:7px;font-size:.74rem;color:var(--ink3);">
+            💡 Tip: Setting Academic System to "IB Diploma" or "UK A-Level" automatically aligns report cards with those frameworks.
+          </div>
+        </div>
+
+        <div class="card" id="intlCard">
+          <div class="ctitle">🌍 International &amp; Academic Settings</div>
+          <div id="setIntlAlert"></div>
+          <div class="g2" style="margin-bottom:.9rem;">
+            <div class="fg">
+              <label>🎓 Grading System</label>
+              <select id="set-acadSystem" onchange="previewAcadSystem()">
+                <option value="standard">Standard (A–F)</option>
+                <option value="us_gpa">US GPA (4.0 Scale)</option>
+                <option value="uk_alevel">UK A-Level (A*/A/B/C/D/E/U)</option>
+                <option value="french">French Baccalaureate (TB/B/AB)</option>
+                <option value="ib">IB Diploma (1–7)</option>
+                <option value="german">German (1–6)</option>
+                <option value="east_africa">East Africa (D1/C3/P7/F9)</option>
+                <option value="rwanda">Rwanda REB</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>🌐 Country / Region</label>
+              <input type="text" id="set-country" placeholder="e.g. Rwanda, Kenya, USA, France">
+            </div>
+            <div class="fg">
+              <label>🗓️ Date Format</label>
+              <select id="set-locale">
+                <option value="en-US">MM/DD/YYYY (US)</option>
+                <option value="en-GB">DD/MM/YYYY (UK/Africa)</option>
+                <option value="fr-FR">DD/MM/YYYY (French)</option>
+                <option value="de-DE">DD.MM.YYYY (German)</option>
+                <option value="zh-CN">YYYY/MM/DD (Chinese)</option>
+                <option value="ar-SA">Arabic</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>🕐 Timezone</label>
+              <select id="set-timezone">
+                <option value="UTC">UTC</option>
+                <option value="Africa/Kigali">Africa/Kigali (CAT +2)</option>
+                <option value="Africa/Nairobi">Africa/Nairobi (EAT +3)</option>
+                <option value="Africa/Lagos">Africa/Lagos (WAT +1)</option>
+                <option value="Africa/Johannesburg">Africa/Johannesburg (SAST +2)</option>
+                <option value="Africa/Casablanca">Africa/Casablanca (WET)</option>
+                <option value="Europe/Paris">Europe/Paris (CET +1)</option>
+                <option value="Europe/London">Europe/London (GMT/BST)</option>
+                <option value="America/New_York">America/New_York (EST -5)</option>
+                <option value="America/Los_Angeles">America/LA (PST -8)</option>
+                <option value="America/Sao_Paulo">America/Sao Paulo (BRT -3)</option>
+                <option value="Asia/Dubai">Asia/Dubai (GST +4)</option>
+                <option value="Asia/Shanghai">Asia/Shanghai (CST +8)</option>
+                <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
+                <option value="Asia/Tokyo">Asia/Tokyo (JST +9)</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>📊 GPA Calculation</label>
+              <select id="set-gpaEnabled">
+                <option value="false">Disabled (percentage only)</option>
+                <option value="true">Enabled (show GPA on reports)</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>📚 Credit Hours Weighting</label>
+              <select id="set-creditHours">
+                <option value="false">Disabled</option>
+                <option value="true">Enabled (weight GPA by credits)</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>📄 Report Card Language</label>
+              <select id="set-reportLang">
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="es">Español</option>
+                <option value="rw">Kinyarwanda</option>
+                <option value="sw">Kiswahili</option>
+                <option value="de">Deutsch</option>
+                <option value="ar">العربية</option>
+                <option value="pt">Português</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>💰 Currency</label>
+              <input type="text" id="set-currency" placeholder="e.g. USD, RWF, KES, EUR, GBP">
+            </div>
+          </div>
+          <div id="acadSystemPreview" style="margin-bottom:.9rem;padding:.9rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;"></div>
+          <button class="btn gold" onclick="saveIntlSettings()">💾 Save International Settings</button>
+        </div>
+
         <div class="card" id="dataCard">
           <div class="ctitle" style="color:var(--red);">⚠️ Data Management</div>
           <div class="brow">
             <button class="btn ghost" onclick="exportData()">📤 Export Backup</button>
+            <button class="btn ghost" onclick="exportCSV()">📊 Export CSV</button>
+            <button class="btn ghost" onclick="exportAnalyticsPDF()">📈 Analytics PDF</button>
             <button class="btn ghost" onclick="document.getElementById('bkf').click()">📥 Import Backup</button>
             <button class="btn red" onclick="clearAll()">🗑️ Clear All Data</button>
           </div>
@@ -1904,6 +2226,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     </select></div>
     <div class="fg" id="ms-maxmark"><label>Max Mark</label><input type="number" id="msmax" value="100" min="1" placeholder="e.g. 100"></div>
     <div class="fg" id="ms-pass"><label>Promotion Mark</label><input type="number" id="msp" value="50" min="0" placeholder="e.g. 50"></div>
+    <div class="fg" id="ms-credits" style="display:none;"><label>Credit Hours <span style="color:var(--ink3);font-weight:400;">(optional)</span></label><input type="number" id="mscredit" value="3" min="1" max="12" placeholder="e.g. 3"></div>
   </div>
   <div id="ms-grades" style="margin-bottom:.9rem;">
     <div class="ctitle" style="margin-bottom:.6rem;">Grade Thresholds (% of max mark)</div>
@@ -2001,6 +2324,73 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     <div class="fg"><label>Parent Phone <span style="color:var(--ink3);font-weight:400;">(optional)</span></label><input type="text" id="mestpphone" placeholder="e.g. 0788123456"></div>
   </div>
   <button class="btn gold" onclick="saveEditStudent()">Save Changes</button>
+</div></div>
+
+<!-- ══ REPORT SETTINGS MODAL ══════════════════════════════════════════ -->
+<div class="mbg" id="mrp"><div class="modal" style="max-width:580px;">
+  <div class="mhead">
+    <div>
+      <div class="mtitle">⚙️ Report Card Settings</div>
+      <div style="font-size:.7rem;color:var(--ink3);margin-top:2px;">Level: <strong id="mrp-level-label" style="color:var(--gold);">PRIMARY</strong></div>
+    </div>
+    <button class="mx" onclick="cm('mrp')" aria-label="Close">✕</button>
+  </div>
+
+  <div id="mrpAlert" style="margin-bottom:.5rem;"></div>
+
+  <!-- ── PROMOTION MARK ── -->
+  <div style="background:rgba(240,180,41,.07);border:1px solid rgba(240,180,41,.25);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+    <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);margin-bottom:.7rem;">🎯 Promotion / Repeat Decision</div>
+    <div style="font-size:.76rem;color:var(--ink2);margin-bottom:.8rem;line-height:1.6;">
+      On the <strong>Term 3 ET (Exam)</strong> report card, a <em>PROMOTED / REPEAT</em> verdict is printed automatically.<br>
+      Set the minimum average % a student must reach across the <strong>★ subjects</strong> below to be promoted.
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:.9rem;flex-wrap:wrap;margin-bottom:.7rem;">
+      <div class="fg" style="max-width:160px;">
+        <label>Minimum % to be PROMOTED</label>
+        <input type="number" id="mrp-promoMark" min="0" max="100" placeholder="e.g. 50" style="font-size:1.1rem;font-weight:700;color:var(--gold);">
+      </div>
+      <div style="font-size:.75rem;color:var(--ink3);padding-bottom:8px;">Students below this average on ★ subjects<br>will be marked <strong style="color:var(--red);">❌ REPEAT / NOT PROMOTED</strong></div>
+    </div>
+  </div>
+
+  <!-- ── REPORT MODE ── -->
+  <div style="margin-bottom:1rem;">
+    <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;">📊 Report Mode</div>
+    <div style="display:flex;gap:.7rem;flex-wrap:wrap;">
+      <div class="chk-item" id="rmode-single" onclick="setReportMode(false)" style="flex:1;min-width:140px;">
+        <div class="chk-box" id="rmode-single-box"></div>
+        <div>
+          <div style="font-weight:600;font-size:.86rem;">Single Period</div>
+          <div style="font-size:.72rem;color:var(--ink3);">One EU or ET at a time</div>
+        </div>
+      </div>
+      <div class="chk-item" id="rmode-merge" onclick="setReportMode(true)" style="flex:1;min-width:140px;">
+        <div class="chk-box" id="rmode-merge-box"></div>
+        <div>
+          <div style="font-weight:600;font-size:.86rem;">Merge EU + ET</div>
+          <div style="font-size:.72rem;color:var(--ink3);">Combined term report</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUBJECT CONFIGURATION ── -->
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.4rem;">
+    📚 Subjects &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;">— Show on card · Weight % · ★ Count for promotion</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 44px 64px 44px;gap:5px;align-items:center;padding:4px 8px;margin-bottom:3px;">
+    <span style="font-size:.63rem;color:var(--ink3);font-weight:700;text-transform:uppercase;">Subject</span>
+    <span style="font-size:.63rem;color:var(--ink3);font-weight:700;text-transform:uppercase;text-align:center;">Show</span>
+    <span style="font-size:.63rem;color:var(--ink3);font-weight:700;text-transform:uppercase;text-align:center;">Weight</span>
+    <span style="font-size:.63rem;color:var(--gold);font-weight:700;text-transform:uppercase;text-align:center;">★ Promo</span>
+  </div>
+  <div id="rpSubjConfig" style="display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;margin-bottom:1rem;padding-right:2px;"></div>
+
+  <div style="display:flex;gap:.7rem;justify-content:flex-end;flex-wrap:wrap;">
+    <button class="btn ghost" onclick="cm('mrp')">Cancel</button>
+    <button class="btn gold" onclick="saveReportSettings()">💾 Save Settings</button>
+  </div>
 </div></div>
 
 <!-- ══ ADD SCHOOL MODAL ══════════════════════════════════════════════ -->
@@ -2112,6 +2502,383 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 
+
+// ████████████████████████████████████████████████████████████████████
+// █  INTERNATIONAL ACADEMIC SYSTEMS
+// █  GPA conversion, grade scales, honor roll thresholds
+// ████████████████████████████████████████████████████████████████████
+
+var ACADEMIC_SYSTEMS = {
+  standard: {
+    name: 'Standard (A-F)',
+    grades: [
+      { letter: 'A', minPct: 80, gpa: 4.0, label: 'Excellent' },
+      { letter: 'B', minPct: 70, gpa: 3.0, label: 'Good' },
+      { letter: 'C', minPct: 60, gpa: 2.0, label: 'Average' },
+      { letter: 'D', minPct: 50, gpa: 1.0, label: 'Pass' },
+      { letter: 'F', minPct: 0,  gpa: 0.0, label: 'Fail' }
+    ],
+    promotionPct: 50,
+    honorRoll: { gold: 90, silver: 80, bronze: 70 }
+  },
+  us_gpa: {
+    name: 'US GPA (4.0 Scale)',
+    grades: [
+      { letter: 'A+', minPct: 97, gpa: 4.0, label: 'Outstanding' },
+      { letter: 'A',  minPct: 93, gpa: 4.0, label: 'Excellent' },
+      { letter: 'A-', minPct: 90, gpa: 3.7, label: 'Excellent' },
+      { letter: 'B+', minPct: 87, gpa: 3.3, label: 'Good' },
+      { letter: 'B',  minPct: 83, gpa: 3.0, label: 'Good' },
+      { letter: 'B-', minPct: 80, gpa: 2.7, label: 'Good' },
+      { letter: 'C+', minPct: 77, gpa: 2.3, label: 'Satisfactory' },
+      { letter: 'C',  minPct: 73, gpa: 2.0, label: 'Satisfactory' },
+      { letter: 'C-', minPct: 70, gpa: 1.7, label: 'Satisfactory' },
+      { letter: 'D+', minPct: 67, gpa: 1.3, label: 'Poor' },
+      { letter: 'D',  minPct: 63, gpa: 1.0, label: 'Poor' },
+      { letter: 'D-', minPct: 60, gpa: 0.7, label: 'Poor' },
+      { letter: 'F',  minPct: 0,  gpa: 0.0, label: 'Failing' }
+    ],
+    promotionPct: 60,
+    honorRoll: { gold: 90, silver: 80, bronze: 70 }
+  },
+  uk_alevel: {
+    name: 'UK A-Level',
+    grades: [
+      { letter: 'A*', minPct: 90, gpa: 4.0, label: 'Outstanding' },
+      { letter: 'A',  minPct: 80, gpa: 4.0, label: 'Excellent' },
+      { letter: 'B',  minPct: 70, gpa: 3.0, label: 'Good' },
+      { letter: 'C',  minPct: 60, gpa: 2.0, label: 'Average' },
+      { letter: 'D',  minPct: 50, gpa: 1.5, label: 'Satisfactory' },
+      { letter: 'E',  minPct: 40, gpa: 1.0, label: 'Pass' },
+      { letter: 'U',  minPct: 0,  gpa: 0.0, label: 'Ungraded' }
+    ],
+    promotionPct: 40,
+    honorRoll: { gold: 90, silver: 80, bronze: 70 }
+  },
+  french: {
+    name: 'French Baccalaureate (0–20)',
+    grades: [
+      { letter: 'TB', minPct: 80, gpa: 4.0, label: 'Très Bien' },
+      { letter: 'B',  minPct: 70, gpa: 3.0, label: 'Bien' },
+      { letter: 'AB', minPct: 60, gpa: 2.0, label: 'Assez Bien' },
+      { letter: 'P',  minPct: 50, gpa: 1.0, label: 'Passable' },
+      { letter: 'I',  minPct: 0,  gpa: 0.0, label: 'Insuffisant' }
+    ],
+    promotionPct: 50,
+    honorRoll: { gold: 80, silver: 70, bronze: 60 }
+  },
+  ib: {
+    name: 'IB Diploma (1–7)',
+    grades: [
+      { letter: '7', minPct: 86, gpa: 4.0, label: 'Excellent' },
+      { letter: '6', minPct: 73, gpa: 3.5, label: 'Very Good' },
+      { letter: '5', minPct: 61, gpa: 3.0, label: 'Good' },
+      { letter: '4', minPct: 50, gpa: 2.5, label: 'Satisfactory' },
+      { letter: '3', minPct: 38, gpa: 2.0, label: 'Mediocre' },
+      { letter: '2', minPct: 27, gpa: 1.0, label: 'Poor' },
+      { letter: '1', minPct: 0,  gpa: 0.0, label: 'Very Poor' }
+    ],
+    promotionPct: 50,
+    honorRoll: { gold: 86, silver: 73, bronze: 61 }
+  },
+  german: {
+    name: 'German (1–6, lower is better)',
+    grades: [
+      { letter: '1', minPct: 87, gpa: 4.0, label: 'Sehr Gut' },
+      { letter: '2', minPct: 75, gpa: 3.0, label: 'Gut' },
+      { letter: '3', minPct: 62, gpa: 2.0, label: 'Befriedigend' },
+      { letter: '4', minPct: 50, gpa: 1.0, label: 'Ausreichend' },
+      { letter: '5', minPct: 30, gpa: 0.5, label: 'Mangelhaft' },
+      { letter: '6', minPct: 0,  gpa: 0.0, label: 'Ungenügend' }
+    ],
+    promotionPct: 50,
+    honorRoll: { gold: 87, silver: 75, bronze: 62 }
+  },
+  east_africa: {
+    name: 'East Africa (E.A. Standard)',
+    grades: [
+      { letter: 'D1', minPct: 80, gpa: 4.0, label: 'Distinction' },
+      { letter: 'D2', minPct: 75, gpa: 3.5, label: 'Distinction' },
+      { letter: 'C3', minPct: 70, gpa: 3.0, label: 'Credit' },
+      { letter: 'C4', minPct: 65, gpa: 2.7, label: 'Credit' },
+      { letter: 'C5', minPct: 60, gpa: 2.3, label: 'Credit' },
+      { letter: 'C6', minPct: 55, gpa: 2.0, label: 'Credit' },
+      { letter: 'P7', minPct: 50, gpa: 1.5, label: 'Pass' },
+      { letter: 'P8', minPct: 45, gpa: 1.0, label: 'Pass' },
+      { letter: 'F9', minPct: 0,  gpa: 0.0, label: 'Fail' }
+    ],
+    promotionPct: 45,
+    honorRoll: { gold: 80, silver: 70, bronze: 60 }
+  },
+  rwanda: {
+    name: 'Rwanda REB Standard',
+    grades: [
+      { letter: 'A', minPct: 80, gpa: 4.0, label: 'Excellent' },
+      { letter: 'B', minPct: 70, gpa: 3.0, label: 'Good' },
+      { letter: 'C', minPct: 60, gpa: 2.0, label: 'Average' },
+      { letter: 'D', minPct: 50, gpa: 1.0, label: 'Pass' },
+      { letter: 'F', minPct: 0,  gpa: 0.0, label: 'Fail' }
+    ],
+    promotionPct: 50,
+    honorRoll: { gold: 90, silver: 80, bronze: 70 }
+  }
+};
+
+// Get active academic system config
+function getAcadSystem(){
+  var key = (DB.settings && DB.settings.academicSystem) || 'standard';
+  return ACADEMIC_SYSTEMS[key] || ACADEMIC_SYSTEMS.standard;
+}
+
+// Convert percentage to letter grade using active system
+function pctToGrade(pct){
+  if(pct === null || pct === undefined || isNaN(pct)) return '—';
+  var sys = getAcadSystem();
+  for(var i = 0; i < sys.grades.length; i++){
+    if(pct >= sys.grades[i].minPct) return sys.grades[i].letter;
+  }
+  return sys.grades[sys.grades.length - 1].letter;
+}
+
+// Convert percentage to GPA points
+function pctToGPA(pct){
+  if(pct === null || isNaN(pct)) return null;
+  var sys = getAcadSystem();
+  for(var i = 0; i < sys.grades.length; i++){
+    if(pct >= sys.grades[i].minPct) return sys.grades[i].gpa;
+  }
+  return 0;
+}
+
+// Calculate cumulative GPA from subject marks
+function calcGPA(marks){ // marks: [{pct, credits}]
+  if(!marks || !marks.length) return null;
+  var totalPoints = 0, totalCredits = 0;
+  marks.forEach(function(m){
+    if(m.pct === null) return;
+    var gp = pctToGPA(m.pct);
+    var cr = m.credits || 1;
+    totalPoints += gp * cr;
+    totalCredits += cr;
+  });
+  return totalCredits > 0 ? (totalPoints / totalCredits) : null;
+}
+
+// Honor roll classification
+function getHonorRoll(pct){
+  if(pct === null) return null;
+  var hr = getAcadSystem().honorRoll;
+  if(pct >= hr.gold)   return { label: 'Gold Honor Roll',   class: 'gold',   emoji: '🥇' };
+  if(pct >= hr.silver) return { label: 'Silver Honor Roll', class: 'silver', emoji: '🥈' };
+  if(pct >= hr.bronze) return { label: 'Bronze Honor Roll', class: 'bronze', emoji: '🥉' };
+  return null;
+}
+
+
+
+
+// ── Clipboard Paste Bulk Mark Entry ──
+// Accepts tab-separated or comma-separated values: studentName/ID, mark1, mark2, ...
+function pasteMarksFromClipboard(){
+  navigator.clipboard.readText().then(function(text){
+    if(!text){ alert('Clipboard is empty.'); return; }
+    var lines = text.trim().split(/\r?\n/);
+    var imported = 0, skipped = 0;
+    var sel = document.getElementById('mkCls');
+    var subSel = document.getElementById('mkSub');
+    var termSel = document.getElementById('mkTerm');
+    if(!sel||!subSel||!termSel){ alert('Please select class, subject, and term first.'); return; }
+    var cid = sel.value, subId = subSel.value;
+    var termRaw = termSel.value;
+    if(!cid||!subId||!termRaw){ alert('Select class, subject, and term before pasting.'); return; }
+    var tp = parseTermPeriod(termRaw);
+    var sub = DB.subjects.find(function(s){ return s.id===subId; });
+    var maxMark = parseFloat((sub&&sub.scale)||100);
+    lines.forEach(function(line){
+      var parts = line.split(/\t|,/);
+      if(parts.length < 2) return;
+      var nameOrId = parts[0].trim();
+      var markVal  = parseFloat(parts[1]);
+      if(isNaN(markVal)) return;
+      markVal = Math.min(Math.max(markVal, 0), maxMark);
+      // Match by name or SID
+      var st = DB.students.find(function(s){
+        return s.classId===cid && (s.sid.toUpperCase()===nameOrId.toUpperCase() || s.name.toLowerCase()===nameOrId.toLowerCase());
+      });
+      if(!st){ skipped++; return; }
+      var term = DB.terms.find(function(t){ return t.id===tp.termId; });
+      var comp = term && term.components && term.components.find(function(c){ return c.id===tp.compId; });
+      if(!comp) comp = term && term.components && term.components[0];
+      if(!comp) return;
+      var key = getYearMarkKey(st.id, subId, term.id, comp.id);
+      DB.marks[key] = markVal;
+      imported++;
+    });
+    if(imported > 0){ dbSave(); setupMarks(); }
+    alert('✅ Pasted: '+imported+' marks imported. '+skipped+' rows skipped (student not found).');
+  }).catch(function(){ alert('Could not read clipboard. Make sure you have copied a table.'); });
+}
+
+// ── Smart International CSV Export ──
+function exportCSV(){
+  var rows = [['Student Name','Student ID','Class','Subject','Component','Mark','Max Mark','%','Grade']];
+  var locale = DB.settings.locale || 'en-US';
+  DB.students.forEach(function(st){
+    var cls = DB.classes.find(function(c){ return c.id===st.classId; });
+    DB.subjects.forEach(function(sub){
+      DB.terms.forEach(function(t){
+        if(!t.active) return;
+        (t.components||[]).forEach(function(comp){
+          var key = st.id+'_'+sub.id+'_'+t.id+'_'+comp.id;
+          var v = DB.marks[key];
+          if(v===undefined||v==='') return;
+          var mark = parseFloat(v);
+          var maxMark = parseFloat(sub.scale||100);
+          var pct = (mark/maxMark)*100;
+          rows.push([
+            st.name, st.sid,
+            cls ? cls.name : '',
+            sub.name,
+            comp.name,
+            mark, maxMark,
+            pct.toFixed(1)+'%',
+            pctToGrade(pct)
+          ]);
+        });
+      });
+    });
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = (DB.settings.schoolName||'SCORIX')+'_marks_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  addLog('📊 CSV export generated');
+}
+
+// ── Export Analytics PDF ──
+function exportAnalyticsPDF(){
+  var sys = getAcadSystem();
+  var subs = DB.subjects.filter(function(s){ return s.scale!=='letter'; });
+  var html = '<html><head><meta charset="UTF-8"><style>body{font-family:Outfit,Arial,sans-serif;background:#fff;color:#111;padding:20px;}h1{color:#1a237e;}table{border-collapse:collapse;width:100%;}th{background:#1a237e;color:#fff;padding:7px;}td{padding:6px;border:1px solid #ddd;}tr:nth-child(even){background:#f5f7fc;}.gb{padding:2px 8px;border-radius:8px;font-weight:700;}</style></head><body>';
+  html += '<h1>📊 Analytics Report — '+(DB.settings.schoolName||'School')+'</h1>';
+  html += '<p style="color:#666;font-size:.85rem;">Generated: '+new Date().toLocaleString(DB.settings.locale||'en-US')+'  |  System: '+sys.name+'</p>';
+  html += '<h2 style="color:#283593;">Subject Averages</h2>';
+  html += '<table><tr><th>Subject</th><th>Average %</th><th>Grade</th><th>Pass Rate</th><th>Highest</th><th>Lowest</th></tr>';
+  subs.forEach(function(sub){
+    var vals = [];
+    DB.students.forEach(function(st){
+      DB.terms.forEach(function(t){
+        if(!t.active) return;
+        (t.components||[]).forEach(function(c){
+          var v = DB.marks[st.id+'_'+sub.id+'_'+t.id+'_'+c.id];
+          if(v!==undefined&&v!=='') vals.push(parseFloat(v)/parseFloat(sub.scale||100)*100);
+        });
+      });
+    });
+    if(!vals.length){ html += '<tr><td>'+sub.name+'</td><td colspan="5" style="color:#aaa;">No data</td></tr>'; return; }
+    var avg = vals.reduce(function(a,b){return a+b;},0)/vals.length;
+    var passRate = vals.filter(function(v){ return v>=parseFloat(sub.pass||50)/parseFloat(sub.scale||100)*100; }).length/vals.length*100;
+    var hi = Math.max.apply(null,vals), lo = Math.min.apply(null,vals);
+    var grade = pctToGrade(avg);
+    var color = avg>=80?'#2e7d32':avg>=60?'#1565c0':avg>=50?'#e65100':'#c62828';
+    html += '<tr><td>'+sub.name+'</td><td>'+avg.toFixed(1)+'%</td><td style="color:'+color+';font-weight:700;">'+grade+'</td><td>'+passRate.toFixed(0)+'%</td><td>'+hi.toFixed(1)+'%</td><td>'+lo.toFixed(1)+'%</td></tr>';
+  });
+  html += '</table>';
+  html += '<h2 style="color:#283593;">Honor Roll</h2>';
+  var honorStudents = [];
+  DB.students.forEach(function(st){
+    var subVals = [];
+    subs.forEach(function(sub){
+      var marks = [];
+      DB.terms.forEach(function(t){
+        if(!t.active) return;
+        (t.components||[]).forEach(function(c){
+          var v = DB.marks[st.id+'_'+sub.id+'_'+t.id+'_'+c.id];
+          if(v!==undefined&&v!=='') marks.push(parseFloat(v)/parseFloat(sub.scale||100)*100);
+        });
+      });
+      if(marks.length) subVals.push(marks.reduce(function(a,b){return a+b;},0)/marks.length);
+    });
+    if(!subVals.length) return;
+    var avg = subVals.reduce(function(a,b){return a+b;},0)/subVals.length;
+    var hr = getHonorRoll(avg);
+    if(hr) honorStudents.push({st:st, avg:avg, hr:hr});
+  });
+  honorStudents.sort(function(a,b){ return b.avg-a.avg; });
+  if(honorStudents.length){
+    html += '<table><tr><th>Medal</th><th>Student</th><th>Class</th><th>Average</th><th>GPA</th></tr>';
+    honorStudents.forEach(function(x){
+      var cls = DB.classes.find(function(c){ return c.id===x.st.classId; });
+      var gpa = pctToGPA(x.avg);
+      html += '<tr><td>'+x.hr.emoji+'</td><td>'+x.st.name+'</td><td>'+(cls?cls.name:'—')+'</td><td>'+x.avg.toFixed(1)+'%</td><td>'+gpa.toFixed(2)+'</td></tr>';
+    });
+    html += '</table>';
+  } else { html += '<p style="color:#aaa;">No honor roll data available yet.</p>'; }
+  html += '</body></html>';
+  var win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); setTimeout(function(){ win.print(); },600); }
+}
+
+// ── Auto-generate pedagogical remark from average ──
+function autoRemark(pct, lang){
+  lang = lang || APP_LANG;
+  var remarks = {
+    en: [
+      [90, "Outstanding academic performance. Exceptional dedication and mastery across all subjects."],
+      [80, "Excellent work. Demonstrates strong understanding and consistent effort throughout the term."],
+      [70, "Good performance. Shows solid grasp of the material with room to further excel."],
+      [60, "Satisfactory progress. Encouraged to deepen engagement with challenging topics."],
+      [50, "Adequate performance. Regular revision and additional practice recommended for improvement."],
+      [40, "Below expectations. Significant improvement needed. Please seek additional support."],
+      [0,  "Unsatisfactory results. Immediate intervention and dedicated study plan required."]
+    ],
+    fr: [
+      [90, "Performance académique exceptionnelle. Maîtrise remarquable dans toutes les matières."],
+      [80, "Excellent travail. Démontre une forte compréhension et un effort constant tout au long du trimestre."],
+      [70, "Bonne performance. Montre une bonne maîtrise du contenu avec des possibilités d'amélioration."],
+      [60, "Progrès satisfaisants. Encouraged à approfondir son engagement avec les sujets difficiles."],
+      [50, "Performance adéquate. Une révision régulière et plus de pratique sont recommandées."],
+      [40, "En dessous des attentes. Une amélioration significative est nécessaire."],
+      [0,  "Résultats insatisfaisants. Une intervention immédiate et un plan d'étude dédié sont requis."]
+    ],
+    rw: [
+      [90, "Ibisubizo bikomeye cyane. Akazi gakomeye no gusobanukirwa neza mu masomo yose."],
+      [80, "Akazi keza cyane. Yerekana gusobanukirwa neza no gukora buri gihe."],
+      [70, "Ibisubizo byiza. Yerekana gusobanukirwa neza ariko afite aho yagera."],
+      [60, "Iterambere ryiza. Yashishikarira gusobanukirwa inzego zigoye."],
+      [50, "Ibisubizo bisanzwe. Kwiga kenshi no gukora ibibazo ni ngombwa."],
+      [40, "Munsi y'icyateganijwe. Akeneye kunoza cyane. Baza ubufasha."],
+      [0,  "Ibisubizo bitandukanye. Gufatwa mu minota bihutirwa no gutegura gahunda y'inyigisho."]
+    ],
+    sw: [
+      [90, "Utendaji wa hali ya juu sana. Uelewa bora na bidii katika masomo yote."],
+      [80, "Kazi nzuri sana. Anaonyesha uelewa imara na juhudi za kila wakati."],
+      [70, "Utendaji mzuri. Anaonyesha uelewa wa kina lakini ana nafasi ya kuboresha."],
+      [60, "Maendeleo ya kuridhisha. Anahimizwa kushiriki zaidi katika mada ngumu."],
+      [50, "Utendaji wa wastani. Marudio ya mara kwa mara na mazoezi zaidi yanahitajika."],
+      [40, "Chini ya matarajio. Uboreshaji mkubwa unahitajika. Tafadhali tafuta msaada."],
+      [0,  "Matokeo yasiyoridhisha. Hatua za haraka zinahitajika."]
+    ]
+  };
+  var rows = (remarks[lang] || remarks['en']);
+  for(var i = 0; i < rows.length; i++){
+    if(pct >= rows[i][0]) return rows[i][1];
+  }
+  return rows[rows.length-1][1];
+}
+
+// Format date per locale
+function fmtDate(isoStr, locale){
+  if(!isoStr) return '';
+  try{
+    var d = new Date(isoStr);
+    var loc = locale || (DB.settings && DB.settings.locale) || 'en-US';
+    return d.toLocaleDateString(loc, { year:'numeric', month:'long', day:'numeric' });
+  }catch(e){ return isoStr.slice(0,10); }
+}
+
 // ██████████████████████████████████████████████████████████████████
 // █  §01  CONFIG & CONSTANTS
 // █  Supabase URL/key, DB schema, global vars (ME, CURRENT_LEVEL…)
@@ -2138,20 +2905,23 @@ async function sha256(str){
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return 'sha256:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
 }
-function pwMatch(stored, plain){
-  // Supports both sha256:HASH and legacy plain text
+// pwMatch: async-safe password comparison
+// Stored passwords are sha256:HASH or legacy plain text
+// Use pwMatchAsync() for login flows
+async function pwMatchAsync(stored, plain){
   if(!stored || !plain) return false;
-  if(stored.startsWith('sha256:'))
-    return stored === _sha256Sync(plain);
-  return stored === plain; // legacy plain-text
+  if(stored.startsWith('sha256:')){
+    var h = await sha256(plain);
+    return stored === h;
+  }
+  return stored === plain; // legacy plain-text (will be re-hashed on next login)
 }
-// Synchronous SHA-256 via a pre-computed table (for legacy compare at login)
-// We use async for new hashes but need sync for quick comparison fallback
-var _sha256Cache = {};
-function _sha256Sync(str){
-  if(_sha256Cache[str]) return _sha256Cache[str];
-  // Return plain for sync comparison — async hash stored on save
-  return str;
+// Kept for internal sync use only where data has already been hashed consistently
+function pwMatch(stored, plain){
+  if(!stored || !plain) return false;
+  // Only works for legacy plain-text (no hash prefix)
+  if(!stored.startsWith('sha256:')) return stored === plain;
+  return false; // cannot compare hash synchronously — use pwMatchAsync
 }
 
 // ██████████████████████████████████████████████████████████████████
@@ -2342,7 +3112,10 @@ async function superLoad(){
 var DB = {
   users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},
   settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',
-    reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
+    reportSubjects:{},reportMergeTerms:false,reportClasses:[],
+    academicSystem:'standard', locale:'en-US', timezone:'UTC',
+    creditHoursEnabled:false, gpaEnabled:false,
+    schoolCountry:'', schoolCurrency:'USD', reportLang:'en'},
   activity:[],
   attendance:{},
   parents:[],     // [{id, email, password, studentCodes:[sid,...], schoolId}]
@@ -2621,12 +3394,13 @@ function showPortalLogin(portal){
     var pw = document.getElementById('parentWrap');
     pw.style.display = 'flex';
     // Populate school selector for signup
+    var schoolOptions = SUPERDB.schools.length
+      ? SUPERDB.schools.map(function(sc){ return '<option value="'+sc.id+'">'+esc(sc.name)+'</option>'; }).join('')
+      : '<option value="">No schools available</option>';
     var sel = document.getElementById('p-school-signup');
-    if(sel){
-      sel.innerHTML = SUPERDB.schools.length
-        ? SUPERDB.schools.map(function(sc){ return '<option value="'+sc.id+'">'+sc.name+'</option>'; }).join('')
-        : '<option value="">No schools available</option>';
-    }
+    if(sel){ sel.innerHTML = schoolOptions; }
+    var selLogin = document.getElementById('p-school-login');
+    if(selLogin){ selLogin.innerHTML = schoolOptions; }
     switchParentTab('login');
     return;
   }
@@ -2736,10 +3510,14 @@ async function doParentSignup(){
   setTimeout(function(){ switchParentTab('login'); document.getElementById('p-email-login').value=email; }, 2000);
 }
 
-// ── Parent Login ──
+// ── Parent Login — School-isolated (no cross-school data access) ──
 async function doParentLogin(){
-  var email = (document.getElementById('p-email-login').value||'').trim().toLowerCase();
-  var pass  = document.getElementById('p-pass-login').value;
+  var email    = (document.getElementById('p-email-login').value||'').trim().toLowerCase();
+  var pass     = document.getElementById('p-pass-login').value;
+  var schoolId = (document.getElementById('p-school-signup')||{}).value || '';
+  // Also try the login school selector if present
+  var loginSchoolEl = document.getElementById('p-school-login');
+  if(loginSchoolEl && loginSchoolEl.value) schoolId = loginSchoolEl.value;
   var errEl = document.getElementById('parent-lerr');
   function pErr(msg){ errEl.textContent='❌ '+msg; errEl.style.display='flex'; }
 
@@ -2750,27 +3528,38 @@ async function doParentLogin(){
   errEl.style.display='none';
 
   try{
-    // Search all schools for this parent email
+    var passHashP = await sha256(pass);
     var foundParent = null;
     var foundSchoolId = null;
 
-    // Try each school
-    var schools = SUPERDB.schools;
-    for(var i=0; i<schools.length; i++){
-      await supabaseLoad(schools[i].id);
+    // SCHOOL-ISOLATED LOGIN:
+    // If a school is pre-selected, search only that school.
+    // Otherwise search schools but stop at first match (no cross-school data exposure).
+    var schoolsToSearch = schoolId
+      ? SUPERDB.schools.filter(function(s){ return s.id===schoolId; })
+      : SUPERDB.schools;
+
+    for(var i=0; i<schoolsToSearch.length; i++){
+      var sc = schoolsToSearch[i];
+      // Load this school's data
+      await supabaseLoad(sc.id);
       if(!DB.parents) DB.parents=[];
-      var passHashP = await sha256(pass);
-      var p = DB.parents.find(function(x){ return x.email===email && (x.password===passHashP || x.password===pass); });
-      // Migrate plain-text parent password to hash
-      if(p && p.password===pass){ p.password=passHashP; }
-      if(p){ foundParent=p; foundSchoolId=schools[i].id; break; }
+      // Match email+password within THIS school only
+      var p = DB.parents.find(function(x){
+        return x.email===email && (x.password===passHashP || (!x.password.startsWith('sha256:') && x.password===pass));
+      });
+      if(p){
+        // Migrate legacy plain-text password to hash
+        if(!p.password.startsWith('sha256:')){ p.password=passHashP; CURRENT_SCHOOL_ID=sc.id; dbSave(); }
+        foundParent=p; foundSchoolId=sc.id; break;
+      }
     }
 
-    if(!foundParent){ pErr('Email or password is incorrect.'); return; }
+    if(!foundParent){ pErr('Email or password is incorrect. Make sure you select the correct school.'); return; }
 
-    // Check school not paused
-    var sc = SUPERDB.schools.find(function(s){ return s.id===foundSchoolId; });
-    if(sc && sc.paused){ pErr('This school account is currently paused. Contact your administrator.'); return; }
+    // Verify school is not paused
+    var foundSc = SUPERDB.schools.find(function(s){ return s.id===foundSchoolId; });
+    if(foundSc && foundSc.paused){ pErr('This school account is currently paused. Contact your administrator.'); return; }
 
     PARENT_USER = foundParent;
     CURRENT_SCHOOL_ID = foundSchoolId;
@@ -2810,14 +3599,13 @@ function renderParentPortal(){
     return;
   }
 
-  var subjects = DB.subjects.filter(function(s){ return s.scale!=='letter'; });
-  var maxTotal = subjects.length * 20;
+  var quizSubs = DB.subjects.filter(function(s){ return s.scale!=='letter'; });
   var html = '';
 
   // Page title
   html += '<div style="margin-bottom:1.5rem;">'
-    + '<div style="font-family:Playfair Display,serif;font-size:1.4rem;margin-bottom:.3rem;">👪 My Children&#39;s Quiz Progress</div>'
-    + '<div style="font-size:.78rem;color:var(--ink3);">Morning quiz scores only — these have no impact on term results or report cards.</div>'
+    + '<div style="font-family:Playfair Display,serif;font-size:1.4rem;margin-bottom:.3rem;">🌅 My Child\'s Quiz Results</div>'
+    + '<div style="font-size:.78rem;color:var(--ink3);">Position, marks per subject and average percentage — your child only.</div>'
     + '</div>';
 
   codes.forEach(function(code){
@@ -2828,74 +3616,124 @@ function renderParentPortal(){
     }
     var cls = DB.classes.find(function(c){ return c.id===student.classId; });
 
-    html += '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;margin-bottom:1.5rem;overflow:hidden;">';
+    // Student card wrapper
+    html += '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;margin-bottom:1.8rem;overflow:hidden;">';
+
     // Student header
     html += '<div style="padding:1rem 1.2rem;background:linear-gradient(135deg,rgba(62,207,142,.12),rgba(62,207,142,.04));border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;">'
-      + '<div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--green),#1a7a4a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;flex-shrink:0;">'+student.name.slice(0,2).toUpperCase()+'</div>'
+      + '<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--green),#1a7a4a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;flex-shrink:0;">'+student.name.slice(0,2).toUpperCase()+'</div>'
       + '<div><div style="font-weight:700;font-size:1rem;">'+student.name+'</div>'
       + '<div style="font-size:.72rem;color:var(--ink3);">Code: <strong style="color:var(--green);">'+student.sid+'</strong>'+(cls?' &nbsp;·&nbsp; Class: <strong>'+cls.name+'</strong>':'')+'</div></div>'
       + '</div>';
 
-    // Quiz years & weeks
-    if(!DB.quizYears||!DB.quizYears.length){
+    // Morning quiz data
+    if(!DB.quizYears || !DB.quizYears.length){
       html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz data available yet.</div>';
     } else {
+      var hasAnyQuizData = false;
+
       DB.quizYears.slice().reverse().forEach(function(yr){
-        if(!yr.weeks||!yr.weeks.length) return;
-        html += '<div style="padding:.9rem 1.2rem .3rem;"><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;">📅 '+yr.label+(yr.locked?' 🔒':'')+'</div>';
+        if(!yr.weeks || !yr.weeks.length) return;
+        var yearHtml = '';
 
-        var hasAnyMark = false;
         yr.weeks.forEach(function(wk){
-          var tot=0; var cnt=0;
-          subjects.forEach(function(sub){
-            var key='qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
-            var v=DB.marks[key];
-            if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
+          // Gather this student's marks for this week
+          var subResults = quizSubs.map(function(sub){
+            var key = 'qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
+            var v = DB.marks[key];
+            var val = (v!==undefined && v!=='' && !isNaN(parseFloat(v))) ? parseFloat(v) : null;
+            var pct = val!==null ? (val/20)*100 : null;
+            var col = pct===null ? 'var(--ink3)' : pct>=80 ? 'var(--green)' : pct>=60 ? 'var(--blue)' : pct>=40 ? 'var(--gold)' : 'var(--red)';
+            return { name: sub.name, id: sub.id, val: val, col: col };
           });
-          if(cnt===0) return; // skip weeks with no marks
-          hasAnyMark = true;
-          var pct = maxTotal>0?(tot/maxTotal)*100:0;
-          var ranges = getQuizRanges();
-          var range = (function(){ for(var i=0;i<ranges.length;i++){if(pct>=ranges[i].min&&pct<=ranges[i].max)return ranges[i];} return{label:'—',color:'#888'}; })();
+          var hasMarks = subResults.some(function(c){ return c.val!==null; });
+          if(!hasMarks) return;
+          hasAnyQuizData = true;
 
-          // Subject breakdown
-          var subCells = subjects.map(function(sub){
-            var key='qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
-            var v=DB.marks[key];
-            var val=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):null;
-            var spct=val!==null?(val/20)*100:null;
-            var col=spct===null?'var(--ink3)':spct>=80?'var(--green)':spct>=60?'var(--blue)':spct>=40?'var(--gold)':'var(--red)';
-            return '<div style="text-align:center;min-width:56px;">'
-              +'<div style="font-size:.6rem;color:var(--ink3);margin-bottom:2px;">'+sub.name+'</div>'
-              +'<div style="font-size:.88rem;font-weight:700;color:'+col+';">'+(val!==null?val.toFixed(1):'—')+'</div>'
-              +'<div style="font-size:.58rem;color:var(--ink3);">/20</div>'
-              +'</div>';
-          }).join('');
+          // Compute this student's total and average
+          var maxTotal = quizSubs.length * 20;
+          var myTotal = 0; var myCnt = 0;
+          subResults.forEach(function(c){ if(c.val!==null){myTotal+=c.val;myCnt++;} });
+          var myAvgPct = myCnt>0 ? (myTotal/maxTotal)*100 : null;
 
-          html += '<div style="border:1px solid var(--bd);border-radius:9px;padding:.75rem 1rem;margin-bottom:.5rem;background:var(--s2);">'
-            +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.6rem;">'
-            +'<div style="font-size:.82rem;font-weight:600;">'+wk.label+'</div>'
-            +'<div style="display:flex;align-items:center;gap:8px;">'
-            +'<div style="font-size:1.1rem;font-weight:700;color:var(--gold);">'+tot.toFixed(1)+' / '+maxTotal+'</div>'
-            +'<div style="font-size:.8rem;color:var(--ink3);">'+pct.toFixed(1)+'%</div>'
-            +'<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:'+range.color+'22;color:'+range.color+';border:1px solid '+range.color+'44;">'+range.label+'</span>'
-            +'</div></div>'
-            +'<div style="display:flex;gap:10px;flex-wrap:wrap;padding:.5rem 0 .2rem;border-top:1px solid var(--bd);">'+subCells+'</div>'
-            +'</div>';
+          // Compute class rank: compare against all classmates in same year/week
+          var classStudents = cls ? DB.students.filter(function(s){return s.classId===cls.id;}) : [];
+          var classScores = classStudents.map(function(st){
+            var tot=0; var cnt=0;
+            quizSubs.forEach(function(sub){
+              var k='qz_'+st.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
+              var v=DB.marks[k];
+              if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
+            });
+            return {id:st.id, total:cnt>0?tot:null};
+          }).filter(function(x){return x.total!==null;});
+          classScores.sort(function(a,b){return b.total-a.total;});
+          var myRank = null;
+          for(var ri=0;ri<classScores.length;ri++){
+            if(classScores[ri].id===student.id){myRank=ri+1;break;}
+          }
+          var totalInClass = classScores.length;
+
+          // Rank circle style
+          var rankCircStyle = myRank===1
+            ? 'background:linear-gradient(135deg,#FFD700,#d09010);color:#1a1200;box-shadow:0 4px 14px rgba(255,215,0,.3);'
+            : myRank===2
+            ? 'background:linear-gradient(135deg,#C0C0C0,#888);color:#111;'
+            : myRank===3
+            ? 'background:linear-gradient(135deg,#CD7F32,#9a5a20);color:#fff;'
+            : 'background:var(--s3);color:var(--ink2);font-size:.84rem;';
+
+          yearHtml += '<div style="border:1px solid var(--bd);border-radius:10px;padding:.9rem 1rem;margin-bottom:.7rem;background:var(--s2);">'
+            // Week label + rank row
+            + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem;">'
+            + '<div style="font-size:.82rem;font-weight:700;color:var(--ink2);">'+wk.label+'</div>'
+            + '<div style="display:flex;align-items:center;gap:8px;">'
+            // Rank circle
+            + (myRank!==null?'<div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;flex-shrink:0;'+rankCircStyle+'">'+myRank+'</div>':'')
+            + (myRank!==null?'<div style="font-size:.72rem;color:var(--ink3);"><span style="font-weight:700;color:var(--ink);font-size:.85rem;">Position '+myRank+'</span><br>out of '+totalInClass+' student'+(totalInClass!==1?'s':'')+'</div>':'')
+            + '</div></div>'
+            // Average bar
+            + (myAvgPct!==null
+              ? '<div style="margin-bottom:.8rem;">'
+                + '<div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink3);margin-bottom:3px;">'
+                + '<span>Average</span><span style="font-weight:700;color:'+(myAvgPct>=80?'var(--green)':myAvgPct>=60?'var(--blue)':myAvgPct>=40?'var(--gold)':'var(--red)')+';font-size:.82rem;">'+myAvgPct.toFixed(1)+'%</span></div>'
+                + '<div style="height:7px;border-radius:4px;background:var(--s3);overflow:hidden;">'
+                + '<div style="height:100%;border-radius:4px;width:'+Math.min(myAvgPct,100).toFixed(1)+'%;background:'+(myAvgPct>=80?'var(--green)':myAvgPct>=60?'var(--blue)':myAvgPct>=40?'var(--gold)':'var(--red)')+';transition:width .5s;"></div>'
+                + '</div></div>'
+              : '')
+            // Per-subject cells
+            + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+            + subResults.map(function(c){
+                return '<div style="text-align:center;min-width:56px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:6px 6px 4px;">'
+                  + '<div style="font-size:.58rem;color:var(--ink3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">'+c.name+'</div>'
+                  + '<div style="font-size:.95rem;font-weight:700;color:'+c.col+';">'+(c.val!==null ? c.val.toFixed(0) : '—')+'</div>'
+                  + '<div style="font-size:.55rem;color:var(--ink3);">/20</div>'
+                  + '</div>';
+              }).join('')
+            + '</div>'
+            + '</div>';
         });
-        if(!hasAnyMark){
-          html += '<div style="font-size:.8rem;color:var(--ink3);padding:.4rem 0 .8rem;">No quiz marks recorded yet for this year.</div>';
+
+        if(yearHtml){
+          html += '<div style="padding:.8rem 1.2rem .4rem;">'
+            + '<div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.6rem;">📅 '+yr.label+(yr.locked?' 🔒':'')+'</div>'
+            + yearHtml
+            + '</div>';
         }
-        html += '</div>';
       });
+
+      if(!hasAnyQuizData){
+        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz marks recorded yet.</div>';
+      }
     }
-    html += '</div>';
+
+    html += '</div>'; // end student card
   });
 
   // Add another child button
   html += '<div style="text-align:center;margin-top:1rem;">'
-    +'<button onclick="showAddChildModal()" style="background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--green);border-radius:9px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;transition:all .15s;" onmouseover="this.style.background=\x27rgba(62,207,142,.18)\x27" onmouseout="this.style.background=\x27rgba(62,207,142,.1)\x27">+ Link Another Child</button>'
-    +'</div>';
+    + '<button onclick="showAddChildModal()" style="background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--green);border-radius:9px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;transition:all .15s;" onmouseover="this.style.background=\'rgba(62,207,142,.18)\'" onmouseout="this.style.background=\'rgba(62,207,142,.1)\'">+ Link Another Child</button>'
+    + '</div>';
 
   content.innerHTML = html;
 }
@@ -3400,6 +4238,11 @@ function toggleTheme(){
 // ██████████████████████████████████████████████████████████████████
 // ═══════════════════════════════════════
 function om(id){
+  // Show credit hours field if enabled
+  if(id==='ms'||id==='mes'){
+    var crFields = document.querySelectorAll('#ms-credits,#mes-credits');
+    crFields.forEach(function(el){ el.style.display = DB.settings.creditHoursEnabled ? '' : 'none'; });
+  }
   if(id==='mt'){
     var mtLvlEl=document.getElementById('mt-level'); if(mtLvlEl) mtLvlEl.value=CURRENT_LEVEL;
     var lvlCls=DB.classes.filter(function(c){return !c.level||c.level===CURRENT_LEVEL;});
@@ -3475,7 +4318,63 @@ function flash(id,type,msg){
 // █  ✏️  To change dashboard stats or add new quick action cards
 // ██████████████████████████████████████████████████████████████████
 // ═══════════════════════════════════════
+
+// ── GPA Ring SVG ──
+function makeGPARing(gpa, max){
+  gpa = gpa || 0; max = max || 4.0;
+  var pct = Math.min(gpa / max, 1);
+  var r = 36, circ = 2 * Math.PI * r;
+  var offset = circ * (1 - pct);
+  var color = gpa >= 3.5 ? 'var(--green)' : gpa >= 2.5 ? 'var(--blue)' : gpa >= 1.5 ? 'var(--gold)' : 'var(--red)';
+  return '<div class="gpa-ring-wrap">'
+    + '<svg class="gpa-ring-svg" width="90" height="90" viewBox="0 0 90 90">'
+    + '<circle class="gpa-ring-track" cx="45" cy="45" r="'+r+'"/>'
+    + '<circle class="gpa-ring-fill" cx="45" cy="45" r="'+r+'"'
+    + ' stroke="'+color+'"'
+    + ' stroke-dasharray="'+circ+'"'
+    + ' stroke-dashoffset="'+offset+'"/>'
+    + '</svg>'
+    + '<div class="gpa-ring-text">'
+    + '<div class="gpa-ring-num" style="color:'+color+'">'+gpa.toFixed(2)+'</div>'
+    + '<div class="gpa-ring-lbl">GPA</div>'
+    + '</div></div>';
+}
+
+// ── Sparkline bars ──
+function makeSparkline(values, color){
+  if(!values || !values.length) return '';
+  var mx = Math.max.apply(null, values) || 100;
+  return '<div class="sparkbar-wrap">'
+    + values.map(function(v){
+        var h = Math.round((v / mx) * 28);
+        var c = v >= 80 ? 'var(--green)' : v >= 60 ? 'var(--blue)' : v >= 50 ? 'var(--gold)' : 'var(--red)';
+        return '<div class="sparkbar" style="height:'+h+'px;background:'+c+';"></div>';
+      }).join('')
+    + '</div>';
+}
+
+// ── Class performance sparkline data ──
+function classSparkData(classId){
+  var terms = DB.terms.filter(function(t){ return t.active; });
+  var subs = DB.subjects.filter(function(s){ return s.scale !== 'letter'; });
+  var stds = DB.students.filter(function(s){ return s.classId === classId; });
+  return terms.map(function(t){
+    var comp = t.components && t.components[t.components.length-1];
+    if(!comp) return 0;
+    var vals = [];
+    stds.forEach(function(st){
+      subs.forEach(function(sub){
+        var key = st.id+'_'+sub.id+'_'+t.id+'_'+comp.id;
+        var v = DB.marks[key];
+        if(v !== undefined && v !== '') vals.push(parseFloat(v) / parseFloat(sub.scale||100) * 100);
+      });
+    });
+    return vals.length ? vals.reduce(function(a,b){return a+b;},0)/vals.length : 0;
+  });
+}
+
 function renderDash(){
+
   var schoolName=DB.settings&&DB.settings.schoolName?DB.settings.schoolName:'';
   var dw=document.getElementById('dwelcome');
   if(dw&&ME) dw.textContent=(schoolName?schoolName+' — ':'')+' '+L('welcomeBack')+', '+ME.name;
@@ -4533,7 +5432,7 @@ function toggleTerm(id){
   dbSave();renderTerms();syncTerms();
 }
 function delTerm(id){
-  if(!confirm('Delete this term?'))return;
+  if(!confirm(L('confirmDelete')))return;
   DB.terms=DB.terms.filter(function(t){return t.id!==id;});
   dbSave();renderTerms();syncTerms();
 }
@@ -5606,7 +6505,9 @@ function genReport(){
   var school=DB.settings.schoolName||'School Name';
   var date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
   var g=DB.settings;
-  var promotionMark=DB.settings.promotionMark!=null?DB.settings.promotionMark:g.grD||50;
+  // Always read from per-level settings first, fall back to global
+  var _ls_rc=levelSettings();
+  var promotionMark=_ls_rc.promotionMark!=null?_ls_rc.promotionMark:(DB.settings.promotionMark!=null?DB.settings.promotionMark:(_ls_rc.grD||g.grD||50));
 
   var allActive=activeTerms();
   var selectedTp=parseTermPeriod(selectedTermRaw);
@@ -5719,15 +6620,22 @@ function genReport(){
   var lastTerm=allTermsSorted[allTermsSorted.length-1];
   var lastTermComps=lastTerm&&lastTerm.components&&lastTerm.components.length?lastTerm.components:null;
   var lastComp=lastTermComps?lastTermComps[lastTermComps.length-1]:null;
-  // Promotion only appears on the ET (Exam) of Term 3 (the last term), and only if there are exactly 3 active terms
+  // Promotion verdict appears ONLY on the ET (Exam) of Term 3 — the last term's last component
   var lastTermLabel = lastTerm && (lastTerm.termLabel||lastTerm.name||'');
   var isLastTermLabel = /3/i.test(lastTermLabel) || allTermsSorted.indexOf(lastTerm)===allTermsSorted.length-1;
+  var isLastComp = lastComp && selectedCompId===lastComp.id;
+  var isExamPeriod = lastComp && (
+    lastComp.name.toLowerCase().indexOf('exam')>=0 ||
+    lastComp.name.toLowerCase().indexOf('et')>=0 ||
+    lastComp.name.toLowerCase().indexOf('final')>=0 ||
+    lastTerm.periodType==='Exam'
+  );
   var isFinalTerm = !isMidterm
     && allTermsSorted.length >= 3
     && selectedGroupTerm && selectedGroupTerm.id===lastTerm.id
     && isLastTermLabel
-    && lastComp && selectedCompId===lastComp.id
-    && (lastComp.name.toLowerCase().indexOf('exam')>=0 || lastComp.name.toLowerCase().indexOf('et')>=0 || lastTerm.periodType==='Exam');
+    && isLastComp
+    && isExamPeriod;
 
   // ── Active subjects ──
   if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
@@ -5742,6 +6650,19 @@ function genReport(){
   // GC2 used in subject rows below
 
   // ── Logo ──
+  // ── Honor roll for this student ──
+  var stAllPcts = [];
+  activeSubjects.forEach(function(sub){
+    if(sub.scale==='letter') return;
+    termsToShow.forEach(function(t){
+      var tm = getTermMarks(stid, sub.id, t, isMidterm);
+      if(tm.tot!==null && tm.totMax>0) stAllPcts.push((tm.tot/tm.totMax)*100);
+    });
+  });
+  var stAvgPct = stAllPcts.length ? stAllPcts.reduce(function(a,b){return a+b;},0)/stAllPcts.length : null;
+  var studentHonor = stAvgPct !== null ? getHonorRoll(stAvgPct) : null;
+  var studentGPA   = (DB.settings.gpaEnabled && stAvgPct!==null) ? pctToGPA(stAvgPct) : null;
+
   var logoSrc=DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var logoHtml=logoSrc
     ?'<div style="width:90px;height:90px;border-radius:50%;overflow:hidden;border:3px solid #c8b020;background:#e8eaf6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;"><img src="'+logoSrc+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
@@ -6043,7 +6964,10 @@ function genReport(){
 
   sortedSubjects.forEach(function(sub,si){
     if(sub.scale==='letter') return;
-    var cfg=DB.settings.reportSubjects&&DB.settings.reportSubjects[sub.id]?DB.settings.reportSubjects[sub.id]:{};
+    var _ls_sub=levelSettings();
+    var _rpsc=(_ls_sub.reportSubjects&&_ls_sub.reportSubjects[sub.id])||
+              (DB.settings.reportSubjects&&DB.settings.reportSubjects[sub.id])||{};
+    var cfg=_rpsc;
     var forPromotion=cfg.forPromotion!==false;
     var rowBg=si%2===0?'background:#fafafa;':'background:#ffffff;';
 
@@ -6240,7 +7164,7 @@ function genReport(){
 
   // ── GRADE SCALE ──
   html+='<div style="margin-bottom:1.2rem;padding:7px 12px;background:#ede8da;border:1px solid #c5cae9;border-radius:3px;font-size:.68rem;color:#333;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">'
-    +'<strong style="color:#1a237e;margin-right:4px;">Grade Scale:</strong>'
+    +(DB.settings.gpaEnabled?'<strong style="color:#1a237e;margin-right:4px;">'+getAcadSystem().name+'</strong> &nbsp; ':'')+'<strong style="color:#1a237e;margin-right:4px;">Grade Scale:</strong>'
     +'<span><strong style="color:#2e7d32;">A</strong> = '+(g.grA||80)+'%+</span>&nbsp;'
     +'<span><strong style="color:#1565c0;">B</strong> = '+(g.grB||70)+'–'+((g.grA||80)-1)+'%</span>&nbsp;'
     +'<span><strong style="color:#e65100;">C</strong> = '+(g.grC||60)+'–'+((g.grB||70)-1)+'%</span>&nbsp;'
@@ -6563,6 +7487,93 @@ function genProcl(){
 // █  ✏️  To change school info fields, grade thresholds, or quiz ranges
 // ██████████████████████████████████████████████████████████████████
 // ═══════════════════════════════════════
+
+// ── International Settings ──
+function previewAcadSystem(){
+  var key = (document.getElementById('set-acadSystem')||{}).value || 'standard';
+  var sys = ACADEMIC_SYSTEMS[key] || ACADEMIC_SYSTEMS.standard;
+  var prev = document.getElementById('acadSystemPreview');
+  if(!prev) return;
+  var html = '<div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:.5rem;">'+sys.name+' — Grade Scale Preview</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+  sys.grades.forEach(function(g){
+    var bg = g.gpa>=3.5?'rgba(62,207,142,.15)':g.gpa>=2.5?'rgba(74,143,255,.15)':g.gpa>=1.5?'rgba(240,180,41,.15)':g.gpa>=0.5?'rgba(224,82,82,.15)':'rgba(91,91,91,.15)';
+    var color = g.gpa>=3.5?'var(--green)':g.gpa>=2.5?'var(--blue)':g.gpa>=1.5?'var(--gold)':g.gpa>=0.5?'var(--red)':'var(--ink3)';
+    html += '<span style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:'+color+';border-radius:8px;padding:3px 9px;font-size:.75rem;font-weight:700;">'
+      + g.letter + ' <span style="font-weight:400;font-size:.68rem;">('+g.minPct+'%+)</span></span>';
+  });
+  html += '</div><div style="font-size:.7rem;color:var(--ink3);margin-top:.5rem;">Honor Roll: 🥇 '+sys.honorRoll.gold+'%+ &nbsp; 🥈 '+sys.honorRoll.silver+'%+ &nbsp; 🥉 '+sys.honorRoll.bronze+'%+ &nbsp;·&nbsp; Promotion: '+sys.promotionPct+'%+</div>';
+  prev.innerHTML = html;
+}
+
+
+function saveBridgeBadges(){
+  var s = DB.settings;
+  s.bridgeCambridge = document.getElementById('bridge-cambridge') && document.getElementById('bridge-cambridge').checked;
+  s.bridgeIB        = document.getElementById('bridge-ib') && document.getElementById('bridge-ib').checked;
+  s.bridgeAP        = document.getElementById('bridge-ap') && document.getElementById('bridge-ap').checked;
+  s.bridgeNational  = document.getElementById('bridge-national') && document.getElementById('bridge-national').checked;
+  s.bridgeAccred    = (document.getElementById('bridge-accred')||{}).value||'';
+  dbSave();
+}
+
+function loadBridgeBadges(){
+  var s = DB.settings || {};
+  var setChk = function(id,v){ var el=document.getElementById(id); if(el) el.checked=!!v; };
+  setChk('bridge-cambridge', s.bridgeCambridge);
+  setChk('bridge-ib', s.bridgeIB);
+  setChk('bridge-ap', s.bridgeAP);
+  setChk('bridge-national', s.bridgeNational);
+  var el=document.getElementById('bridge-accred'); if(el) el.value=s.bridgeAccred||'';
+}
+
+function bridgeBadgesHtml(){
+  var s = DB.settings || {};
+  var html = '';
+  if(s.bridgeCambridge) html += '<span class="compat-badge cambridge">🎓 Cambridge</span> ';
+  if(s.bridgeIB)        html += '<span class="compat-badge ib">🌐 IB</span> ';
+  if(s.bridgeAP)        html += '<span class="compat-badge ap">⚡ AP</span> ';
+  if(s.bridgeNational)  html += '<span class="compat-badge national">🏫 '+(s.bridgeAccred||'National')+'</span> ';
+  return html;
+}
+
+function saveIntlSettings(){
+  var s = DB.settings;
+  var sel = function(id){ var el=document.getElementById(id); return el?el.value:''; };
+  s.academicSystem  = sel('set-acadSystem') || 'standard';
+  s.schoolCountry   = sel('set-country');
+  s.locale          = sel('set-locale') || 'en-US';
+  s.timezone        = sel('set-timezone') || 'UTC';
+  s.gpaEnabled      = sel('set-gpaEnabled') === 'true';
+  s.creditHoursEnabled = sel('set-creditHours') === 'true';
+  s.reportLang      = sel('set-reportLang') || 'en';
+  s.schoolCurrency  = sel('set-currency') || 'USD';
+  dbSave();
+  flash('setAlert','ok','✅ International settings saved!');
+  srAnnounce('International settings saved');
+}
+
+function loadIntlSettings(){
+  var s = DB.settings || {};
+  function setVal(id, val){
+    var el=document.getElementById(id);
+    if(!el) return;
+    if(el.tagName==='SELECT'){
+      for(var i=0;i<el.options.length;i++){ if(el.options[i].value==val){el.selectedIndex=i;break;} }
+    } else { el.value=val||''; }
+  }
+  setVal('set-acadSystem',    s.academicSystem||'standard');
+  setVal('set-country',       s.schoolCountry||'');
+  setVal('set-locale',        s.locale||'en-US');
+  setVal('set-timezone',      s.timezone||'UTC');
+  setVal('set-gpaEnabled',    String(s.gpaEnabled||false));
+  setVal('set-creditHours',   String(s.creditHoursEnabled||false));
+  setVal('set-reportLang',    s.reportLang||'en');
+  setVal('set-currency',      s.schoolCurrency||'');
+  previewAcadSystem();
+  loadBridgeBadges();
+}
+
 function setupSettings(){
   var admin=isAdmin();
   document.getElementById('schoolCard').style.display=admin?'block':'none';
@@ -6780,30 +7791,47 @@ function openReportSettings(){
   var ls_ors=levelSettings();
   if(!ls_ors.reportSubjects) ls_ors.reportSubjects={};
   if(typeof ls_ors.reportMergeTerms==='undefined') ls_ors.reportMergeTerms=false;
+
+  // ── Level label ──
+  var llbl=document.getElementById('mrp-level-label');
+  if(llbl) llbl.textContent=CURRENT_LEVEL;
+
+  // ── Promotion mark ──
+  var pmEl=document.getElementById('mrp-promoMark');
+  if(pmEl) pmEl.value=ls_ors.promotionMark!=null?ls_ors.promotionMark:(DB.settings.promotionMark!=null?DB.settings.promotionMark:50);
+
+  // ── Final-term override toggle ──  (removed — promotion is Term 3 ET only)
+
+  // ── Report mode ──
   var merge=ls_ors.reportMergeTerms;
   var sm=document.getElementById('rmode-single'); var sb=document.getElementById('rmode-single-box');
   var mm=document.getElementById('rmode-merge');  var mb=document.getElementById('rmode-merge-box');
   if(merge){ mm.classList.add('checked'); mb.textContent='✓'; sm.classList.remove('checked'); sb.textContent=''; }
   else { sm.classList.add('checked'); sb.textContent='✓'; mm.classList.remove('checked'); mb.textContent=''; }
-  // Build subject config list — level-filtered
+
+  // ── Subject config list ──
   var container=document.getElementById('rpSubjConfig');
   var lvlSubsForRp=levelSubjects();
   if(!lvlSubsForRp.length){ container.innerHTML='<div class="empty" style="padding:1rem;">No subjects in '+CURRENT_LEVEL+' yet.</div>'; }
   else {
     container.innerHTML=lvlSubsForRp.map(function(s){
       var cfg=getReportSubjConfig(s.id);
-      return '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:7px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
-        +'<span style="font-size:.85rem;font-weight:500;">'+s.name+'</span>'
-        +'<div onclick="toggleRpSubj(\''+s.id+'\',this)" style="cursor:pointer;width:32px;height:20px;border-radius:10px;background:'+(cfg.include?'var(--green)':'var(--bd)')+';position:relative;transition:.2s;" title="Show on report">'
+      return '<div style="display:grid;grid-template-columns:1fr 44px 64px 44px;gap:5px;align-items:center;padding:7px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
+        +'<span style="font-size:.84rem;font-weight:500;">'+esc(s.name)+'</span>'
+        // Show toggle
+        +'<div onclick="toggleRpSubj(\''+s.id+'\',this)" style="cursor:pointer;width:32px;height:20px;border-radius:10px;background:'+(cfg.include?'var(--green)':'var(--bd)')+';position:relative;transition:.2s;margin:auto;" title="Show on report">'
           +'<div style="position:absolute;top:2px;left:'+(cfg.include?'14px':'2px')+';width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;"></div>'
         +'</div>'
-        +'<input type="number" id="rpw-'+s.id+'" value="'+cfg.weight+'" min="1" max="100" style="width:58px;padding:4px 6px;background:var(--s3);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.82rem;text-align:center;outline:none;" title="Weight %">'
-        +'<div onclick="toggleRpProm(\''+s.id+'\',this)" style="cursor:pointer;width:32px;height:20px;border-radius:10px;background:'+(cfg.forPromotion?'var(--gold)':'var(--bd)')+';position:relative;transition:.2s;" title="Count for promotion">'
+        // Weight input
+        +'<input type="number" id="rpw-'+s.id+'" value="'+cfg.weight+'" min="1" max="100" style="width:56px;padding:4px 6px;background:var(--s3);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.82rem;text-align:center;outline:none;" title="Weight %">'
+        // Promo toggle (gold star)
+        +'<div onclick="toggleRpProm(\''+s.id+'\',this)" style="cursor:pointer;width:32px;height:20px;border-radius:10px;background:'+(cfg.forPromotion?'var(--gold)':'var(--bd)')+';position:relative;transition:.2s;margin:auto;" title="Count for promotion">'
           +'<div style="position:absolute;top:2px;left:'+(cfg.forPromotion?'14px':'2px')+';width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;"></div>'
         +'</div>'
       +'</div>';
     }).join('');
   }
+  document.getElementById('mrpAlert').innerHTML='';
   document.getElementById('mrp').classList.add('open');
 }
 function setReportMode(merge){
@@ -6831,14 +7859,32 @@ function toggleRpProm(sid,toggle){
 function saveReportSettings(){
   var ls=levelSettings();
   if(!ls.reportSubjects) ls.reportSubjects={};
+
+  // ── Promotion mark ──
+  var pmEl=document.getElementById('mrp-promoMark');
+  if(pmEl){
+    var pmVal=parseInt(pmEl.value);
+    if(!isNaN(pmVal)&&pmVal>=0&&pmVal<=100){
+      ls.promotionMark=pmVal;
+      DB.settings.promotionMark=pmVal; // global fallback
+      // Keep per-subject pass marks in sync
+      levelSubjects().forEach(function(s){ s.pass=pmVal; });
+    }
+  }
+
+  // ── Subject weights & promo flags ──
   levelSubjects().forEach(function(s){
     var cfg=getReportSubjConfig(s.id);
     var wEl=document.getElementById('rpw-'+s.id);
     if(wEl) cfg.weight=Math.max(1,Math.min(100,parseInt(wEl.value)||100));
     ls.reportSubjects[s.id]=cfg;
   });
+
   dbSave();
   flash('rpSettingsFlash','ok','✅ Report settings saved.');
+  // Also update the Settings page promotion mark field if visible
+  var pmPage=document.getElementById('promotionMark');
+  if(pmPage&&ls.promotionMark!=null) pmPage.value=ls.promotionMark;
   cm('mrp');
   genReport();
 }
@@ -8021,24 +9067,57 @@ function genQuizProcl(){
   }).filter(function(s){return s.quizTotal!==null;}).sort(function(a,b){return b.quizPct-a.quizPct;});
   if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>No quiz marks recorded for '+weekLabel+' yet.</p></div>';return;}
   function getRangeLabel(pct){for(var i=0;i<ranges.length;i++){if(pct>=ranges[i].min&&pct<=ranges[i].max)return ranges[i];}return{label:'—',color:'#888'};}
-  var html='<div style="text-align:center;padding:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;">🌅 Morning Quiz Rankings</div>'
-    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' · '+(yr?yr.label:'?')+' · '+weekLabel+'</div>'
-    +'<div style="display:inline-block;margin-top:.5rem;padding:3px 12px;border-radius:20px;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);font-size:.7rem;color:var(--blue);font-weight:600;">⚠️ These marks have NO impact on term results or report cards</div></div>';
-  html+='<div class="card"><div class="ctitle">🎖️ Student Rankings — '+weekLabel+'</div>';
+
+  // ── Proclamation-style TABLE header ──
+  var school = DB.settings||{};
+  var schoolName = school.name || (typeof SCHOOL_NAME!=='undefined'?SCHOOL_NAME:'');
+  var html = '<div id="qpProclTable">';
+  // Header banner (printable)
+  html += '<div style="text-align:center;padding:1.2rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🌅 Morning Quiz — Proclamation List</div>'
+    +(schoolName?'<div style="font-size:.8rem;color:var(--ink3);margin-top:2px;">'+esc(schoolName)+'</div>':'')
+    +'<div style="font-size:.78rem;color:var(--ink2);margin-top:4px;font-weight:600;">'+(cls?esc(cls.name):'—')+' &nbsp;·&nbsp; '+(yr?esc(yr.label):'?')+' &nbsp;·&nbsp; '+esc(weekLabel)+'</div>'
+    +'<div style="display:inline-block;margin-top:.55rem;padding:3px 13px;border-radius:20px;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);font-size:.68rem;color:var(--blue);font-weight:600;">⚠️ These scores have NO impact on official term results or report cards</div>'
+    +'</div>';
+
+  // Table
+  html += '<div class="card" style="overflow-x:auto;">'
+    +'<div class="ctitle" style="margin-bottom:.9rem;">🎖️ Student Rankings — '+esc(weekLabel)
+    +' &nbsp;<span style="font-size:.72rem;color:var(--ink3);font-weight:400;">('+ranked.length+' student'+(ranked.length!==1?'s':'')+')</span></div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
+    +'<thead><tr style="background:var(--s3);">'
+    +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Rank</th>'
+    +'<th style="padding:8px 10px;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Student</th>';
+  subjects.forEach(function(s){
+    html+='<th style="padding:8px 6px;text-align:center;font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);white-space:nowrap;">'+esc(s.name)+'<br><span style="font-weight:400;color:var(--ink3);">/20</span></th>';
+  });
+  html+='<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Total<br><span style="font-weight:400;color:var(--ink3);">/'+maxTotal+'</span></th>'
+    +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Avg %</th>'
+    +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Level</th>'
+    +'</tr></thead><tbody>';
+
   ranked.forEach(function(s,i){
     var r=getRangeLabel(s.quizPct);
-    var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'<span style="font-size:.85rem;font-weight:700;color:var(--ink3);">'+(i+1)+'</span>';
-    html+='<div style="display:flex;align-items:center;gap:12px;padding:.9rem;border:1px solid var(--bd);border-radius:9px;margin-bottom:.5rem;background:var(--s2);">'
-      +'<div style="font-size:1.3rem;min-width:32px;text-align:center;">'+medal+'</div>'
-      +'<div style="flex:1;"><div style="font-weight:600;">'+s.name+'</div><div style="font-size:.72rem;color:var(--ink3);">No. '+s.sid+'</div></div>'
-      +'<div style="text-align:right;">'
-      +'<div style="font-size:1.2rem;font-weight:700;color:var(--gold);">'+s.quizTotal.toFixed(1)+' / '+maxTotal+'</div>'
-      +'<div style="font-size:.74rem;color:var(--ink3);">'+s.quizPct.toFixed(1)+'%</div>'
-      +'<div style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:'+r.color+'22;color:'+r.color+';border:1px solid '+r.color+'44;">'+r.label+'</div>'
-      +'</div></div>';
+    var circClass=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    var rankDisplay=i===0?'1':i===1?'2':i===2?'3':''+(i+1);
+    var rowBg=i%2===0?'background:var(--s2);':'';
+    html+='<tr style="'+rowBg+'">'
+      +'<td style="padding:9px 10px;text-align:center;"><div class="rcirc '+circClass+'" style="margin:0 auto;">'+rankDisplay+'</div></td>'
+      +'<td style="padding:9px 10px;"><div style="font-weight:600;font-size:.9rem;">'+esc(s.name)+'</div><div style="font-size:.68rem;color:var(--ink3);">'+esc(s.sid)+'</div></td>';
+    // Per-subject cells
+    subjects.forEach(function(sub){
+      var v=DB.marks[quizMarkKey(s.id,sub.id,week)];
+      var val=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):null;
+      var pct=val!==null?(val/20)*100:null;
+      var col=pct===null?'var(--ink3)':pct>=80?'var(--green)':pct>=60?'var(--blue)':pct>=40?'var(--gold)':'var(--red)';
+      html+='<td style="padding:9px 6px;text-align:center;font-weight:600;color:'+col+';">'+(val!==null?val.toFixed(1):'<span style="color:var(--ink3);">—</span>')+'</td>';
+    });
+    html+='<td style="padding:9px 10px;text-align:center;font-size:1.05rem;font-weight:700;color:var(--gold);">'+s.quizTotal.toFixed(1)+'</td>'
+      +'<td style="padding:9px 10px;text-align:center;font-weight:700;color:var(--blue);">'+s.quizPct.toFixed(1)+'%</td>'
+      +'<td style="padding:9px 10px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:.68rem;font-weight:700;background:'+r.color+'22;color:'+r.color+';border:1px solid '+r.color+'44;">'+esc(r.label)+'</span></td>'
+      +'</tr>';
   });
-  html+='</div>';
+  html+='</tbody></table></div></div>';
   out.innerHTML=html;
   genQuizBreakdown(students,subjects,cid,week,maxTotal,ranges);
 }
@@ -8135,6 +9214,137 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
     +'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>'
     +'</div>';
   bdDiv.innerHTML=html;
+}
+
+
+// ── Generate Academic Transcript ──
+
+// ── Per-class GPA summary for analytics ──
+function renderClassGPASummary(containerId){
+  var container = document.getElementById(containerId);
+  if(!container || !DB.settings.gpaEnabled) return;
+  var html = '<div class="ctitle">🎓 Class GPA Summary</div><div class="g2" style="margin-top:.5rem;">';
+  DB.classes.filter(function(c){ return !c.level||c.level===CURRENT_LEVEL; }).forEach(function(cls){
+    var stds = DB.students.filter(function(s){ return s.classId===cls.id; });
+    var subs = DB.subjects.filter(function(s){ return s.scale!=='letter' && (!s.level||s.level===CURRENT_LEVEL); });
+    var classGPAs = [];
+    stds.forEach(function(st){
+      var pcts = [];
+      subs.forEach(function(sub){
+        DB.terms.forEach(function(t){
+          if(!t.active) return;
+          (t.components||[]).forEach(function(c){
+            var v = DB.marks[st.id+'_'+sub.id+'_'+t.id+'_'+c.id];
+            if(v!==undefined&&v!=='') pcts.push(parseFloat(v)/parseFloat(sub.scale||100)*100);
+          });
+        });
+      });
+      if(pcts.length){
+        var avg = pcts.reduce(function(a,b){return a+b;},0)/pcts.length;
+        classGPAs.push(pctToGPA(avg));
+      }
+    });
+    var avgGPA = classGPAs.length ? classGPAs.reduce(function(a,b){return a+b;},0)/classGPAs.length : null;
+    var color = avgGPA!==null ? (avgGPA>=3.5?'var(--green)':avgGPA>=2.5?'var(--blue)':avgGPA>=1.5?'var(--gold)':'var(--red)') : 'var(--ink3)';
+    html += '<div style="background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:.8rem;text-align:center;">'
+      + makeGPARing(avgGPA||0, 4.0)
+      + '<div style="font-weight:600;font-size:.85rem;margin-top:.4rem;">'+esc(cls.name)+'</div>'
+      + '<div style="font-size:.7rem;color:var(--ink3);">'+stds.length+' students</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function generateTranscript(studentId){
+  var st = DB.students.find(function(s){ return s.id===studentId; });
+  if(!st){ alert('Student not found.'); return; }
+  var cls = DB.classes.find(function(c){ return c.id===st.classId; });
+  var subs = levelSubjects().filter(function(s){ return s.scale!=='letter'; });
+  var sys = getAcadSystem();
+  var gpaEnabled = DB.settings.gpaEnabled;
+  var creditEnabled = DB.settings.creditHoursEnabled;
+
+  // Collect marks across all term years
+  var markRows = subs.map(function(sub){
+    var credits = parseFloat(sub.creditHours||1);
+    // Get best available mark (latest term) — simplified
+    var allTermMarks = [];
+    DB.terms.forEach(function(t){
+      if(!t.active) return;
+      t.components && t.components.forEach(function(c){
+        var key = studentId+'_'+sub.id+'_'+t.id+'_'+c.id;
+        var v = DB.marks[key];
+        if(v!==undefined&&v!=='') allTermMarks.push(parseFloat(v));
+      });
+    });
+    var avg = allTermMarks.length ? allTermMarks.reduce(function(a,b){return a+b;},0)/allTermMarks.length : null;
+    var maxMark = parseFloat(sub.scale||100);
+    var pct = avg!==null ? (avg/maxMark)*100 : null;
+    return { sub:sub, avg:avg, pct:pct, credits:credits };
+  });
+
+  var overallPct = null;
+  var validRows = markRows.filter(function(r){ return r.pct!==null; });
+  if(validRows.length){
+    var tot = validRows.reduce(function(a,b){ return a+b.pct; },0);
+    overallPct = tot/validRows.length;
+  }
+  var gpa = gpaEnabled ? calcGPA(validRows.map(function(r){ return {pct:r.pct,credits:r.credits}; })) : null;
+  var honor = getHonorRoll(overallPct);
+  var schoolName = (DB.settings&&DB.settings.schoolName)||'';
+  var acadYear = (DB.settings&&DB.settings.academicYear)||new Date().getFullYear();
+  var logoSrc = DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
+
+  var html = '<div style="max-width:800px;margin:0 auto;padding:20px;font-family:Outfit,Arial,sans-serif;background:#fff;color:#111;">';
+  html += '<div style="text-align:center;border-bottom:3px solid #1a237e;padding-bottom:12px;margin-bottom:16px;">';
+  if(logoSrc) html += '<img src="'+logoSrc+'" style="height:60px;margin-bottom:8px;">';
+  html += '<div style="font-size:1.6rem;font-weight:700;color:#1a237e;">'+esc(schoolName)+'</div>';
+  html += '<div style="font-size:.85rem;color:#666;margin-top:3px;">ACADEMIC TRANSCRIPT — '+acadYear+'</div>';
+  html += '</div>';
+  html += '<div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:.9rem;">';
+  html += '<div><strong>Name:</strong> '+esc(st.name)+'</div>';
+  html += '<div><strong>Student ID:</strong> '+esc(st.sid)+'</div>';
+  html += '<div><strong>Class:</strong> '+esc(cls?cls.name:'-')+'</div>';
+  html += '</div>';
+  if(honor) html += '<div style="text-align:center;margin-bottom:10px;"><span style="background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.3);border-radius:20px;padding:5px 18px;font-size:.85rem;font-weight:700;color:#d09010;">'+honor.emoji+' '+honor.label+'</span></div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:14px;">';
+  html += '<thead><tr style="background:#1a237e;color:#fff;"><th style="padding:7px 10px;text-align:left;">Subject</th>';
+  if(creditEnabled) html += '<th style="padding:7px;text-align:center;">Credits</th>';
+  html += '<th style="padding:7px;text-align:center;">Average</th><th style="padding:7px;text-align:center;">%</th><th style="padding:7px;text-align:center;">Grade</th>';
+  if(gpaEnabled) html += '<th style="padding:7px;text-align:center;">GPA</th>';
+  html += '</tr></thead><tbody>';
+  markRows.forEach(function(r,i){
+    var bg = i%2===0?'#fff':'#f5f7fc';
+    var grade = r.pct!==null ? pctToGrade(r.pct) : '—';
+    var gp = gpaEnabled&&r.pct!==null ? pctToGPA(r.pct).toFixed(2) : '';
+    html += '<tr style="background:'+bg+';">';
+    html += '<td style="padding:7px 10px;">'+esc(r.sub.name)+'</td>';
+    if(creditEnabled) html += '<td style="text-align:center;">'+r.credits+'</td>';
+    html += '<td style="text-align:center;">'+(r.avg!==null?r.avg.toFixed(1):'—')+'</td>';
+    html += '<td style="text-align:center;">'+(r.pct!==null?r.pct.toFixed(1)+'%':'—')+'</td>';
+    html += '<td style="text-align:center;font-weight:700;">'+grade+'</td>';
+    if(gpaEnabled) html += '<td style="text-align:center;">'+gp+'</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div style="display:flex;justify-content:space-between;background:#eef0f7;padding:10px 14px;border-radius:6px;font-weight:700;font-size:.9rem;">';
+  html += '<span>Overall Average: '+(overallPct!==null?overallPct.toFixed(1)+'%':'—')+'</span>';
+  html += '<span>Grade: '+pctToGrade(overallPct)+'</span>';
+  if(gpaEnabled) html += '<span>GPA: '+(gpa!==null?gpa.toFixed(2):'—')+' / 4.0</span>';
+  html += bridgeBadgesHtml() ? '<div style="margin-top:10px;display:flex;gap:5px;flex-wrap:wrap;">'+bridgeBadgesHtml()+'</div>' : '';
+  html += '</div>';
+  html += '<div style="display:flex;justify-content:space-between;margin-top:24px;padding-top:12px;border-top:1px solid #ddd;">';
+  html += '<div style="text-align:center;"><div style="border-top:1.5px solid #1a237e;width:140px;margin-bottom:4px;padding-top:4px;"></div><div style="font-size:.7rem;color:#1a237e;">Class Teacher</div></div>';
+  html += '<div style="text-align:center;"><div style="border-top:1.5px solid #1a237e;width:140px;margin-bottom:4px;padding-top:4px;"></div><div style="font-size:.7rem;color:#1a237e;">School Director</div></div>';
+  html += '</div>';
+  html += '</div>';
+
+  var win = window.open('','_blank');
+  if(win){
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Transcript — '+esc(st.name)+'</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet"></head><body style="margin:0;background:#f0f2f7;">'+html+'<button onclick="window.print()" style="display:block;margin:16px auto;padding:8px 24px;background:#1a237e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.9rem;">🖨️ Print / Save PDF</button></body></html>');
+    win.document.close();
+  }
 }
 
 // ██████████████████████████████████████████████████████████████████
@@ -9387,6 +10597,199 @@ var LANG_UI = {
     addedBy:'Ajouté par',
     search:'Rechercher…',
   }
+
+  ,es: {
+    sub:'Sistema de Gestión Académica',
+    username:'Usuario', password:'Contraseña',
+    signIn:'Iniciar Sesión →', cantLogin:'¿Problemas? Restablecer',
+    grpOverview:'Resumen', grpSetup:'Configuración', grpMyClasses:'Mis Clases',
+    grpMarking:'Calificación', grpOutput:'Resultados', grpAccount:'Cuenta', grpSystem:'Sistema',
+    dashboard:'Panel', teachers:'Profesores', classes:'Clases',
+    terms:'Períodos', subjects:'Materias', students:'Alumnos',
+    marks:'Ingresar Notas', importData:'Importar', reports:'Boletines',
+    analytics:'Analítica', proclamation:'Proclamación', settings:'Configuración',
+    superAdmin:'Panel de Control',
+    logout:'Cerrar Sesión', saving:'Guardando…',
+    welcomeBack:'Bienvenido/a', totalStudents:'Total Alumnos',
+    totalTeachers:'Total Profesores', totalClasses:'Total Clases',
+    totalSubjects:'Total Materias', recentActivity:'Actividad Reciente',
+    noActivity:'Sin actividad.',
+    addStudent:'+ Agregar Alumno', searchStudents:'Buscar alumnos…',
+    allClasses:'Todas las Clases', noStudents:'No se encontraron alumnos.',
+    name:'Nombre', studentId:'ID Alumno', class:'Clase', action:'Acción',
+    edit:'✏️ Editar', delete:'Eliminar', save:'Guardar', cancel:'Cancelar',
+    confirmDelete:'¿Seguro que desea eliminar esto?',
+    noData:'Sin datos disponibles.', loading:'Cargando…',
+    rank:'Rango', average:'Promedio', total:'Total', passed:'APROBADO', failed:'REPROBADO',
+  },
+  pt: {
+    sub:'Sistema de Gestão Académica',
+    username:'Utilizador', password:'Senha',
+    signIn:'Entrar →', cantLogin:'Problemas? Redefinir',
+    grpOverview:'Visão Geral', grpSetup:'Configuração', grpMyClasses:'Minhas Turmas',
+    grpMarking:'Avaliação', grpOutput:'Resultados', grpAccount:'Conta', grpSystem:'Sistema',
+    dashboard:'Painel', teachers:'Professores', classes:'Turmas',
+    terms:'Períodos', subjects:'Disciplinas', students:'Alunos',
+    marks:'Inserir Notas', importData:'Importar', reports:'Boletins',
+    analytics:'Analítica', proclamation:'Proclamação', settings:'Configurações',
+    superAdmin:'Painel de Controle',
+    logout:'Sair', saving:'Salvando…',
+    welcomeBack:'Bem-vindo/a', totalStudents:'Total Alunos',
+    totalTeachers:'Total Professores', totalClasses:'Total Turmas',
+    totalSubjects:'Total Disciplinas', recentActivity:'Atividade Recente',
+    noActivity:'Sem atividade.',
+    addStudent:'+ Adicionar Aluno', searchStudents:'Buscar alunos…',
+    allClasses:'Todas as Turmas', noStudents:'Nenhum aluno encontrado.',
+    name:'Nome', studentId:'Matrícula', class:'Turma', action:'Ação',
+    edit:'✏️ Editar', delete:'Excluir', save:'Salvar', cancel:'Cancelar',
+    confirmDelete:'Tem certeza que deseja excluir?',
+    noData:'Sem dados disponíveis.', loading:'Carregando…',
+    rank:'Posição', average:'Média', total:'Total', passed:'APROVADO', failed:'REPROVADO',
+  },
+  sw: {
+    sub:'Mfumo wa Usimamizi wa Masomo',
+    username:'Jina la mtumiaji', password:'Nywila',
+    signIn:'Ingia →', cantLogin:'Tatizo? Weka upya',
+    grpOverview:'Muhtasari', grpSetup:'Mpangilio', grpMyClasses:'Madarasa Yangu',
+    grpMarking:'Alama', grpOutput:'Matokeo', grpAccount:'Akaunti', grpSystem:'Mfumo',
+    dashboard:'Dashibodi', teachers:'Walimu', classes:'Madarasa',
+    terms:'Muhula', subjects:'Masomo', students:'Wanafunzi',
+    marks:'Ingiza Alama', importData:'Ingiza Data', reports:'Ripoti',
+    analytics:'Uchambuzi', proclamation:'Tangazo', settings:'Mipangilio',
+    superAdmin:'Jopo la Udhibiti',
+    logout:'Toka', saving:'Hifadhi…',
+    welcomeBack:'Karibu tena', totalStudents:'Jumla ya Wanafunzi',
+    totalTeachers:'Jumla ya Walimu', totalClasses:'Jumla ya Madarasa',
+    totalSubjects:'Jumla ya Masomo', recentActivity:'Shughuli za Hivi Karibuni',
+    noActivity:'Hakuna shughuli bado.',
+    addStudent:'+ Ongeza Mwanafunzi', searchStudents:'Tafuta wanafunzi…',
+    allClasses:'Madarasa Yote', noStudents:'Hakuna wanafunzi waliopatikana.',
+    name:'Jina', studentId:'Nambari ya Mwanafunzi', class:'Darasa', action:'Hatua',
+    edit:'✏️ Hariri', delete:'Futa', save:'Hifadhi', cancel:'Ghairi',
+    confirmDelete:'Una uhakika unataka kufuta hii?',
+    noData:'Hakuna data.', loading:'Inapakia…',
+    rank:'Nafasi', average:'Wastani', total:'Jumla', passed:'AMEFAULU', failed:'AMESHINDWA',
+  },
+  ar: {
+    sub:'نظام إدارة الدرجات الأكاديمية',
+    username:'اسم المستخدم', password:'كلمة المرور',
+    signIn:'تسجيل الدخول →', cantLogin:'مشكلة؟ إعادة تعيين',
+    grpOverview:'نظرة عامة', grpSetup:'الإعداد', grpMyClasses:'فصولي',
+    grpMarking:'التصحيح', grpOutput:'النتائج', grpAccount:'الحساب', grpSystem:'النظام',
+    dashboard:'لوحة التحكم', teachers:'المعلمون', classes:'الفصول',
+    terms:'الفصول الدراسية', subjects:'المواد', students:'الطلاب',
+    marks:'إدخال الدرجات', importData:'استيراد', reports:'بطاقات التقارير',
+    analytics:'التحليلات', proclamation:'الإعلان', settings:'الإعدادات',
+    superAdmin:'لوحة التحكم',
+    logout:'تسجيل الخروج', saving:'جارٍ الحفظ…',
+    welcomeBack:'مرحباً بعودتك', totalStudents:'إجمالي الطلاب',
+    totalTeachers:'إجمالي المعلمين', totalClasses:'إجمالي الفصول',
+    totalSubjects:'إجمالي المواد', recentActivity:'النشاط الأخير',
+    noActivity:'لا نشاط بعد.',
+    addStudent:'+ إضافة طالب', searchStudents:'بحث عن الطلاب…',
+    allClasses:'جميع الفصول', noStudents:'لم يتم العثور على طلاب.',
+    name:'الاسم', studentId:'رقم الطالب', class:'الفصل', action:'الإجراء',
+    edit:'✏️ تعديل', delete:'حذف', save:'حفظ', cancel:'إلغاء',
+    confirmDelete:'هل أنت متأكد من حذف هذا؟',
+    noData:'لا توجد بيانات.', loading:'جارٍ التحميل…',
+    rank:'الترتيب', average:'المتوسط', total:'الإجمالي', passed:'ناجح', failed:'راسب',
+  },
+  de: {
+    sub:'Akademisches Notenverwaltungssystem',
+    username:'Benutzername', password:'Passwort',
+    signIn:'Anmelden →', cantLogin:'Problem? Zurücksetzen',
+    grpOverview:'Übersicht', grpSetup:'Einrichtung', grpMyClasses:'Meine Klassen',
+    grpMarking:'Benotung', grpOutput:'Ergebnisse', grpAccount:'Konto', grpSystem:'System',
+    dashboard:'Dashboard', teachers:'Lehrer', classes:'Klassen',
+    terms:'Schulperioden', subjects:'Fächer', students:'Schüler',
+    marks:'Noten Eingeben', importData:'Importieren', reports:'Zeugnisse',
+    analytics:'Analytik', proclamation:'Notenbekanntgabe', settings:'Einstellungen',
+    superAdmin:'Kontrollzentrum',
+    logout:'Abmelden', saving:'Speichern…',
+    welcomeBack:'Willkommen zurück', totalStudents:'Gesamtschüler',
+    totalTeachers:'Gesamtlehrer', totalClasses:'Gesamtklassen',
+    totalSubjects:'Gesamtfächer', recentActivity:'Letzte Aktivitäten',
+    noActivity:'Keine Aktivitäten.',
+    addStudent:'+ Schüler hinzufügen', searchStudents:'Schüler suchen…',
+    allClasses:'Alle Klassen', noStudents:'Keine Schüler gefunden.',
+    name:'Name', studentId:'Schüler-ID', class:'Klasse', action:'Aktion',
+    edit:'✏️ Bearbeiten', delete:'Löschen', save:'Speichern', cancel:'Abbrechen',
+    confirmDelete:'Sind Sie sicher, dass Sie das löschen möchten?',
+    noData:'Keine Daten verfügbar.', loading:'Laden…',
+    rank:'Rang', average:'Durchschnitt', total:'Gesamt', passed:'BESTANDEN', failed:'NICHT BESTANDEN',
+  },
+  zh: {
+    sub:'学术成绩管理系统',
+    username:'用户名', password:'密码',
+    signIn:'登录 →', cantLogin:'有问题？重置',
+    grpOverview:'概览', grpSetup:'设置', grpMyClasses:'我的班级',
+    grpMarking:'批改', grpOutput:'成绩', grpAccount:'账户', grpSystem:'系统',
+    dashboard:'仪表盘', teachers:'教师', classes:'班级',
+    terms:'学期', subjects:'科目', students:'学生',
+    marks:'输入成绩', importData:'导入', reports:'成绩单',
+    analytics:'分析', proclamation:'公告', settings:'设置',
+    superAdmin:'控制面板',
+    logout:'退出', saving:'保存中…',
+    welcomeBack:'欢迎回来', totalStudents:'学生总数',
+    totalTeachers:'教师总数', totalClasses:'班级总数',
+    totalSubjects:'科目总数', recentActivity:'最近活动',
+    noActivity:'暂无活动。',
+    addStudent:'+ 添加学生', searchStudents:'搜索学生…',
+    allClasses:'所有班级', noStudents:'未找到学生。',
+    name:'姓名', studentId:'学号', class:'班级', action:'操作',
+    edit:'✏️ 编辑', delete:'删除', save:'保存', cancel:'取消',
+    confirmDelete:'确定要删除吗？',
+    noData:'暂无数据。', loading:'加载中…',
+    rank:'排名', average:'平均分', total:'总分', passed:'通过', failed:'未通过',
+  },
+  rw: {
+    sub:'Sisitemi yo Gucunga Amanota',
+    username:'Izina ryu Mukoresha', password:'Ijambo Ryibanga',
+    signIn:'Injira →', cantLogin:'Ikibazo? Subiza',
+    grpOverview:'Incamake', grpSetup:'Igenamiterere', grpMyClasses:'Amaklase Yanjye',
+    grpMarking:'Amanota', grpOutput:'Ibisubizo', grpAccount:'Konti', grpSystem:'Sisitemi',
+    dashboard:'Imbaho', teachers:'Abarimu', classes:'Amaklase',
+    terms:'Amahitamo', subjects:'Inzego', students:'Abanyeshuri',
+    marks:'Injiza Amanota', importData:'Injiza Amakuru', reports:'Inyandiko z’Amanota',
+    analytics:'Isesengura', proclamation:'Itangazo', settings:'Igenamiterere',
+    superAdmin:'Aho Gutuza',
+    logout:'Sohoka', saving:'Kubika…',
+    welcomeBack:'Murakaza neza', totalStudents:'Abanyeshuri Bose',
+    totalTeachers:'Abarimu Bose', totalClasses:'Amaklase Yose',
+    totalSubjects:'Inzego Zose', recentActivity:'Ibikorwa Biheruka',
+    noActivity:'Nta bikorwa.',
+    addStudent:'+ Ongeraho Umunyeshuri', searchStudents:'Shakisha abanyeshuri…',
+    allClasses:'Amaklase Yose', noStudents:'Nta munyeshuri wabonetse.',
+    name:'Izina', studentId:'Nomero y’Umunyeshuri', class:'Klase', action:'Igikorwa',
+    edit:'✏️ Hindura', delete:'Siba', save:'Bika', cancel:'Reka',
+    confirmDelete:'Uzi neza ko ushaka gusiba ibi?',
+    noData:'Nta makuru.', loading:'Gutegura…',
+    rank:'Uburanga', average:'Amajwi Hagati', total:'Igiteranyo', passed:'YATSINZE', failed:'NTIYATSINZE',
+  },
+  hi: {
+    sub:'शैक्षणिक ग्रेड प्रबंधन प्रणाली',
+    username:'उपयोगकर्ता नाम', password:'पासवर्ड',
+    signIn:'लॉगिन करें →', cantLogin:'समस्या? रीसेट करें',
+    grpOverview:'अवलोकन', grpSetup:'सेटअप', grpMyClasses:'मेरी कक्षाएं',
+    grpMarking:'अंकन', grpOutput:'परिणाम', grpAccount:'खाता', grpSystem:'प्रणाली',
+    dashboard:'डैशबोर्ड', teachers:'शिक्षक', classes:'कक्षाएं',
+    terms:'सत्र', subjects:'विषय', students:'छात्र',
+    marks:'अंक दर्ज करें', importData:'आयात करें', reports:'रिपोर्ट कार्ड',
+    analytics:'विश्लेषण', proclamation:'घोषणा', settings:'सेटिंग्स',
+    superAdmin:'नियंत्रण पैनल',
+    logout:'लॉगआउट', saving:'सहेजा जा रहा है…',
+    welcomeBack:'वापस स्वागत है', totalStudents:'कुल छात्र',
+    totalTeachers:'कुल शिक्षक', totalClasses:'कुल कक्षाएं',
+    totalSubjects:'कुल विषय', recentActivity:'हालिया गतिविधि',
+    noActivity:'अभी तक कोई गतिविधि नहीं।',
+    addStudent:'+ छात्र जोड़ें', searchStudents:'छात्र खोजें…',
+    allClasses:'सभी कक्षाएं', noStudents:'कोई छात्र नहीं मिला।',
+    name:'नाम', studentId:'छात्र आईडी', class:'कक्षा', action:'कार्रवाई',
+    edit:'✏️ संपादित करें', delete:'हटाएं', save:'सहेजें', cancel:'रद्द करें',
+    confirmDelete:'क्या आप वाकई इसे हटाना चाहते हैं?',
+    noData:'कोई डेटा उपलब्ध नहीं।', loading:'लोड हो रहा है…',
+    rank:'रैंक', average:'औसत', total:'कुल', passed:'उत्तीर्ण', failed:'अनुत्तीर्ण',
+  }
 };
 
 // Get translation
@@ -9417,18 +10820,19 @@ function setAppLang(lang){
 }
 
 function applyAppLang(){
-  // Language buttons
-  var enBtn = document.getElementById('lang-en-btn');
-  var frBtn = document.getElementById('lang-fr-btn');
-  if(enBtn && frBtn){
-    if(APP_LANG==='en'){
-      enBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--gold);background:rgba(240,180,41,.15);color:var(--gold);font-weight:700;cursor:pointer;font-size:.82rem;';
-      frBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--bd);background:var(--s2);color:var(--ink2);font-weight:600;cursor:pointer;font-size:.82rem;';
+  // Highlight active language button (all 10 languages)
+  var allLangs = ['en','fr','es','pt','sw','ar','de','zh','rw','hi'];
+  allLangs.forEach(function(lang){
+    var btn = document.getElementById('lang-'+lang+'-btn');
+    if(!btn) return;
+    if(lang === APP_LANG){
+      btn.classList.add('active');
     } else {
-      frBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--gold);background:rgba(240,180,41,.15);color:var(--gold);font-weight:700;cursor:pointer;font-size:.82rem;';
-      enBtn.style.cssText='flex:1;padding:6px 10px;border-radius:8px;border:2px solid var(--bd);background:var(--s2);color:var(--ink2);font-weight:600;cursor:pointer;font-size:.82rem;';
+      btn.classList.remove('active');
     }
-  }
+  });
+  // Apply RTL for Arabic
+  document.documentElement.dir = (APP_LANG === 'ar') ? 'rtl' : 'ltr';
   // Login page
   setText('lsubText', L('sub'));
   setText('lbl-username', L('username'));
@@ -9466,6 +10870,10 @@ function setText(id, text){
 // Apply language on page load
 document.addEventListener('DOMContentLoaded', function(){
   applyAppLang();
+  // Init academic system preview if on settings page
+  setTimeout(function(){
+    if(typeof previewAcadSystem === 'function') previewAcadSystem();
+  }, 200);
 });
 
 // Hide login until data is ready — wait for DOM to be fully loaded
@@ -9551,6 +10959,11 @@ document.addEventListener('DOMContentLoaded', function(){
       </div>
     </div>
 
+    <!-- ACADEMIC SYSTEM INFO -->
+    <div class="ds-section">
+      <div class="ds-section-title">🎓 Academic System</div>
+      <div id="ds-acad-info" style="font-size:.82rem;color:var(--ink2);">Go to Settings → International to configure grading systems, GPA, and more.</div>
+    </div>
     <!-- SCHOOL LEVEL -->
     <div class="ds-section">
       <div class="ds-section-title">🎓 School Level</div>
