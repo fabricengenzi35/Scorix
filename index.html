@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   SCORIX — International Academic Management System
-  Version: 3.0 International
+  Version: 3.1 International
   International Features:
   - 10 languages: EN, FR, ES, PT, SW, AR, DE, ZH, RW, HI
   - 8 grading systems: Standard, US GPA, UK A-Level, French Bac, IB, German, East Africa, Rwanda
@@ -49,7 +49,7 @@
 <meta name="apple-mobile-web-app-title" content="SCORIX">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com https://zabdtormeyrucjwjipzl.supabase.co data: blob:;">
 <meta name="referrer" content="no-referrer-when-downgrade">
-<title>SCORIX — International Academic System v3.0 ✦ Best×∞</title>
+<title>SCORIX — International Academic System v3.1 ✦ Best×∞</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <!--
   ╔══════════════════════════════════════════════════════════╗
@@ -1148,6 +1148,10 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <span style="font-size:.8rem;font-weight:500;" id="parent-name-display">Parent</span>
         <span style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 6px;border-radius:10px;background:rgba(62,207,142,.15);color:var(--green);">Parent</span>
       </div>
+      <button id="parent-inbox-btn" onclick="parentShowInbox()" style="background:none;border:1px solid var(--bd);border-radius:6px;color:var(--ink2);padding:5px 10px;font-size:.77rem;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;position:relative;" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--ink2)'">
+        ✉️ Inbox
+        <span id="parent-inbox-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:10px;padding:1px 5px;font-size:.58rem;font-weight:700;min-width:16px;text-align:center;"></span>
+      </button>
       <button onclick="doParentLogout()" style="background:none;border:1px solid var(--bd);border-radius:6px;color:var(--ink3);padding:5px 10px;font-size:.77rem;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--ink3)'">⏻ Sign Out</button>
     </div>
   </div>
@@ -1438,7 +1442,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <div class="page" id="p-terms">
         <div class="ph"><div><div class="phtitle">Terms &amp; Periods</div><div class="phsub">Manage assessment periods &amp; mark components</div></div>
         <div class="phact admin-only"><button class="btn gold" onclick="om('mterm')">+ Add Term</button></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Academic Year</th><th>Term</th><th>Period Type</th><th>Max Mark</th><th>Active</th><th class="admin-only">Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Academic Year</th><th>Term</th><th>Period Type</th><th>Max Mark</th><th>Active</th><th class="admin-only">Lock</th><th class="admin-only">Action</th></tr></thead><tbody id="tbterm"></tbody></table></div></div>
       </div>
 
       <!-- SUBJECTS -->
@@ -1652,6 +1656,15 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           <div id="rpApprovalStatus"></div>
         </div>
 
+        <!-- DIRECTOR UNLOCK PANEL — shows all printed/locked class+term combos -->
+        <div class="card noprint" id="rpUnlockPanel" style="border:1px solid rgba(224,82,82,.3);background:rgba(224,82,82,.04);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.7rem;">
+            <div class="ctitle" style="color:var(--red);margin-bottom:0;">🔒 Printed &amp; Locked Terms</div>
+            <button class="btn sm red" onclick="rpScanAndShow()">🔍 Scan for Locked Terms</button>
+          </div>
+          <div id="rpUnlockList"><div style="font-size:.78rem;color:var(--ink3);">Tap "Scan for Locked Terms" to find all terms locked after printing.</div></div>
+        </div>
+
         <!-- TEACHER filters -->
         <div class="card noprint" id="rpTeacherCard" style="display:none;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
@@ -1702,6 +1715,56 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           </div>
         </div>
         <div id="prOut"><div class="empty"><div class="ei">🏆</div><p>Enter marks first to see rankings.</p></div></div>
+      </div>
+
+
+      <!-- MESSAGES PAGE -->
+      <div class="page" id="p-messages">
+        <div class="ph">
+          <div>
+            <div class="phtitle">✉️ Messagerie</div>
+            <div class="phsub" id="msg-ph-sub">Director broadcast &amp; inbox</div>
+          </div>
+          <div class="phact admin-only">
+            <button class="btn gold" onclick="msgOpenCompose()">✏️ New Message</button>
+          </div>
+        </div>
+
+        <!-- COMPOSE PANEL (admin only) -->
+        <div class="card admin-only" id="msgComposeCard" style="display:none;border:1px solid rgba(240,180,41,.3);background:rgba(240,180,41,.04);">
+          <div class="ctitle" style="color:var(--gold);">✏️ Compose Message</div>
+          <div style="display:flex;flex-direction:column;gap:.8rem;">
+            <div class="fg">
+              <label>Subject</label>
+              <input type="text" id="msgSubject" placeholder="e.g. School Meeting Friday…" maxlength="120">
+            </div>
+            <div class="fg">
+              <label>Message</label>
+              <textarea id="msgBody" rows="5" placeholder="Type your message here…" style="resize:vertical;padding:10px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.9rem;outline:none;transition:border .15s;font-family:inherit;" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bd)'"></textarea>
+            </div>
+            <div class="fg">
+              <label>Send To</label>
+              <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:500;color:var(--ink);">
+                  <input type="checkbox" id="msgToTeachers" checked style="accent-color:var(--blue);width:16px;height:16px;">
+                  <span>👩‍🏫 All Teachers</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:500;color:var(--ink);">
+                  <input type="checkbox" id="msgToParents" style="accent-color:var(--purple);width:16px;height:16px;">
+                  <span>👨‍👩‍👧 All Parents</span>
+                </label>
+              </div>
+            </div>
+            <div id="msgComposeErr" style="display:none;color:var(--red);font-size:.8rem;padding:6px 10px;background:rgba(224,82,82,.1);border-radius:6px;border:1px solid rgba(224,82,82,.2);"></div>
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+              <button class="btn gold" onclick="msgSend()" style="min-width:120px;">📤 Send</button>
+              <button class="btn ghost" onclick="msgCloseCompose()">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- INBOX / SENT LIST -->
+        <div id="msgList"></div>
       </div>
 
       <!-- SETTINGS -->
@@ -3121,6 +3184,7 @@ var DB = {
   parents:[],     // [{id, email, password, studentCodes:[sid,...], schoolId}]
   quizYears:[],   // [{id, label, weeks:[{id,label}], locked, createdAt}]
   termYears:[],   // [{id, label, locked, createdAt}] — each year uses its own marks via key prefix
+  messages:[],    // [{id, from, fromName, subject, body, to:'all'|'teachers'|'parents', sentAt, readBy:[uid,...]}]
   terms:[
     {id:'T1',name:'Term 1',type:'term',active:true,components:[
       {id:'T1_mid',name:'Midterm 1',maxMark:50},
@@ -3201,6 +3265,7 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.quizYears)) DB.quizYears=d.quizYears;
     if(Array.isArray(d.termYears)) DB.termYears=d.termYears;
     if(Array.isArray(d.parents))   DB.parents=d.parents;
+    if(Array.isArray(d.messages))  DB.messages=d.messages;
 
     // ── MIGRATION 3: old quiz mark keys → new year-keyed format ──
     // Old: qz_studentId_subId_W1  (4 parts split by _)
@@ -3586,6 +3651,7 @@ function enterParentPortal(){
   var wrap = document.getElementById('parentPortalWrap');
   wrap.style.display = 'block';
   renderParentPortal();
+  setTimeout(parentUpdateBadge, 600);
 }
 
 // ── Render Parent Portal Content ──
@@ -3753,6 +3819,68 @@ function showAddChildModal(){
   addLog('Parent '+PARENT_USER.email+' added student: '+student.name);
   dbSave();
   renderParentPortal();
+}
+
+
+// ██████████████████████████████████████████████████████████████████
+// █  PARENT PORTAL INBOX
+// ██████████████████████████████████████████████████████████████████
+
+function parentInboxUnread(){
+  if(!DB.messages || !PARENT_USER) return 0;
+  return DB.messages.filter(function(m){
+    if(m.to !== 'parents' && m.to !== 'all') return false;
+    return !(m.readBy && m.readBy.indexOf('parent_'+PARENT_USER.id) >= 0);
+  }).length;
+}
+
+function parentUpdateBadge(){
+  var badge = document.getElementById('parent-inbox-badge');
+  if(!badge) return;
+  var count = parentInboxUnread();
+  badge.textContent = count > 0 ? count : '';
+  badge.style.display = count > 0 ? 'inline-block' : 'none';
+}
+
+function parentShowInbox(){
+  var content = document.getElementById('parent-portal-content');
+  if(!content) return;
+  if(!DB.messages) DB.messages = [];
+
+  var msgs = DB.messages.filter(function(m){ return m.to === 'parents' || m.to === 'all'; });
+  var uid  = 'parent_' + PARENT_USER.id;
+
+  var html = '<div style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">'
+    + '<div style="font-family:Playfair Display,serif;font-size:1.3rem;">✉️ Inbox</div>'
+    + '<button class="btn ghost" onclick="renderParentPortal()" style="font-size:.8rem;">← Back to Results</button>'
+    + '</div>';
+
+  if(!msgs.length){
+    html += '<div style="text-align:center;padding:3rem;color:var(--ink3);"><div style="font-size:2.5rem;margin-bottom:.7rem;">✉️</div><p>No messages from the director yet.</p></div>';
+  } else {
+    msgs.forEach(function(m){
+      var isUnread = !(m.readBy && m.readBy.indexOf(uid) >= 0);
+      var dateStr  = new Date(m.sentAt).toLocaleDateString() + ' ' + new Date(m.sentAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      html += '<div style="background:var(--s1);border:1px solid ' + (isUnread ? 'rgba(74,143,255,.5)' : 'var(--bd)') + ';border-radius:10px;padding:1rem 1.1rem;margin-bottom:.7rem;">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:.4rem;">'
+        + (isUnread ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;"></span>' : '')
+        + '<div style="font-size:.92rem;font-weight:' + (isUnread ? '700' : '500') + ';color:var(--ink);flex:1;">' + esc(m.subject) + '</div>'
+        + '<div style="font-size:.68rem;color:var(--ink3);white-space:nowrap;">' + dateStr + '</div>'
+        + '</div>'
+        + '<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.6rem;">From: ' + esc(m.fromName) + '</div>'
+        + '<div style="font-size:.85rem;color:var(--ink);line-height:1.7;white-space:pre-wrap;">' + esc(m.body) + '</div>'
+        + '</div>';
+      // Mark as read
+      if(!m.readBy) m.readBy = [];
+      if(m.readBy.indexOf(uid) < 0){
+        m.readBy.push(uid);
+      }
+    });
+    dbSave();
+  }
+
+  content.innerHTML = html;
+  parentUpdateBadge();
 }
 
 function doParentLogout(){
@@ -3952,6 +4080,7 @@ function enterApp(){
   buildSidebar();
   applyAppLang();
   addLog('Signed in: '+ME.name);
+  setTimeout(msgUpdateBadge, 900);
   if(!isSuperAdmin()) dbSave();
 
   // Re-render after Supabase data loads
@@ -3972,7 +4101,7 @@ function doLogout(){
   ME=null; PARENT_USER=null; CURRENT_SCHOOL_ID=null; _markMode='term'; CURRENT_LEVEL='PRIMARY';
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   _userIndexCache = null; // force fresh login lookup next time
-  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],
+  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],quizYears:[],termYears:[],attendance:{},
     terms:[
@@ -4123,6 +4252,7 @@ function buildSidebar(){
       grp(L('grpMarking'),[{id:'marks',icon:'✏️',label:L('marks')}]);
     }
     grp(L('grpOutput'),[{id:'reports',icon:'📄',label:L('reports')},{id:'analytics',icon:'📊',label:L('analytics')},{id:'proclamation',icon:'🏆',label:L('proclamation')},{id:'quizprocl',icon:'🌅',label:APP_LANG==='fr'?'Classement Quiz':'Quiz Rankings'}]);
+    grp('Communication',[{id:'messages',icon:'✉️',label:admin?'Messagerie':'Inbox'}]);
     grp(L('grpAccount'),[{id:'settings',icon:'⚙️',label:L('settings')}]);
   }
   document.getElementById('sidebar').innerHTML=html;
@@ -4139,6 +4269,7 @@ function showPage(id){
     terms:renderTerms, subjects:renderSubjects, students:setupStudents,
     marks:setupMarks, import:function(){}, reports:setupReports,
     analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
+    messages:msgSetup,
     super:renderSuperPanel, overview:renderOverview, quizprocl:setupQuizProcl
   };
   if(fns[id]) fns[id]();
@@ -5355,22 +5486,42 @@ function syncClassSelects(){
 function renderTerms(){
   var tb=document.getElementById('tbterm');
   var lvlTermsList=levelTerms();
-  if(!lvlTermsList.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><p>No terms in '+CURRENT_LEVEL+' yet. Click <strong>+ Add Term</strong>.</p></div></td></tr>';return;}
+  if(!lvlTermsList.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><p>No terms in '+CURRENT_LEVEL+' yet. Click <strong>+ Add Term</strong>.</p></div></td></tr>';return;}
   tb.innerHTML=lvlTermsList.map(function(t,i){
     var periodColor = t.periodType==='Midterm'?'var(--blue)':'var(--gold)';
     var periodIcon  = t.periodType==='Midterm'?'📝':'📋';
     var periodDisplay = t.periodType==='Midterm'?'EU (Midterm)':'ET (Exam)';
+    var isLocked = !!t.marksLocked;
+    var lockBtn = isLocked
+      ? '<button class="btn sm" onclick="toggleTermLock(\''+t.id+'\')" style="background:rgba(224,82,82,.13);color:var(--red);border:1px solid rgba(224,82,82,.3);" title="Click to unlock this term for editing">🔒 Locked</button>'
+      : '<button class="btn sm" onclick="toggleTermLock(\''+t.id+'\')" style="background:rgba(62,207,142,.1);color:var(--green);border:1px solid rgba(62,207,142,.25);" title="Click to lock this term — teachers cannot edit marks">🔓 Open</button>';
     return'<tr>'
       +'<td>'+(i+1)+'</td>'
       +'<td><strong style="color:var(--gold);">'+(t.academicYear||'—')+'</strong></td>'
-      +'<td>'+(t.termLabel||t.name||'—')+'</td>'
+      +'<td>'+(t.termLabel||t.name||'—')+(isLocked?'&nbsp;<span style="font-size:.65rem;font-weight:700;color:var(--red);background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.2);border-radius:8px;padding:1px 6px;">🔒 LOCKED</span>':'')+'</td>'
       +'<td><span style="background:rgba(74,143,255,.12);color:'+periodColor+';border:1px solid rgba(74,143,255,.2);border-radius:8px;padding:2px 10px;font-size:.78rem;font-weight:600;">'+periodIcon+' '+periodDisplay+'</span></td>'
       +'<td><strong>'+(t.maxMark||50)+'</strong></td>'
       +'<td><label style="display:flex;align-items:center;gap:7px;cursor:pointer;"><input type="checkbox" '+(t.active?'checked':'')
       +' onchange="toggleTerm(\''+t.id+'\')" style="accent-color:var(--gold);width:15px;height:15px;"><span style="font-size:.81rem;color:'+(t.active?'var(--green)':'var(--ink3)')+';">'+(t.active?'Active':'Hidden')+'</span></label></td>'
+      +'<td class="admin-only">'+lockBtn+'</td>'
       +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditTerm(\''+t.id+'\')">✏️</button><button class="btn sm red" onclick="delTerm(\''+t.id+'\')">🗑️</button></div></td>'
       +'</tr>';
   }).join('');
+}
+
+// Toggle per-term lock — director only
+function toggleTermLock(termId){
+  var t = DB.terms.find(function(x){return x.id===termId;});
+  if(!t) return;
+  var willLock = !t.marksLocked;
+  var msg = willLock
+    ? 'Lock this term?\n\n🔒 Teachers will NOT be able to edit or save marks for "'+t.name+'" until you unlock it.\n\nYou can unlock it anytime.'
+    : 'Unlock this term?\n\n🔓 Teachers will be able to edit marks for "'+t.name+'" again.';
+  if(!confirm(msg)) return;
+  t.marksLocked = willLock;
+  addLog((willLock?'🔒 Director locked term: ':'🔓 Director unlocked term: ')+t.name);
+  dbSave();
+  renderTerms();
 }
 
 function openEditTerm(id){
@@ -6003,12 +6154,24 @@ function loadMkTable(){
       return;
     }
 
+
+    // ── PER-TERM DIRECTOR LOCK ── If this specific term is locked by the director
+    var termObjLock = DB.terms.find(function(x){return x.id===actualTid;});
+    if(termObjLock && termObjLock.marksLocked){
+      wrap.innerHTML='<div style="padding:1.2rem;background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-radius:10px;text-align:center;">'
+        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">🔒</div>'
+        +'<div style="font-weight:700;color:var(--red);font-size:.95rem;margin-bottom:.4rem;">Term Locked by Director</div>'
+        +'<div style="font-size:.78rem;color:var(--ink3);">The director has locked marks for this term. Contact the director to unlock if changes are needed.</div>'
+        +'</div>';
+      return;
+    }
+
     // ── APPROVAL LOCK ── If class teacher has approved, block all mark editing
     var approval=getApproval(cid, actualTid);
     if(approval&&(approval.approved||approval.directorPrinted)){
       var isClassTeacher = ME&&ME.classTeacher===cid;
       var lockReason = approval.directorPrinted
-        ? 'The director has already printed the report cards for this term. Marks are permanently locked.'
+        ? 'The director has printed the report cards for this term. Ask the director to unlock if corrections are needed.'
         : 'The class teacher has approved these marks for printing. No changes are allowed.';
       var lockIcon = approval.directorPrinted ? '🖨️' : '✅';
       var lockTitle = approval.directorPrinted ? 'Printed & Locked by Director' : 'Marks Approved — Locked for Editing';
@@ -6016,9 +6179,11 @@ function loadMkTable(){
         +'<div style="font-size:1.5rem;margin-bottom:.5rem;">'+lockIcon+'</div>'
         +'<div style="font-weight:700;color:var(--green);font-size:.95rem;margin-bottom:.4rem;">'+lockTitle+'</div>'
         +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:.9rem;">'+lockReason+'</div>'
-        +(isClassTeacher&&!approval.directorPrinted
-          ?'<button class="btn red" onclick="unapproveReports(\''+cid+'\',\''+actualTid+'\')">🔓 Unapprove to Edit Again</button>'
-          :'<div style="font-size:.75rem;color:var(--ink3);">'+(approval.directorPrinted?'Contact the director if changes are needed.':'Ask the class teacher to unapprove if changes are needed.')+'</div>')
+        +(approval.directorPrinted && isAdmin()
+          ?'<button class="btn red" style="margin-top:.3rem;" data-cid="'+cid+'" data-tid="'+actualTid+'" onclick="mkDirectorUnlock(this.dataset.cid,this.dataset.tid)">🔓 Unlock This Term</button>'
+          :(isClassTeacher&&!approval.directorPrinted
+            ?'<button class="btn red" data-cid="'+cid+'" data-tid="'+actualTid+'" onclick="unapproveReports(this.dataset.cid,this.dataset.tid)">🔓 Unapprove to Edit Again</button>'
+            :'<div style="font-size:.75rem;color:var(--ink3);">'+(approval.directorPrinted?'Ask the director to unlock this term.':'Ask the class teacher to unapprove if changes are needed.')+'</div>'))
         +'</div>';
       return;
     }
@@ -6238,12 +6403,21 @@ function saveAllMarks(){
     var sp=compRaw.split('__'); actualTid=sp[0]; compId=sp[1];
   }
 
+  // Block saving if this specific term is locked by the director
+  if(!isAdmin()){
+    var termObj2 = DB.terms.find(function(x){return x.id===actualTid;});
+    if(termObj2 && termObj2.marksLocked){
+      alert('🔒 This term is locked by the director. You cannot edit marks until the director unlocks it.');
+      return;
+    }
+  }
+
   // Block saving if approved or director has printed
   if(!isAdmin()){
     var approval=getApproval(cid,actualTid);
     if(approval&&(approval.approved||approval.directorPrinted)){
       alert(approval.directorPrinted
-        ? '⛔ Marks are permanently locked. The director has printed the report cards.'
+        ? '⛔ Marks are locked by the director. Ask the director to unlock this term if corrections are needed.'
         : '⛔ Marks are locked. The class teacher has approved this term. Ask them to unapprove first.');
       return;
     }
@@ -6347,6 +6521,7 @@ function setupReports(){
     // Director panel
     document.getElementById('rpDirectorCard').style.display='block';
     document.getElementById('rpTeacherCard').style.display='none';
+    var up=document.getElementById('rpUnlockPanel'); if(up) up.style.display='block';
     // Populate class dropdown
     var clsSel=document.getElementById('rpCls');
     clsSel.innerHTML='<option value="">— Select Class —</option>'+
@@ -6354,6 +6529,7 @@ function setupReports(){
     syncTerms();
     renderApprovalStatus();
   } else {
+    var up2=document.getElementById('rpUnlockPanel'); if(up2) up2.style.display='none';
     // Teacher panel — only their class teacher class
     document.getElementById('rpDirectorCard').style.display='none';
     document.getElementById('rpTeacherCard').style.display='block';
@@ -6423,17 +6599,228 @@ function renderApprovalStatus(){
   var teacher=DB.users.find(function(u){return u.classTeacher===cid&&u.role==='teacher';});
   var progress=calcProgress(cid,tid);
   var approved=approval&&approval.approved;
-  var color=approved?'var(--green)':progress<50?'var(--red)':'var(--gold)';
-  el.innerHTML='<div style="display:flex;align-items:center;gap:12px;padding:.7rem 1rem;background:var(--s2);border-radius:8px;border:1px solid var(--bd);margin-top:.5rem;">'
+  var dirPrinted=approval&&approval.directorPrinted;
+  var color=dirPrinted?'var(--red)':approved?'var(--green)':progress<50?'var(--red)':'var(--gold)';
+
+  // ── Director-printed banner with unlock button ──
+  var printedBanner = dirPrinted
+    ? '<div style="display:flex;align-items:center;gap:10px;padding:.65rem 1rem;background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-radius:8px;margin-top:.5rem;flex-wrap:wrap;">'
+      +'<div style="font-size:1.1rem;">🖨️</div>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:.8rem;font-weight:700;color:var(--red);">Printed &amp; Locked by Director</div>'
+      +'<div style="font-size:.7rem;color:var(--ink3);margin-top:1px;">Marks are locked since '+(approval.directorPrintedAt?new Date(approval.directorPrintedAt).toLocaleDateString():'printing')+'.</div>'
+      +'</div>'
+      +'<button class="btn sm red" onclick="directorUnlockPrint(this.dataset.cid,this.dataset.tid)" data-cid="'+cid+'" data-tid="'+tid+'" style="white-space:nowrap;">🔓 Unlock for Editing</button>'
+      +'</div>'
+    : '';
+
+  el.innerHTML=printedBanner
+    +'<div style="display:flex;align-items:center;gap:12px;padding:.7rem 1rem;background:var(--s2);border-radius:8px;border:1px solid var(--bd);margin-top:.5rem;">'
     +'<div style="flex:1;">'
     +'<div style="font-size:.78rem;font-weight:600;color:var(--ink2);">Class Teacher Approval — '+(cls?cls.name:'')+'</div>'
     +'<div style="font-size:.72rem;color:var(--ink3);margin-top:2px;">Teacher: '+(teacher?teacher.name:'Not assigned')+'</div>'
     +'</div>'
     +'<div style="text-align:center;">'
-    +'<div style="font-size:1.1rem;font-weight:700;color:'+color+';">'+(approved?'✅ APPROVED':'🔴 '+progress+'%')+'</div>'
-    +'<div style="font-size:.65rem;color:var(--ink3);">'+(approved?'Ready to print':progress+'% marks entered')+'</div>'
+    +'<div style="font-size:1.1rem;font-weight:700;color:'+color+';">'+(dirPrinted?'🔒 LOCKED':approved?'✅ APPROVED':'🔴 '+progress+'%')+'</div>'
+    +'<div style="font-size:.65rem;color:var(--ink3);">'+(dirPrinted?'Printed — locked':approved?'Ready to print':progress+'% marks entered')+'</div>'
     +'</div>'
     +'</div>';
+}
+
+// Render all printed/locked combos so director can unlock without selecting dropdowns
+function renderUnlockPanel(){
+  if(!isAdmin()) return;
+  var panel = document.getElementById('rpUnlockPanel');
+  var list  = document.getElementById('rpUnlockList');
+  if(!panel || !list) return;
+
+  // Collect every approval entry that has directorPrinted = true
+  var rawKeys = [];
+  if(DB.approvals){
+    Object.keys(DB.approvals).forEach(function(k){
+      if(DB.approvals[k] && DB.approvals[k].directorPrinted === true) rawKeys.push(k);
+    });
+  }
+
+  if(!rawKeys.length){
+    panel.style.display = 'none';
+    return;
+  }
+
+  // Resolve class & term names from the key (format: classId_termId)
+  var items = rawKeys.map(function(rawKey){
+    var ap = DB.approvals[rawKey];
+    var foundCls = null, foundTerm = null;
+    for(var ci = 0; ci < DB.classes.length; ci++){
+      var cls = DB.classes[ci];
+      if(rawKey.indexOf(cls.id + '_') === 0){
+        var suffix = rawKey.slice(cls.id.length + 1);
+        var term = DB.terms.find(function(t){ return t.id === suffix; });
+        if(term){ foundCls = cls; foundTerm = term; break; }
+      }
+    }
+    return {
+      rawKey: rawKey,
+      clsName:  foundCls  ? foundCls.name  : '('+rawKey+')',
+      termName: foundTerm ? foundTerm.name : '',
+      dateStr:  ap.directorPrintedAt ? new Date(ap.directorPrintedAt).toLocaleDateString() : '—'
+    };
+  });
+
+  window._rpUnlockItems = items;
+  panel.style.display = 'block';
+  list.innerHTML = items.map(function(item, idx){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:.65rem .9rem;'
+      + 'background:var(--s2);border:1px solid rgba(224,82,82,.25);border-radius:8px;margin-bottom:.5rem;flex-wrap:wrap;">'
+      + '<div style="font-size:1.1rem;">🔒</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:.85rem;font-weight:600;color:var(--ink);">'
+      + item.clsName + (item.termName ? ' &nbsp;·&nbsp; <span style="color:var(--gold);">' + item.termName + '</span>' : '') + '</div>'
+      + '<div style="font-size:.7rem;color:var(--ink3);">Printed on ' + item.dateStr + '</div>'
+      + '</div>'
+      + '<button class="btn sm red" data-i="' + idx + '" '
+      + 'onclick="rpDoUnlock(parseInt(this.dataset.i))" '
+      + 'style="white-space:nowrap;flex-shrink:0;">🔓 Unlock</button>'
+      + '</div>';
+  }).join('');
+}
+
+// Force-read approvals from Supabase then display locked terms
+async function rpScanAndShow(){
+  if(!isAdmin()){
+    alert('Only the Director can unlock printed terms.\nPlease log out and log in as Director.');
+    return;
+  }
+  var list = document.getElementById('rpUnlockList');
+  if(list) list.innerHTML = '<div style="font-size:.82rem;color:var(--ink3);">🔄 Scanning...</div>';
+
+  // Reload full DB from Supabase to ensure fresh data
+  try {
+    await supabaseLoad(CURRENT_SCHOOL_ID);
+  } catch(e) {
+    if(list) list.innerHTML = '<div style="color:var(--red);font-size:.82rem;">⚠️ Could not load data. Check your connection.</div>';
+    return;
+  }
+
+  // Now scan DB.approvals for directorPrinted entries
+  var rawKeys = [];
+  if(DB.approvals){
+    Object.keys(DB.approvals).forEach(function(k){
+      var ap = DB.approvals[k];
+      if(ap && ap.directorPrinted === true) rawKeys.push(k);
+    });
+  }
+
+  if(!list) return;
+
+  // DEBUG: always show what's in DB.approvals so we can diagnose
+  var allApprovalKeys = DB.approvals ? Object.keys(DB.approvals) : [];
+  var debugInfo = '<div style="font-size:.72rem;color:var(--ink3);padding:.5rem;background:var(--s3);border-radius:6px;margin-bottom:.5rem;word-break:break-all;">'
+    + '🔍 DB.approvals has <strong>' + allApprovalKeys.length + '</strong> entr' + (allApprovalKeys.length===1?'y':'ies') + '.'
+    + (allApprovalKeys.length ? '<br>Keys: ' + allApprovalKeys.map(function(k){
+        var ap = DB.approvals[k];
+        return '<span style="color:var(--gold);">' + k + '</span>'
+          + ' [printed=' + (ap.directorPrinted||false) + ']';
+      }).join(', ') : '')
+    + '</div>';
+
+  if(!rawKeys.length){
+    list.innerHTML = debugInfo + '<div style="font-size:.82rem;color:var(--green);">✅ No locked terms found. All terms are currently editable.</div>';
+    return;
+  }
+
+  // Resolve names
+  var items = rawKeys.map(function(rawKey){
+    var ap = DB.approvals[rawKey];
+    var foundCls = null, foundTerm = null;
+    for(var ci = 0; ci < DB.classes.length; ci++){
+      var cls = DB.classes[ci];
+      if(rawKey.indexOf(cls.id + '_') === 0){
+        var suffix = rawKey.slice(cls.id.length + 1);
+        var term = DB.terms.find(function(t){ return t.id === suffix; });
+        if(term){ foundCls = cls; foundTerm = term; break; }
+      }
+    }
+    return {
+      rawKey: rawKey,
+      clsName:  foundCls  ? foundCls.name  : rawKey,
+      termName: foundTerm ? foundTerm.name : '',
+      dateStr:  ap.directorPrintedAt ? new Date(ap.directorPrintedAt).toLocaleDateString() : '—'
+    };
+  });
+
+  window._rpUnlockItems = items;
+
+  list.innerHTML = items.map(function(item, idx){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:.65rem .9rem;'
+      + 'background:var(--s2);border:1px solid rgba(224,82,82,.25);border-radius:8px;margin-bottom:.5rem;flex-wrap:wrap;">'
+      + '<div style="font-size:1.1rem;">🔒</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:.85rem;font-weight:600;color:var(--ink);">'
+      + item.clsName
+      + (item.termName ? ' &nbsp;·&nbsp; <span style="color:var(--gold);">' + item.termName + '</span>' : '')
+      + '</div>'
+      + '<div style="font-size:.7rem;color:var(--ink3);">Printed on ' + item.dateStr + '</div>'
+      + '</div>'
+      + '<button class="btn sm red" data-i="' + idx + '" onclick="rpDoUnlock(parseInt(this.dataset.i))" style="white-space:nowrap;flex-shrink:0;">🔓 Unlock</button>'
+      + '</div>';
+  }).join('');
+}
+
+// Unlock directly from the Marks Entry page — director only
+function mkDirectorUnlock(classId, termId){
+  if(!isAdmin()) return;
+  var cls = DB.classes.find(function(c){ return c.id===classId; });
+  var term = DB.terms.find(function(t){ return t.id===termId; });
+  var clsName  = cls  ? cls.name  : classId;
+  var termName = term ? term.name : termId;
+  if(!confirm('Unlock this term for editing?\nClass: '+clsName+'\nTerm: '+termName+'\n\nTeachers will be able to edit marks again.')) return;
+  if(!DB.approvals) DB.approvals={};
+  var key = classId+'_'+termId;
+  var entry = DB.approvals[key] || {};
+  entry.directorPrinted   = false;
+  entry.directorPrintedAt = null;
+  entry.approved          = false;
+  DB.approvals[key] = entry;
+  addLog('Unlocked: '+clsName+' / '+termName);
+  dbSave();
+  loadMkTable();
+}
+
+// Single clean unlock entry point used by rpUnlockPanel buttons
+function rpDoUnlock(idx){
+  if(!isAdmin()) return;
+  var items = window._rpUnlockItems;
+  if(!items || !items[idx]){ alert('Item not found. Please refresh the page.'); return; }
+  var item = items[idx];
+  if(!confirm('Unlock this term for editing? Teachers will be able to edit marks again.')) return;
+  if(!DB.approvals) DB.approvals = {};
+  var entry = DB.approvals[item.rawKey] || {};
+  entry.directorPrinted    = false;
+  entry.directorPrintedAt  = null;
+  entry.approved           = false;
+  DB.approvals[item.rawKey] = entry;
+  addLog('Unlocked: ' + item.clsName + (item.termName ? ' / ' + item.termName : ''));
+  dbSave();
+  renderUnlockPanel();
+  renderApprovalStatus();
+  genReport();
+}
+
+// Legacy alias kept for backward compat
+function directorUnlockPrint(classId, termId, rawKey, clsNameHint, termNameHint){
+  if(!rawKey && classId && termId) rawKey = classId + '_' + termId;
+  if(!rawKey) return;
+  var idx = (window._rpUnlockItems||[]).findIndex(function(x){ return x.rawKey === rawKey; });
+  if(idx >= 0){ rpDoUnlock(idx); return; }
+  // Direct fallback
+  if(!confirm('Unlock this term for editing? Teachers can edit marks again.')) return;
+  if(!DB.approvals) DB.approvals = {};
+  var entry = DB.approvals[rawKey] || {};
+  entry.directorPrinted = false; entry.directorPrintedAt = null; entry.approved = false;
+  DB.approvals[rawKey] = entry;
+  addLog('Unlocked: ' + (clsNameHint||rawKey));
+  dbSave(); renderUnlockPanel(); renderApprovalStatus(); genReport();
 }
 
 function renderTeacherApprovalBtn(){
@@ -6665,8 +7052,8 @@ function genReport(){
 
   var logoSrc=DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var logoHtml=logoSrc
-    ?'<div style="width:90px;height:90px;border-radius:50%;overflow:hidden;border:3px solid #c8b020;background:#e8eaf6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;"><img src="'+logoSrc+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
-    :'<div style="width:90px;height:90px;border-radius:50%;background:#e8eaf6;border:2px dashed #c8b88a;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:.6rem;color:#aaa;text-align:center;padding:8px;line-height:1.3;">SCHOOL<br>LOGO</div>';
+    ?'<div style="width:140px;height:140px;border-radius:50%;overflow:hidden;border:4px solid #c8b020;background:#e8eaf6;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><img src="'+logoSrc+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+    :'<div style="width:140px;height:140px;border-radius:50%;background:#e8eaf6;border:3px dashed #c8b88a;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:.65rem;color:#aaa;text-align:center;padding:8px;line-height:1.3;">SCHOOL<br>LOGO</div>';
 
   // ── Classmates ──
   var classmates=cls?yearStudents().filter(function(s){return s.classId===st.classId;}):[st];
@@ -6792,13 +7179,14 @@ function genReport(){
   +'<div style="text-align:center;padding-bottom:1.2rem;margin-bottom:1.2rem;border-bottom:3px double #c8b020;">'
   +logoHtml
   +'<div style="font-size:1.15rem;font-weight:800;color:#1a237e;letter-spacing:.02em;font-family:\'Playfair Display\',Georgia,serif;line-height:1.3;margin-bottom:4px;">'+school+'</div>'
-  +(DB.settings.schoolMotto?'<div style="font-size:.68rem;color:#b8920a;font-style:italic;margin-bottom:4px;letter-spacing:.03em;">"'+DB.settings.schoolMotto+'"</div>':'')
+  +(DB.settings.schoolMotto?'<div style="font-size:.68rem;color:#b8920a;font-style:italic;margin-bottom:4px;letter-spacing:.03em;">"'+DB.settings.schoolMotto+'"</div>':'<div style="font-size:.65rem;color:#e05252;font-style:italic;margin-bottom:4px;">[Motto not set — tap ⚙️ Settings to add]</div>')
   +(DB.settings.schoolAddress||DB.settings.schoolPhone||DB.settings.schoolEmail
-    ?'<div style="font-size:.65rem;color:#666;margin-bottom:6px;">'
-      +(DB.settings.schoolAddress?DB.settings.schoolAddress:'')
-      +(DB.settings.schoolPhone?' &nbsp;|&nbsp; Tel: '+DB.settings.schoolPhone:'')
-      +(DB.settings.schoolEmail?' &nbsp;|&nbsp; '+DB.settings.schoolEmail:'')
-    +'</div>':'')
+    ?'<div style="font-size:.65rem;color:#555;margin-bottom:6px;">'
+      +(DB.settings.schoolAddress?'📍 '+DB.settings.schoolAddress:'')
+      +(DB.settings.schoolPhone?' &nbsp;|&nbsp; 📞 '+DB.settings.schoolPhone:'')
+      +(DB.settings.schoolEmail?' &nbsp;|&nbsp; ✉️ '+DB.settings.schoolEmail:'')
+    +'</div>'
+    :'<div style="font-size:.65rem;color:#e05252;margin-bottom:6px;">[Address/Phone/Email not set — tap ⚙️ Settings to add]</div>')
   +'<div style="display:inline-block;margin-top:6px;padding:5px 20px;background:#1a237e;color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:20px;">'+reportTypeTitle+'</div>'
   +'</div>'
 
@@ -7572,6 +7960,167 @@ function loadIntlSettings(){
   setVal('set-currency',      s.schoolCurrency||'');
   previewAcadSystem();
   loadBridgeBadges();
+}
+
+
+// ██████████████████████████████████████████████████████████████████
+// █  MESSAGING SYSTEM
+// █  msgSetup(), msgSend(), msgRenderList(), msgMarkRead()
+// ██████████████████████████████████████████████████████████████████
+
+function msgSetup(){
+  if(!DB.messages) DB.messages=[];
+  // Update page subtitle
+  var sub = document.getElementById('msg-ph-sub');
+  if(sub){
+    if(isAdmin()) sub.textContent = 'Send broadcasts to teachers and parents';
+    else { var unread=msgUnreadCount(); sub.textContent = unread ? unread+' unread message'+(unread>1?'s':'') : 'Your inbox'; }
+  }
+  // Show/hide compose button already handled by admin-only CSS
+  msgRenderList();
+}
+
+function msgOpenCompose(){
+  var card = document.getElementById('msgComposeCard');
+  if(card){ card.style.display='block'; document.getElementById('msgSubject').focus(); }
+}
+function msgCloseCompose(){
+  var card = document.getElementById('msgComposeCard');
+  if(card) card.style.display='none';
+  var err = document.getElementById('msgComposeErr'); if(err) err.style.display='none';
+}
+
+function msgSend(){
+  if(!isAdmin()) return;
+  var subject = (document.getElementById('msgSubject').value||'').trim();
+  var body    = (document.getElementById('msgBody').value||'').trim();
+  var toTeach = document.getElementById('msgToTeachers').checked;
+  var toPar   = document.getElementById('msgToParents').checked;
+  var err     = document.getElementById('msgComposeErr');
+
+  if(!subject){ err.textContent='Please enter a subject.'; err.style.display='block'; return; }
+  if(!body)   { err.textContent='Please enter a message.'; err.style.display='block'; return; }
+  if(!toTeach && !toPar){ err.textContent='Please select at least one recipient group (Teachers or Parents).'; err.style.display='block'; return; }
+  err.style.display='none';
+
+  var to = toTeach && toPar ? 'all' : toTeach ? 'teachers' : 'parents';
+  var msg = {
+    id: 'MSG'+Date.now(),
+    from: ME.id,
+    fromName: ME.name||'Director',
+    subject: subject,
+    body: body,
+    to: to,
+    sentAt: new Date().toISOString(),
+    readBy: [ME.id]  // sender has already "read" it
+  };
+  if(!DB.messages) DB.messages=[];
+  DB.messages.unshift(msg);
+  addLog('📤 Sent message: '+subject+' → '+to);
+  dbSave();
+  // Clear form
+  document.getElementById('msgSubject').value='';
+  document.getElementById('msgBody').value='';
+  document.getElementById('msgToTeachers').checked=true;
+  document.getElementById('msgToParents').checked=false;
+  msgCloseCompose();
+  msgRenderList();
+  // Update badge
+  msgUpdateBadge();
+}
+
+function msgUnreadCount(){
+  if(!DB.messages||!ME) return 0;
+  var uid = ME.id;
+  return DB.messages.filter(function(m){
+    if(!msgCanSee(m)) return false;
+    return !(m.readBy&&m.readBy.indexOf(uid)>=0);
+  }).length;
+}
+
+function msgCanSee(m){
+  if(!ME) return false;
+  if(isAdmin()) return true; // director sees all
+  // Teachers see messages to 'teachers' or 'all'
+  if(ME.role==='teacher') return m.to==='teachers'||m.to==='all';
+  // Parents see messages to 'parents' or 'all'
+  if(ME.role==='parent') return m.to==='parents'||m.to==='all';
+  return false;
+}
+
+function msgMarkRead(msgId){
+  if(!DB.messages||!ME) return;
+  var m = DB.messages.find(function(x){ return x.id===msgId; });
+  if(!m) return;
+  if(!m.readBy) m.readBy=[];
+  if(m.readBy.indexOf(ME.id)<0){
+    m.readBy.push(ME.id);
+    dbSave();
+    msgUpdateBadge();
+  }
+}
+
+function msgUpdateBadge(){
+  var badge = document.getElementById('msg-badge');
+  var count = msgUnreadCount();
+  if(badge){
+    badge.textContent = count>0?count:'';
+    badge.style.display = count>0?'inline-flex':'none';
+  }
+  // Update nav button label too
+  var nb = document.getElementById('nb-messages');
+  if(nb){
+    var baseLabel = isAdmin()?'Messagerie':'Inbox';
+    nb.innerHTML = '<span class="navicon">✉️</span>'+baseLabel+(count>0?' <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:.62rem;font-weight:700;margin-left:4px;">'+count+'</span>':'');
+  }
+}
+
+function msgRenderList(){
+  var el = document.getElementById('msgList');
+  if(!el) return;
+  if(!DB.messages) DB.messages=[];
+  var visible = DB.messages.filter(function(m){ return msgCanSee(m); });
+  if(!visible.length){
+    el.innerHTML='<div class="empty"><div class="ei">✉️</div><p>'+(isAdmin()?'No messages sent yet. Use + New Message to broadcast.':'Your inbox is empty.')+'</p></div>';
+    return;
+  }
+  var html = '';
+  visible.forEach(function(m, idx){
+    var isUnread = !(m.readBy && m.readBy.indexOf(ME.id)>=0);
+    var toLabel = m.to==='all' ? '👩‍🏫 Teachers + 👨‍👩‍👧 Parents' : m.to==='teachers' ? '👩‍🏫 Teachers' : '👨‍👩‍👧 Parents';
+    var dateStr = new Date(m.sentAt).toLocaleDateString() + ' ' + new Date(m.sentAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    var borderColor = isUnread ? 'rgba(74,143,255,.4)' : 'var(--bd)';
+    var fontWeight  = isUnread ? '700' : '500';
+    var unreadDot   = isUnread ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue);margin-right:6px;flex-shrink:0;"></span>' : '';
+    html += '<div id="msgcard-'+m.id+'" data-mid="'+m.id+'" onclick="msgToggle(this.dataset.mid)" style="background:var(--s1);border:1px solid '+borderColor+';border-radius:10px;padding:.9rem 1rem;margin-bottom:.6rem;cursor:pointer;transition:border .15s;">';
+    html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'+unreadDot;
+    html += '<div style="font-size:.88rem;font-weight:'+fontWeight+';color:var(--ink);flex:1;">'+esc(m.subject)+'</div>';
+    html += '<div style="font-size:.68rem;color:var(--ink3);white-space:nowrap;">'+dateStr+'</div></div>';
+    html += '<div style="font-size:.72rem;color:var(--ink3);">From: '+esc(m.fromName)+' &nbsp;·&nbsp; To: '+toLabel+'</div>';
+    html += '<div class="msgbody" id="msgbody-'+m.id+'" style="display:none;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--bd);font-size:.85rem;color:var(--ink);line-height:1.6;white-space:pre-wrap;">'+esc(m.body)+'</div>';
+    if(isAdmin()){
+      html += '<div style="margin-top:.5rem;"><button class="btn sm red" data-mid="'+m.id+'" onclick="event.stopPropagation();msgDelete(this.dataset.mid)" style="font-size:.7rem;">🗑️ Delete</button></div>';
+    }
+    html += '</div>';
+  });
+  el.innerHTML = html;
+  setTimeout(function(){
+    visible.forEach(function(m){ msgMarkRead(m.id); });
+  }, 1500);
+}
+
+function msgToggle(msgId){
+  var bodyEl = document.querySelector('.msg-body-'+msgId);
+  if(!bodyEl) return;
+  bodyEl.style.display = bodyEl.style.display==='none'?'block':'none';
+}
+
+function msgDelete(msgId){
+  if(!isAdmin()) return;
+  if(!confirm('Delete this message?')) return;
+  DB.messages = DB.messages.filter(function(m){ return m.id!==msgId; });
+  dbSave();
+  msgRenderList();
 }
 
 function setupSettings(){
@@ -8650,7 +9199,8 @@ function switchLevel(level){
     var fns = {
       dashboard:renderDash, teachers:renderTeachers, classes:renderClasses,
       students:setupStudents, marks:setupMarks, reports:setupReports,
-      analytics:setupAnalytics, proclamation:setupProcl, overview:renderOverview
+      analytics:setupAnalytics, proclamation:setupProcl, overview:renderOverview,
+      messages:msgSetup
     };
     if(fns[pid]) fns[pid]();
   }
@@ -9298,7 +9848,7 @@ function generateTranscript(studentId){
 
   var html = '<div style="max-width:800px;margin:0 auto;padding:20px;font-family:Outfit,Arial,sans-serif;background:#fff;color:#111;">';
   html += '<div style="text-align:center;border-bottom:3px solid #1a237e;padding-bottom:12px;margin-bottom:16px;">';
-  if(logoSrc) html += '<img src="'+logoSrc+'" style="height:60px;margin-bottom:8px;">';
+  if(logoSrc) html += '<img src="'+logoSrc+'" style="height:100px;margin-bottom:10px;">';
   html += '<div style="font-size:1.6rem;font-weight:700;color:#1a237e;">'+esc(schoolName)+'</div>';
   html += '<div style="font-size:.85rem;color:#666;margin-top:3px;">ACADEMIC TRANSCRIPT — '+acadYear+'</div>';
   html += '</div>';
@@ -10201,12 +10751,14 @@ function _openPrintWindow(bodyHtml){
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'
     +'body{font-family:Outfit,Arial,sans-serif;background:#fff;color:#1a1d2e;padding:8mm;}'
-    +'@page{size:A4 portrait;margin:8mm;}'
+    +'@page{size:A4 portrait;margin:6mm;}'
+    +'.rpaper{max-width:100%!important;width:100%!important;padding:1.2rem!important;border-radius:0!important;}'
     +'@media print{'
-    +'  body{padding:0;}'
+    +'  body{padding:0;margin:0;}'
     +'  .no-print{display:none!important;}'
     +'  table{page-break-inside:auto;}'
     +'  tr{page-break-inside:avoid;}'
+    +'  .rpaper{max-width:100%!important;width:100%!important;padding:6mm!important;box-shadow:none!important;border-radius:0!important;}'
     +'}'
     +'table{border-collapse:collapse;width:100%;}'
     +'.no-print{text-align:center;padding:12px;background:#f0f0f0;font-family:Outfit,sans-serif;font-size:.85rem;color:#444;margin-bottom:12px;border-radius:6px;}'
@@ -10856,6 +11408,7 @@ function applyAppLang(){
         terms:renderTerms, subjects:renderSubjects, students:setupStudents,
         marks:setupMarks, reports:setupReports,
         analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
+    messages:msgSetup,
       };
       if(fns[pageId]) fns[pageId]();
     }
