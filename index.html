@@ -728,6 +728,99 @@ tr:hover td{background:var(--s2);}
 .empty{text-align:center;padding:2.2rem;color:var(--ink3);}
 .ei{font-size:2.3rem;margin-bottom:.5rem;}
 
+/* ═══ PARENT REGISTERED ICON ════════════════════════════════════ */
+.par-reg-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(0,214,143,.22),rgba(0,179,119,.1));
+  border:1.5px solid rgba(0,214,143,.45);
+  font-size:.72rem;cursor:pointer;margin-left:5px;
+  transition:transform .15s,box-shadow .15s;
+  vertical-align:middle;
+  title-attr:'Parent registered';
+}
+.par-reg-icon:hover{transform:scale(1.18);box-shadow:0 0 8px rgba(0,214,143,.4);}
+.par-reg-icon.no-par{
+  background:rgba(255,255,255,.04);
+  border-color:rgba(255,255,255,.1);
+  opacity:.38;cursor:default;
+}
+
+/* ═══ PARENT CHAT MODAL ═════════════════════════════════════════ */
+#parChatModal{
+  position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:1500;
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(5px);animation:fadeIn .18s ease;
+}
+#parChatModal.open{display:flex;}
+.pchat-box{
+  background:var(--s1);border:1px solid var(--bd);border-radius:16px;
+  width:92%;max-width:480px;max-height:88vh;
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 28px 70px rgba(0,0,0,.65);
+  animation:slideUp .22s cubic-bezier(.16,1,.3,1);
+}
+.pchat-head{
+  padding:.9rem 1.1rem;border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;gap:.7rem;
+  background:linear-gradient(135deg,rgba(0,214,143,.08),rgba(72,149,239,.05));
+  flex-shrink:0;
+}
+.pchat-stu-name{font-weight:700;font-size:.96rem;color:var(--ink);}
+.pchat-stu-meta{font-size:.7rem;color:var(--ink3);margin-top:2px;}
+.pchat-par-pill{
+  font-size:.65rem;font-weight:700;padding:2px 9px;border-radius:10px;
+  background:rgba(0,214,143,.14);color:var(--green);
+  border:1px solid rgba(0,214,143,.3);white-space:nowrap;
+}
+.pchat-close{background:none;border:none;color:var(--ink3);font-size:1.1rem;cursor:pointer;padding:3px 7px;border-radius:5px;}
+.pchat-close:hover{background:var(--s2);}
+.pchat-msgs{
+  flex:1;overflow-y:auto;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.65rem;
+  min-height:200px;
+}
+.pchat-msgs .cm-bubble{
+  max-width:80%;padding:.6rem .85rem;border-radius:12px;font-size:.84rem;line-height:1.45;
+  word-break:break-word;
+}
+.pchat-msgs .cm-bubble.teacher{
+  align-self:flex-end;
+  background:linear-gradient(135deg,rgba(72,149,239,.22),rgba(72,149,239,.12));
+  border:1px solid rgba(72,149,239,.3);color:var(--ink);
+  border-bottom-right-radius:4px;
+}
+.pchat-msgs .cm-bubble.parent{
+  align-self:flex-start;
+  background:linear-gradient(135deg,rgba(0,214,143,.14),rgba(0,214,143,.06));
+  border:1px solid rgba(0,214,143,.25);color:var(--ink);
+  border-bottom-left-radius:4px;
+}
+.cm-meta{font-size:.62rem;color:var(--ink3);margin-top:3px;}
+.pchat-empty{text-align:center;padding:2rem;color:var(--ink3);font-size:.83rem;}
+.pchat-footer{
+  padding:.75rem 1rem;border-top:1px solid var(--bd);
+  display:flex;gap:7px;align-items:flex-end;flex-shrink:0;
+  background:var(--s1);
+}
+.pchat-input{
+  flex:1;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);
+  border-radius:9px;color:var(--ink);font-size:.85rem;outline:none;
+  resize:none;font-family:'Outfit',sans-serif;max-height:100px;min-height:38px;
+  transition:border .13s;
+}
+.pchat-input:focus{border-color:var(--blue);}
+.pchat-send{
+  padding:8px 14px;background:var(--grd-blue);color:#fff;border:none;
+  border-radius:9px;cursor:pointer;font-size:.82rem;font-weight:600;
+  transition:all .15s;white-space:nowrap;align-self:flex-end;
+}
+.pchat-send:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.pchat-send:active{transform:scale(.96);}
+@media(max-width:700px){
+  .pchat-box{max-height:94vh;border-radius:14px 14px 0 0;position:fixed;bottom:0;left:0;right:0;width:100%;max-width:100%;}
+  #parChatModal{align-items:flex-end;}
+}
+
 /* TYPE BADGE */
 .tbadge{font-size:.73rem;font-weight:600;padding:2px 8px;border-radius:11px;background:rgba(255,255,255,.07);}
 
@@ -1882,6 +1975,10 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           </div>
           <div class="al info" style="margin-bottom:1rem;">
             🌅 <strong>Morning Quiz</strong> — Weekly quiz marks out of 20 per subject. Independent from terms. Used to track daily student progress only.
+            <div style="margin-top:.55rem;display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.72rem;color:var(--ink3);">
+              <span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(0,214,143,.2);border:1.5px solid rgba(0,214,143,.45);font-size:.65rem;margin-right:4px;">👪</span>Parent registered — click 💬 to chat</span>
+              <span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);font-size:.65rem;margin-right:4px;opacity:.4;">👤</span>No parent registered yet</span>
+            </div>
           </div>
           <!-- Class teacher badge — shown when teacher is class teacher -->
           <div id="qzClassTeacherBadge" style="display:none;margin-bottom:1rem;padding:.7rem 1rem;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:9px;align-items:center;gap:10px;">
@@ -3536,6 +3633,7 @@ var DB = {
   quizYears:[],   // [{id, label, weeks:[{id,label}], locked, createdAt}]
   termYears:[],   // [{id, label, locked, createdAt}] — each year uses its own marks via key prefix
   messages:[],    // [{id, from, fromName, subject, body, to:'all'|'teachers'|'parents', sentAt, readBy:[uid,...]}]
+  parentChats:{}, // {studentId: [{id, senderRole:'teacher'|'parent', senderName, text, sentAt}]}
   terms:[
     {id:'T1',name:'Term 1',type:'term',active:true,components:[
       {id:'T1_mid',name:'Midterm 1',maxMark:50},
@@ -3617,6 +3715,7 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.termYears)) DB.termYears=d.termYears;
     if(Array.isArray(d.parents))   DB.parents=d.parents;
     if(Array.isArray(d.messages))  DB.messages=d.messages;
+    if(d.parentChats && typeof d.parentChats==='object') DB.parentChats=d.parentChats;
 
     // ── MIGRATION 3: old quiz mark keys → new year-keyed format ──
     // Old: qz_studentId_subId_W1  (4 parts split by _)
@@ -4269,6 +4368,9 @@ function renderParentPortal(){
       }
     }
 
+    // ── TEACHER-PARENT CHAT ──
+    html += '<div style="padding:.8rem 1.2rem 1rem;" id="par-chat-section-'+student.id+'"><div style="font-size:.75rem;color:var(--ink3);text-align:center;padding:.5rem;">Loading chat…</div></div>';
+
     html += '</div>'; // end student card
 
     // ── ATTENDANCE PROGRESSION ──
@@ -4281,6 +4383,14 @@ function renderParentPortal(){
     + '</div>';
 
   content.innerHTML = html;
+
+  // Render chat threads for each linked student
+  codes.forEach(function(code){
+    var student = DB.students.find(function(s){ return s.sid.toUpperCase()===code.toUpperCase(); });
+    if(!student) return;
+    var chatSection = document.getElementById('par-chat-section-'+student.id);
+    if(chatSection) renderParentChatForStudent(student.id, chatSection);
+  });
 }
 
 function showAddChildModal(){
@@ -4590,7 +4700,7 @@ function doLogout(){
   ME=null; PARENT_USER=null; CURRENT_SCHOOL_ID=null; _markMode='term'; CURRENT_LEVEL='PRIMARY';
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   _userIndexCache = null; // force fresh login lookup next time
-  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],
+  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],parentChats:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],quizYears:[],termYears:[],attendance:{},
     terms:[
@@ -6574,13 +6684,14 @@ function setupMarks(){
   syncTerms();
   syncQuizWeekDropdowns();
 
-  // Step 6: Auto-select term if only one active
+  // Step 6: Auto-select term — always pick first if nothing is selected
   var termSel = document.getElementById('mkTerm');
-  var termOpts = termSel.querySelectorAll('option[value]:not([value=""])');
-  if(termOpts.length===1){
-    termSel.value = termOpts[0].value;
-    onMkTermChange();
+  if(termSel && !termSel.value){
+    var firstTermOpt = termSel.querySelector('option[value]:not([value=""])');
+    if(firstTermOpt) termSel.value = firstTermOpt.value;
   }
+  // Trigger period dropdown population whenever a term is now selected
+  if(termSel && termSel.value) onMkTermChange();
 
   // Show teacher assignment banner
   renderMkTeacherBanner();
@@ -7191,12 +7302,22 @@ function setupReports(){
     document.getElementById('rpDirectorCard').style.display='block';
     document.getElementById('rpTeacherCard').style.display='none';
     var up=document.getElementById('rpUnlockPanel'); if(up) up.style.display='block';
-    // Populate class dropdown
+    // Populate class dropdown (preserve selection)
     var clsSel=document.getElementById('rpCls');
+    var curCls=clsSel.value;
     clsSel.innerHTML='<option value="">— Select Class —</option>'+
       DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    if(curCls) clsSel.value=curCls;
     syncTerms();
-    renderApprovalStatus();
+    // Auto-select first term if none selected
+    var rpTerm=document.getElementById('rpTerm');
+    if(rpTerm&&!rpTerm.value){
+      var fo=rpTerm.querySelector('option[value]:not([value=""])');
+      if(fo) rpTerm.value=fo.value;
+    }
+    // If class already selected, reload its students
+    if(clsSel.value) rpLoadStudents();
+    else renderApprovalStatus();
   } else {
     var up2=document.getElementById('rpUnlockPanel'); if(up2) up2.style.display='none';
     // Teacher panel — only their class teacher class
@@ -7212,6 +7333,12 @@ function setupReports(){
     document.getElementById('rpSt2').innerHTML='<option value="">— Select Student —</option>'+
       list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
     syncTerms();
+    // Auto-select first term if none selected
+    var rpTerm2=document.getElementById('rpTerm2');
+    if(rpTerm2&&!rpTerm2.value){
+      var fo2=rpTerm2.querySelector('option[value]:not([value=""])');
+      if(fo2) rpTerm2.value=fo2.value;
+    }
     renderTeacherApprovalBtn();
   }
   initLogoPreview();
@@ -8353,6 +8480,12 @@ function setupAnalytics(){
     if(cur2) anSub.value=cur2;
   }
   syncTerms();
+  // Auto-select first term if none selected
+  var anTerm=document.getElementById('anTerm');
+  if(anTerm&&!anTerm.value){
+    var firstOpt=anTerm.querySelector('option[value]:not([value=""])');
+    if(firstOpt) anTerm.value=firstOpt.value;
+  }
   renderAnalytics();
 }
 
@@ -8440,19 +8573,31 @@ function renderAnalytics(){
 }
 
 function setupProcl(){
+  var clsSel=document.getElementById('prCls');
   if(isAdmin()){
-    document.getElementById('prCls').innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    var curCls=clsSel.value;
+    clsSel.innerHTML='<option value="">All Classes</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    if(curCls) clsSel.value=curCls;
+    // Auto-select first class if none selected
+    if(!clsSel.value && DB.classes.length) clsSel.value=DB.classes[0].id;
   } else {
     var ct=ME.classTeacher;
     if(!ct){
-      document.getElementById('prCls').innerHTML='<option value="">— No class assigned —</option>';
+      clsSel.innerHTML='<option value="">— No class assigned —</option>';
       document.getElementById('prOut').innerHTML='<div class="empty"><div class="ei">🔒</div><p>You are not assigned as a class teacher of any class.</p></div>';
       syncTerms();return;
     }
     var ctCls=DB.classes.find(function(c){return c.id===ct;});
-    document.getElementById('prCls').innerHTML=ctCls?'<option value="'+ctCls.id+'">'+ctCls.name+'</option>':'<option value="">—</option>';
+    clsSel.innerHTML=ctCls?'<option value="'+ctCls.id+'">'+ctCls.name+'</option>':'<option value="">—</option>';
+    if(ctCls) clsSel.value=ct;
   }
   syncTerms();
+  // Auto-select first term if none selected
+  var prTerm=document.getElementById('prTerm');
+  if(prTerm&&!prTerm.value){
+    var firstOpt=prTerm.querySelector('option[value]:not([value=""])');
+    if(firstOpt) prTerm.value=firstOpt.value;
+  }
   genProcl();
 }
 function genProcl(){
@@ -8463,6 +8608,7 @@ function genProcl(){
   var compId=tp.compId;
   var out=document.getElementById('prOut');
   if(!cid){out.innerHTML='<div class="empty"><div class="ei">🏆</div><p>No class selected.</p></div>';return;}
+  if(!term){out.innerHTML='<div class="empty"><div class="ei">🏆</div><p>Select a term to view the proclamation.</p></div>';return;}
   if(!isAdmin()&&ME.classTeacher&&cid!==ME.classTeacher){
     out.innerHTML='<div class="empty"><div class="ei">🔒</div><p>Access denied.</p></div>';return;
   }
@@ -8531,13 +8677,19 @@ function genProcl(){
 
   var tl=termLabel(term);
   var cn=(DB.classes.find(function(c){return c.id===cid;})||{}).name||'—';
+  var schoolName=(DB.settings&&DB.settings.schoolName)||'';
   var GC={A:'var(--green)',B:'var(--blue)',C:'var(--gold)',D:'var(--purple)',F:'var(--red)'};
 
   out.innerHTML=
     // ── HEADER ──
-    '<div style="text-align:center;padding:1.1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.25rem;">🏆 Proclamation List</div>'
-    +'<div style="font-size:.78rem;color:var(--ink3);margin-top:3px;">'+tl+' — '+cn+'</div></div>'
+    '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+    +(schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(schoolName)+'</div>':'')
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🏆 Proclamation List</div>'
+    +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
+    +'<span style="font-size:.9rem;font-weight:700;color:var(--gold);">'+esc(cn)+'</span>'
+    +'</div>'
+    +'<div style="font-size:.78rem;color:var(--ink2);margin-top:.45rem;">'+esc(tl)+'</div>'
+    +'</div>'
 
     // ── FULL PROCLAMATION TABLE ──
     +'<div class="card" style="margin-bottom:1rem;padding:0;">'
@@ -9324,6 +9476,11 @@ function syncTerms(){
     var el=document.getElementById(id);if(!el)return;
     var cur=el.value; el.innerHTML=periodOpts;
     if(cur) el.value=cur;
+    // Auto-select first option if nothing is selected
+    if(!el.value){
+      var fo=el.querySelector('option[value]:not([value=""])');
+      if(fo) el.value=fo.value;
+    }
   });
 
   // mkTerm — show clean grouped term names only
@@ -9419,6 +9576,12 @@ function switchMarkMode(mode){
           badge.style.display='flex';
           var info = document.getElementById('qzClassTeacherInfo');
           if(info) info.textContent = 'Class: '+ctCls.name+' — Enter quiz marks for all subjects below.';
+        }
+        // Auto-select first week if none is selected
+        var qzWeekSel = document.getElementById('qzWeek');
+        if(qzWeekSel && !qzWeekSel.value){
+          var fw = qzWeekSel.querySelector('option[value]:not([value=""])');
+          if(fw) qzWeekSel.value = fw.value;
         }
         loadQuizTable();
       }
@@ -10268,11 +10431,25 @@ function loadQuizTable(){
   if(!students.length){wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>';return;}
   var subjects=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
   if(!subjects.length){wrap.innerHTML='<div class="empty"><p>No subjects configured yet.</p></div>';return;}
+  var thead='<tr><th>#</th><th>Student</th>';
   subjects.forEach(function(s){thead+='<th style="text-align:center;font-size:.72rem;">'+s.name+'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/20</div></th>';});
-  thead+='<th style="text-align:center;">Total /'+(subjects.length*20)+'</th><th style="text-align:center;">Avg%</th></tr>';
+  thead+='<th style="text-align:center;">Total /'+(subjects.length*20)+'</th><th style="text-align:center;">Avg%</th><th style="text-align:center;font-size:.65rem;">Parent</th></tr>';
   var subIdList=subjects.map(function(s){return s.id;}).join(',');
   var rows=students.map(function(st,i){
-    var row='<tr><td>'+(i+1)+'</td><td><strong>'+st.name+'</strong><div style="font-size:.7rem;color:var(--ink3);">'+st.sid+'</div></td>';
+    // Check if parent is registered for this student
+    var parRegistered = !!(DB.parents && DB.parents.find(function(p){
+      return p.studentCodes && p.studentCodes.indexOf(st.sid.toUpperCase())>=0;
+    }));
+    // Unread chat messages from parent
+    if(!DB.parentChats) DB.parentChats={};
+    var chatThread = DB.parentChats[st.id]||[];
+    var unread = chatThread.filter(function(m){ return m.senderRole==='parent' && !m.readByTeacher; }).length;
+    var parIcon = parRegistered
+      ? '<button class="par-reg-icon" title="Parent registered — click to chat" onclick="openParChat(\''+st.id+'\')">'
+          +(unread>0?'<span style="position:relative;">💬<span style="position:absolute;top:-5px;right:-6px;background:var(--red);color:#fff;border-radius:8px;font-size:.52rem;padding:1px 4px;font-weight:700;line-height:1;">'+unread+'</span></span>':'👪')
+        +'</button>'
+      : '<span class="par-reg-icon no-par" title="No parent registered">👤</span>';
+    var row='<tr><td>'+(i+1)+'</td><td><div style="display:flex;align-items:center;gap:4px;"><div><strong>'+st.name+'</strong><div style="font-size:.7rem;color:var(--ink3);">'+st.sid+'</div></div>'+parIcon+'</div></td>';
     var tot=0;var cnt=0;
     subjects.forEach(function(sub){
       var key=quizMarkKey(st.id,sub.id,week);
@@ -10286,7 +10463,19 @@ function loadQuizTable(){
     });
     row+='<td style="text-align:center;font-weight:700;color:var(--gold);" id="qztot_'+st.id+'">'+(cnt>0?tot.toFixed(1):'—')+'</td>';
     row+='<td style="text-align:center;font-size:.82rem;color:var(--blue);" id="qzavg_'+st.id+'">'+(cnt>0?((tot/(subjects.length*20))*100).toFixed(1)+'%':'—')+'</td>';
-    return row+'</tr>';
+    // Parent chat cell
+    var parReg2 = !!(DB.parents && DB.parents.find(function(p){
+      return p.studentCodes && p.studentCodes.indexOf(st.sid.toUpperCase())>=0;
+    }));
+    if(!DB.parentChats) DB.parentChats={};
+    var chatThread2 = DB.parentChats[st.id]||[];
+    var unread2 = chatThread2.filter(function(m){ return m.senderRole==='parent' && !m.readByTeacher; }).length;
+    var chatCell = parReg2
+      ? '<td style="text-align:center;"><button class="btn sm green" onclick="openParChat(\''+st.id+'\')" title="Chat with parent" style="position:relative;padding:4px 10px;">'
+          +(unread2>0?'💬 <span style="background:var(--red);color:#fff;border-radius:8px;font-size:.55rem;padding:1px 5px;font-weight:700;vertical-align:middle;">'+unread2+'</span>':'💬')
+        +'</button></td>'
+      : '<td style="text-align:center;"><span style="font-size:.75rem;color:var(--ink3);" title="No parent registered">—</span></td>';
+    return row+chatCell+'</tr>';
   }).join('');
 
   wrap.innerHTML='<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
@@ -10373,14 +10562,25 @@ function setupQuizProcl(){
       var ct=ME&&ME.classTeacher;
       var ctCls=ct?DB.classes.find(function(c){return c.id===ct;}):null;
       qpEl.innerHTML=ctCls?'<option value="'+ctCls.id+'">'+ctCls.name+'</option>':'<option value="">— No class assigned —</option>';
+      if(ctCls) qpEl.value=ct;
     } else {
+      var curCls=qpEl.value;
       qpEl.innerHTML='<option value="">— Select Class —</option>'+DB.classes.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+      if(curCls) qpEl.value=curCls;
+      // Auto-select first class if none chosen
+      if(!qpEl.value && DB.classes.length) qpEl.value=DB.classes[0].id;
     }
   }
   var yrLbl = document.getElementById('qp-year-label');
   var yr = getActiveQuizYear();
   if(yrLbl) yrLbl.textContent = yr ? yr.label : '—';
   syncQuizWeekDropdowns();
+  // Auto-select first week if none selected
+  var qpWeek=document.getElementById('qpWeek');
+  if(qpWeek&&!qpWeek.value){
+    var fw=qpWeek.querySelector('option[value]:not([value=""])');
+    if(fw) qpWeek.value=fw.value;
+  }
   genQuizProcl();
 }
 
@@ -10397,6 +10597,7 @@ function genQuizProcl(){
   var subjects=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
   var cls=DB.classes.find(function(c){return c.id===cid;});
   var yr=getActiveQuizYear();
+  var weekObj=yr&&yr.weeks?yr.weeks.find(function(w){return w.id===week;}):null;
   var weekLabel=weekObj?weekObj.label:week;
   var ranges=getQuizRanges();
   if(!students.length){out.innerHTML='<div class="empty"><p>No students.</p></div>';return;}
@@ -10414,14 +10615,16 @@ function genQuizProcl(){
   function getRangeLabel(pct){for(var i=0;i<ranges.length;i++){if(pct>=ranges[i].min&&pct<=ranges[i].max)return ranges[i];}return{label:'—',color:'#888'};}
 
   // ── Proclamation-style TABLE header ──
-  var school = DB.settings||{};
-  var schoolName = school.name || (typeof SCHOOL_NAME!=='undefined'?SCHOOL_NAME:'');
+  var schoolName = (DB.settings&&DB.settings.schoolName)||'';
   var html = '<div id="qpProclTable">';
   // Header banner (printable)
-  html += '<div style="text-align:center;padding:1.2rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+  html += '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+    +(schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(schoolName)+'</div>':'')
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🌅 Morning Quiz — Proclamation List</div>'
-    +(schoolName?'<div style="font-size:.8rem;color:var(--ink3);margin-top:2px;">'+esc(schoolName)+'</div>':'')
-    +'<div style="font-size:.78rem;color:var(--ink2);margin-top:4px;font-weight:600;">'+(cls?esc(cls.name):'—')+' &nbsp;·&nbsp; '+(yr?esc(yr.label):'?')+' &nbsp;·&nbsp; '+esc(weekLabel)+'</div>'
+    +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
+    +'<span style="font-size:.9rem;font-weight:700;color:var(--gold);">'+(cls?esc(cls.name):'—')+'</span>'
+    +'</div>'
+    +'<div style="font-size:.78rem;color:var(--ink2);margin-top:.45rem;font-weight:600;">'+(yr?esc(yr.label):'?')+' &nbsp;·&nbsp; '+esc(weekLabel)+'</div>'
     +'<div style="display:inline-block;margin-top:.55rem;padding:3px 13px;border-radius:20px;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);font-size:.68rem;color:var(--blue);font-weight:600;">⚠️ These scores have NO impact on official term results or report cards</div>'
     +'</div>';
 
@@ -10551,11 +10754,15 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
       +'</tr>';
   }).join('');
 
-  var html = '<div style="text-align:center;padding:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;">&#128202; Quiz Subject Breakdown</div>'
-    +'<div style="font-size:.75rem;color:var(--ink3);margin-top:3px;">'+(cls?cls.name:'—')+' &middot; '+(yr?yr.label:'?')+' &middot; '+weekLabel+'</div>'
+  var html = '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+    +(DB.settings&&DB.settings.schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(DB.settings.schoolName)+'</div>':'')
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;font-weight:700;">&#128202; Quiz Subject Breakdown</div>'
+    +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
+    +'<span style="font-size:.9rem;font-weight:700;color:var(--gold);">'+(cls?esc(cls.name):'—')+'</span>'
     +'</div>'
-    +'<div class="card"><div class="ctitle">&#128218; Per-Student Subject Scores &mdash; '+weekLabel+'</div>'
+    +'<div style="font-size:.75rem;color:var(--ink2);margin-top:.45rem;">'+(yr?esc(yr.label):'?')+' &middot; '+esc(weekLabel)+'</div>'
+    +'</div>'
+    +'<div class="card"><div class="ctitle">&#128218; Per-Student Subject Scores &mdash; '+esc(weekLabel)+'</div>'
     +'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>'
     +'</div>';
   bdDiv.innerHTML=html;
@@ -11560,8 +11767,11 @@ function _resolveCssVars(html){
   var map = {
     'var(--s1)':'#ffffff','var(--s2)':'#f5f7fc','var(--s3)':'#eaecf4','var(--bg)':'#f0f2f7',
     'var(--bd)':'#d0d5e8','var(--ink)':'#1a1d2e','var(--ink2)':'#4a5070','var(--ink3)':'#8890b0',
-    'var(--gold)':'#d09010','var(--green)':'#1a7a4a','var(--red)':'#c0392b',
-    'var(--blue)':'#2563eb','var(--purple)':'#7c3aed'
+    'var(--gold)':'#d09010','var(--gold2)':'#b87d00',
+    'var(--green)':'#1a7a4a','var(--red)':'#c0392b',
+    'var(--blue)':'#2563eb','var(--purple)':'#7c3aed',
+    'var(--teal)':'#0891b2','var(--orange)':'#c45c00',
+    'var(--pink)':'#db2777','var(--cyan)':'#0e7490'
   };
   Object.keys(map).forEach(function(v){
     html = html.replace(new RegExp(v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'), map[v]);
@@ -11569,14 +11779,15 @@ function _resolveCssVars(html){
   return html;
 }
 
-function _openPrintWindow(bodyHtml, isT3Card){
+function _openPrintWindow(bodyHtml, isT3Card, printTitle){
   // Build a self-contained HTML page that works as both print and PDF on any device
   var pageMargin = isT3Card ? '4mm' : '6mm';
   var bodyPad    = isT3Card ? '4mm' : '8mm';
+  var docTitle   = (printTitle || 'Report Card') + ' — SCORIX';
   var fullHtml = '<!DOCTYPE html><html><head>'
     +'<meta charset="UTF-8">'
     +'<meta name="viewport" content="width=device-width,initial-scale=1">'
-    +'<title>Report Card — SCORIX</title>'
+    +'<title>'+docTitle+'</title>'
     +'<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'
@@ -11595,7 +11806,7 @@ function _openPrintWindow(bodyHtml, isT3Card){
     +'</style>'
     +'</head><body>'
     +'<div class="no-print">'
-    +'<strong>📄 Report Card ready.</strong> &nbsp; '
+    +'<strong>'+(printTitle==='Proclamation'?'🏆 Proclamation ready.':'📄 Report Card ready.')+'</strong> &nbsp; '
     +'Tap the menu (⋮) → <strong>Print</strong> or <strong>Share → Save as PDF</strong>'
     +'&nbsp;&nbsp;<button onclick="window.print()" style="padding:6px 16px;background:#1a237e;color:#fff;border:none;border-radius:6px;font-size:.85rem;cursor:pointer;font-family:Outfit,sans-serif;">🖨️ Print / Save PDF</button>'
     +'</div>'
@@ -11608,13 +11819,17 @@ function _openPrintWindow(bodyHtml, isT3Card){
     win.document.open();
     win.document.write(fullHtml);
     win.document.close();
+    // Force title immediately so Android Chrome uses it as the PDF save name
+    win.document.title = docTitle;
   } else {
     // Popup blocked — fallback to print-area method
     var pa = document.getElementById('print-area');
     pa.innerHTML = '<div style="background:#fff;color:#1a1d2e;font-family:Outfit,Arial,sans-serif;">' + bodyHtml + '</div>';
+    var _prevTitle = document.title;
+    document.title = docTitle;
     requestAnimationFrame(function(){
       window.print();
-      setTimeout(function(){ pa.innerHTML=''; }, 2500);
+      setTimeout(function(){ pa.innerHTML=''; document.title = _prevTitle; }, 2500);
     });
   }
 }
@@ -11676,17 +11891,54 @@ function _doPrint(sourceId){
   _openPrintWindow(_resolveCssVars(src.innerHTML), _isT3ETCard());
 }
 function printReport(){ _doPrint('rpOut'); }
-function printProcl(){ _doPrint('prOut'); }
+function printProcl(){
+  var src = document.getElementById('prOut');
+  if(!src || !src.innerHTML.trim() || src.querySelector('.empty')){
+    alert('Nothing to print yet. Please generate the proclamation first.');
+    return;
+  }
+  // Build a descriptive title: "Proclamation — ClassName — TermName"
+  var clsSel  = document.getElementById('prCls');
+  var trmSel  = document.getElementById('prTerm');
+  var clsName = clsSel && clsSel.options[clsSel.selectedIndex] ? clsSel.options[clsSel.selectedIndex].text.trim() : '';
+  var trmName = trmSel && trmSel.options[trmSel.selectedIndex] ? trmSel.options[trmSel.selectedIndex].text.trim() : '';
+  var proclTitle = 'Proclamation' + (clsName ? ' — ' + clsName : '') + (trmName ? ' — ' + trmName : '');
+  var printStyles = '<style>'
+    +'table{border-collapse:collapse;width:100%;font-size:.8rem;}'
+    +'th,td{border:1px solid #c0c8e0;padding:6px 8px;}'
+    +'thead tr{background:#e8ecf7!important;}'
+    +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.8rem;}'
+    +'.r1{background:#f6c90e;color:#1a1200;}'
+    +'.r2{background:#b0bec5;color:#1a1200;}'
+    +'.r3{background:#cd7f32;color:#fff;}'
+    +'.rn{background:#e8ecf7;color:#2a2f4e;}'
+    +'</style>';
+  _openPrintWindow(printStyles + _resolveCssVars(src.innerHTML), false, proclTitle);
+}
 function printQuizProcl(){
   var out = document.getElementById('qpOut');
   var bd  = document.getElementById('qpBreakdown');
-  var combined = (out&&out.innerHTML?out.innerHTML:'')
-               + (bd&&bd.style.display!=='none'&&bd.innerHTML?bd.innerHTML:'');
-  if(!combined.trim() || combined.indexOf('class="empty"')>=0){
+  // Print whichever view is currently active
+  var activeEl = (_quizView==='breakdown' && bd && bd.style.display!=='none') ? bd : out;
+  var content  = activeEl ? activeEl.innerHTML : '';
+  if(!content.trim() || content.indexOf('class="empty"')>=0){
     alert('Nothing to print yet. Select class and week first.');
     return;
   }
-  _openPrintWindow(_resolveCssVars(combined));
+  // Inject extra print-friendly table styles before resolving vars
+  var printStyles = '<style>'
+    +'table{border-collapse:collapse;width:100%;font-size:.8rem;}'
+    +'th,td{border:1px solid #c0c8e0;padding:6px 8px;}'
+    +'thead tr{background:#e8ecf7!important;}'
+    +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.8rem;}'
+    +'.r1{background:#f6c90e;color:#1a1200;}'
+    +'.r2{background:#b0bec5;color:#1a1200;}'
+    +'.r3{background:#cd7f32;color:#fff;}'
+    +'.rn{background:#e8ecf7;color:#2a2f4e;}'
+    +'</style>';
+  _openPrintWindow(printStyles + _resolveCssVars(content));
 }
 
 function stopSunriseAnimation(){
@@ -12218,6 +12470,228 @@ function translatePageElements(){
   });
 }
 
+// ██████████████████████████████████████████████████████████████████
+// █  PARENT CHAT — Teacher ↔ Parent per-student messaging
+// █  openParChat(studentId), closeParChat(), parChatSend(),
+// █  parChatRender(), parChatModalBgClick(e)
+// ██████████████████████████████████████████████████████████████████
+
+var _parChatStudentId = null;
+
+function openParChat(studentId){
+  if(!DB.parentChats) DB.parentChats = {};
+  var st = DB.students.find(function(s){ return s.id === studentId; });
+  if(!st){ alert('Student not found.'); return; }
+
+  // Find registered parent
+  var parent = DB.parents && DB.parents.find(function(p){
+    return p.studentCodes && p.studentCodes.indexOf(st.sid.toUpperCase()) >= 0;
+  });
+  var cls = DB.classes.find(function(c){ return c.id === st.classId; });
+
+  _parChatStudentId = studentId;
+
+  // Mark parent messages as read by teacher
+  var thread = DB.parentChats[studentId] || [];
+  var hadUnread = false;
+  thread.forEach(function(m){
+    if(m.senderRole === 'parent' && !m.readByTeacher){ m.readByTeacher = true; hadUnread = true; }
+  });
+  if(hadUnread){ DB.parentChats[studentId] = thread; dbSave(); }
+
+  // Populate header
+  document.getElementById('pchat-stu-name').textContent = st.name;
+  document.getElementById('pchat-stu-meta').textContent =
+    (cls ? cls.name + '  ·  ' : '') + 'Code: ' + st.sid;
+  var pill = document.getElementById('pchat-par-pill');
+  if(parent){
+    pill.textContent = '👪 ' + parent.email;
+    pill.style.display = '';
+  } else {
+    pill.textContent = '⚠️ No parent yet';
+    pill.style.background = 'rgba(255,136,0,.12)';
+    pill.style.color = 'var(--orange)';
+    pill.style.borderColor = 'rgba(255,136,0,.3)';
+    pill.style.display = '';
+  }
+
+  parChatRender();
+  document.getElementById('parChatModal').classList.add('open');
+  setTimeout(function(){
+    var inp = document.getElementById('pchat-input');
+    if(inp) inp.focus();
+  }, 200);
+}
+
+function closeParChat(){
+  document.getElementById('parChatModal').classList.remove('open');
+  _parChatStudentId = null;
+  // Refresh quiz table to update unread badges
+  var qzEl = document.getElementById('quiz-marks-mode');
+  if(qzEl && qzEl.style.display !== 'none') loadQuizTable();
+}
+
+function parChatModalBgClick(e){
+  if(e.target === document.getElementById('parChatModal')) closeParChat();
+}
+
+function parChatRender(){
+  var container = document.getElementById('pchat-msgs');
+  if(!container || !_parChatStudentId) return;
+  if(!DB.parentChats) DB.parentChats = {};
+  var thread = DB.parentChats[_parChatStudentId] || [];
+
+  if(!thread.length){
+    container.innerHTML = '<div class="pchat-empty">'
+      + '<div style="font-size:2rem;margin-bottom:.5rem;">💬</div>'
+      + '<div>No messages yet.</div>'
+      + '<div style="font-size:.72rem;margin-top:.4rem;color:var(--ink3);">Start the conversation about this learner\'s performance.</div>'
+      + '</div>';
+    return;
+  }
+
+  var html = '';
+  thread.forEach(function(m){
+    var isTeacher = m.senderRole === 'teacher';
+    var timeStr = m.sentAt ? new Date(m.sentAt).toLocaleString([], {
+      month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
+    }) : '';
+    html += '<div style="display:flex;flex-direction:column;align-items:'+(isTeacher?'flex-end':'flex-start')+';gap:2px;">'
+      + '<div class="cm-bubble '+(isTeacher?'teacher':'parent')+'">'+esc(m.text)+'</div>'
+      + '<div class="cm-meta" style="text-align:'+(isTeacher?'right':'left')+';">'
+        + '<strong>'+esc(m.senderName||m.senderRole)+'</strong>'
+        + (timeStr ? ' · '+timeStr : '')
+        + (!isTeacher && !m.readByTeacher ? ' · <span style="color:var(--blue);font-size:.6rem;">●</span>' : '')
+      + '</div>'
+    + '</div>';
+  });
+  container.innerHTML = html;
+  // Scroll to bottom
+  container.scrollTop = container.scrollHeight;
+}
+
+function parChatSend(){
+  if(!_parChatStudentId){ return; }
+  var inp = document.getElementById('pchat-input');
+  var text = inp ? inp.value.trim() : '';
+  if(!text) return;
+
+  if(!DB.parentChats) DB.parentChats = {};
+  if(!DB.parentChats[_parChatStudentId]) DB.parentChats[_parChatStudentId] = [];
+
+  // Determine sender name
+  var senderName = 'Teacher';
+  if(ME){
+    if(ME.name) senderName = ME.name;
+    else if(ME.username) senderName = ME.username;
+  }
+
+  var msg = {
+    id: 'PCM'+Date.now(),
+    senderRole: 'teacher',
+    senderName: senderName,
+    text: text,
+    sentAt: new Date().toISOString(),
+    readByTeacher: true,
+    readByParent: false
+  };
+
+  DB.parentChats[_parChatStudentId].push(msg);
+  dbSave();
+
+  inp.value = '';
+  inp.style.height = 'auto';
+  parChatRender();
+
+  // Log
+  var st = DB.students.find(function(s){ return s.id === _parChatStudentId; });
+  addLog('💬 Teacher sent message to parent of '+(st?st.name:'unknown student'));
+}
+
+// ── Parent portal: render chat thread for their child ──
+function renderParentChatForStudent(studentId, containerEl){
+  if(!containerEl) return;
+  if(!DB.parentChats) DB.parentChats = {};
+  var thread = DB.parentChats[studentId] || [];
+
+  var html = '<div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-top:.9rem;">'
+    + '<div style="padding:.65rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;">'
+    + '<div style="font-size:.82rem;font-weight:700;color:var(--ink);">💬 Chat with Teacher</div>'
+    + '<div style="font-size:.68rem;color:var(--ink3);">Performance conversations</div>'
+    + '</div>';
+
+  // Messages
+  html += '<div id="par-thread-'+studentId+'" style="padding:.8rem;display:flex;flex-direction:column;gap:.55rem;max-height:280px;overflow-y:auto;">';
+  if(!thread.length){
+    html += '<div style="text-align:center;padding:1.4rem;color:var(--ink3);font-size:.8rem;">'
+      + '<div style="font-size:1.8rem;margin-bottom:.4rem;">💬</div>No messages yet. Say hello to the teacher!</div>';
+  } else {
+    thread.forEach(function(m){
+      var isParent = m.senderRole === 'parent';
+      var timeStr = m.sentAt ? new Date(m.sentAt).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      html += '<div style="display:flex;flex-direction:column;align-items:'+(isParent?'flex-end':'flex-start')+';gap:2px;">'
+        + '<div style="max-width:80%;padding:.55rem .8rem;border-radius:10px;font-size:.82rem;line-height:1.45;word-break:break-word;'
+          + (isParent
+            ? 'background:linear-gradient(135deg,rgba(72,149,239,.2),rgba(72,149,239,.1));border:1px solid rgba(72,149,239,.28);border-bottom-right-radius:3px;'
+            : 'background:linear-gradient(135deg,rgba(0,214,143,.13),rgba(0,214,143,.06));border:1px solid rgba(0,214,143,.22);border-bottom-left-radius:3px;')
+          + '">'+esc(m.text)+'</div>'
+        + '<div style="font-size:.6rem;color:var(--ink3);">'+esc(m.senderName||m.senderRole)+(timeStr?' · '+timeStr:'')+'</div>'
+        + '</div>';
+    });
+  }
+  html += '</div>';
+
+  // Input area
+  html += '<div style="padding:.65rem;border-top:1px solid var(--bd);display:flex;gap:7px;">'
+    + '<textarea id="par-chat-inp-'+studentId+'" placeholder="Write a message to the teacher…" rows="1" '
+    + 'style="flex:1;padding:7px 10px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;color:var(--ink);font-size:.83rem;outline:none;resize:none;font-family:Outfit,sans-serif;min-height:34px;max-height:90px;transition:border .13s;" '
+    + 'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,90)+\'px\';" '
+    + 'onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--bd)\'" '
+    + 'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();parentSendChat(\''+studentId+'\');}">'
+    + '</textarea>'
+    + '<button onclick="parentSendChat(\''+studentId+'\')" style="padding:7px 13px;background:var(--grd-blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:600;align-self:flex-end;">Send ↑</button>'
+    + '</div></div>';
+
+  containerEl.innerHTML = html;
+  // Mark teacher messages as read by parent
+  var changed = false;
+  thread.forEach(function(m){
+    if(m.senderRole==='teacher' && !m.readByParent){ m.readByParent=true; changed=true; }
+  });
+  if(changed){ DB.parentChats[studentId]=thread; dbSave(); }
+  // Scroll thread to bottom
+  setTimeout(function(){
+    var t = document.getElementById('par-thread-'+studentId);
+    if(t) t.scrollTop = t.scrollHeight;
+  }, 50);
+}
+
+function parentSendChat(studentId){
+  var inp = document.getElementById('par-chat-inp-'+studentId);
+  var text = inp ? inp.value.trim() : '';
+  if(!text) return;
+  if(!DB.parentChats) DB.parentChats = {};
+  if(!DB.parentChats[studentId]) DB.parentChats[studentId] = [];
+
+  var senderName = (PARENT_USER && PARENT_USER.email) ? PARENT_USER.email.split('@')[0] : 'Parent';
+  var msg = {
+    id: 'PCM'+Date.now(),
+    senderRole: 'parent',
+    senderName: senderName,
+    text: text,
+    sentAt: new Date().toISOString(),
+    readByTeacher: false,
+    readByParent: true
+  };
+  DB.parentChats[studentId].push(msg);
+  dbSave();
+  inp.value = '';
+  inp.style.height = 'auto';
+  // Re-render chat section in parent portal
+  var container = document.getElementById('par-chat-section-'+studentId);
+  if(container) renderParentChatForStudent(studentId, container);
+}
+
 function setAppLang(lang){
   APP_LANG = lang;
   localStorage.setItem('scorix_lang', lang);
@@ -12312,6 +12786,31 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+
+<!-- ══ PARENT CHAT MODAL ══ -->
+<div id="parChatModal" onclick="parChatModalBgClick(event)">
+  <div class="pchat-box" id="parChatBox">
+    <div class="pchat-head">
+      <div>
+        <div class="pchat-stu-name" id="pchat-stu-name">—</div>
+        <div class="pchat-stu-meta" id="pchat-stu-meta"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <span class="pchat-par-pill" id="pchat-par-pill">👪 Parent registered</span>
+        <button class="pchat-close" onclick="closeParChat()">✕</button>
+      </div>
+    </div>
+    <div class="pchat-msgs" id="pchat-msgs">
+      <div class="pchat-empty">Loading…</div>
+    </div>
+    <div class="pchat-footer">
+      <textarea class="pchat-input" id="pchat-input" placeholder="Type a message about this learner's performance…" rows="1"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();parChatSend();}"></textarea>
+      <button class="pchat-send" onclick="parChatSend()">Send ↑</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ DIRECTOR FLOATING SETTINGS BUTTON ══ -->
 <button id="dirSettingsBtn" title="School Settings" onclick="openDirSettings()">⚙️</button>
