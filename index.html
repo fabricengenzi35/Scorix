@@ -702,6 +702,7 @@ tr:hover td{background:var(--s2);}
 /* DROP ZONE */
 .dzone{border:2px dashed var(--bd);border-radius:9px;padding:2.2rem;text-align:center;cursor:pointer;transition:all .18s;background:var(--s1);}
 .dzone:hover,.dzone.drag{border-color:var(--gold);background:rgba(240,180,41,.04);}
+#stImportDzone:hover,#stImportDzone.drag{border-color:var(--blue)!important;background:rgba(72,149,239,.05)!important;}
 
 /* ═══ CSS §F — PROCLAMATION ════════════════════════════════════ */
 .pcard{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:1.1rem 1.4rem;margin-bottom:.6rem;display:flex;align-items:center;gap:1.1rem;transition:border-color .13s;}
@@ -1899,7 +1900,66 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <!-- STUDENTS -->
       <div class="page" id="p-students">
         <div class="ph"><div><div class="phtitle">Students</div><div class="phsub" id="students-phsub">Student roster</div></div>
-        <div class="phact admin-only"><button class="btn gold" onclick="om('mst')">+ Add Student</button></div></div>
+        <div class="phact admin-only" style="gap:.5rem;flex-wrap:wrap;">
+          <button class="btn ghost" onclick="openBulkFixNames()" title="Fix corrupted student names">🔧 Fix Names</button>
+          <button class="btn ghost" onclick="openStudentImport()" title="Import students from CSV">📥 Import</button>
+          <button class="btn gold" onclick="om('mst')">+ Add Student</button>
+        </div></div>
+        <!-- BULK FIX NAMES PANEL -->
+        <div id="bulkFixPanel" style="display:none;margin-bottom:1rem;">
+          <div class="card" style="border-color:rgba(246,201,14,.3);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:.5rem;">
+              <div>
+                <div style="font-weight:700;color:var(--gold);font-size:.95rem;">🔧 Bulk Fix Student Names</div>
+                <div style="font-size:.74rem;color:var(--ink3);margin-top:2px;">Edit any corrupted names below, then click Save All.</div>
+              </div>
+              <div style="display:flex;gap:.5rem;">
+                <button class="btn gold sm" onclick="saveBulkFixNames()">💾 Save All</button>
+                <button class="btn ghost sm" onclick="closeBulkFixNames()">✕ Close</button>
+              </div>
+            </div>
+            <div id="bulkFixList" style="display:flex;flex-direction:column;gap:.5rem;max-height:420px;overflow-y:auto;"></div>
+            <div id="bulkFixMsg" style="margin-top:.7rem;"></div>
+          </div>
+        </div>
+        <!-- STUDENT IMPORT PANEL -->
+        <div id="studentImportPanel" style="display:none;margin-bottom:1rem;">
+          <div class="card" style="border-color:rgba(72,149,239,.3);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:.5rem;">
+              <div>
+                <div style="font-weight:700;color:var(--blue);font-size:.95rem;">📥 Import Students</div>
+                <div style="font-size:.74rem;color:var(--ink3);margin-top:2px;">Supports CSV, TSV or semicolon-separated. Columns: <strong>Name, Number, Class, Gender, DOB</strong></div>
+              </div>
+              <button class="btn ghost sm" onclick="closeStudentImport()">✕ Close</button>
+            </div>
+            <div class="al info" style="margin-bottom:.9rem;font-size:.78rem;">
+              📋 <strong>Accepted formats:</strong> &nbsp;
+              <code>Alice Johnson, 1, Grade 2A</code> &nbsp;·&nbsp;
+              <code>Alice Johnson; 1; Grade 2A; F; 2015-03-10</code><br>
+              First row may be a header — it will be skipped automatically.
+            </div>
+            <div id="stImportDzone" onclick="document.getElementById('stImportFile').click()"
+              ondragover="event.preventDefault();this.classList.add('drag')"
+              ondragleave="this.classList.remove('drag')"
+              ondrop="this.classList.remove('drag');event.preventDefault();handleStImportDrop(event)"
+              style="border:2px dashed var(--bd);border-radius:10px;padding:1.4rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:.9rem;">
+              <div style="font-size:2rem;margin-bottom:.4rem;">📂</div>
+              <div style="font-size:.84rem;color:var(--ink2);"><strong style="color:var(--gold);">Click to browse</strong> or drag &amp; drop a CSV / TXT file</div>
+            </div>
+            <input type="file" id="stImportFile" accept=".csv,.txt,.tsv" style="display:none" onchange="handleStImportFile(event)">
+            <div class="fg" style="margin-bottom:.8rem;">
+              <label>— or paste data directly —</label>
+              <textarea id="stImportPaste" rows="5" style="resize:vertical;font-family:monospace;font-size:.8rem;"
+                placeholder="Name, Number, Class&#10;Alice Johnson, 1, Grade 2A&#10;Bob Smith, 2, Grade 2A"></textarea>
+            </div>
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem;">
+              <button class="btn blue sm" onclick="previewStudentImport()">🔍 Preview Import</button>
+              <button class="btn ghost sm" onclick="document.getElementById('stImportPaste').value='';document.getElementById('stImportPreview').innerHTML='';document.getElementById('stImportMsg').innerHTML='';">🗑️ Clear</button>
+            </div>
+            <div id="stImportPreview" style="margin-bottom:.7rem;"></div>
+            <div id="stImportMsg"></div>
+          </div>
+        </div>
         <div class="srow">
           <input type="text" id="stSearch" placeholder="Search by name or number…" oninput="_debouncedRenderStudents()">
           <select id="stCls" onchange="renderStudents()"><option value="">All Classes</option></select>
@@ -7263,19 +7323,53 @@ function saveAllMarks(){
 // █  ✏️  To change CSV column format or add new bulk import types
 // ██████████████████████████████████████████████████████████████████
 // ═══════════════════════════════════════
+
+// ── Legacy import page handlers (kept for backward compat) ──
 function handleDrop(e){var f=e.dataTransfer.files[0];if(f)readCSV(f);}
 function handleFile(e){var f=e.target.files[0];if(f)readCSV(f);}
 function readCSV(f){var r=new FileReader();r.onload=function(e){processCSV(e.target.result);};r.readAsText(f);}
 function importPaste(){var t=document.getElementById('csvpaste').value.trim();if(!t){alert('Paste CSV data first.');return;}processCSV(t);}
 function processCSV(text){
-  var lines=text.split('\n').map(function(l){return l.trim();}).filter(Boolean);
-  var isH=lines[0]&&lines[0].toLowerCase().indexOf('name')>=0;
-  var data=isH?lines.slice(1):lines;
-  var added=0,skipped=0;
-  data.forEach(function(line){
-    var p=line.split(',').map(function(x){return x.trim().replace(/^["']|["']$/g,'');});
-    if(!p[0]){skipped++;return;}
-    var name=p[0],sid=p[1]||String(DB.students.length+added+1),cname=p[2]||'';
+  var rows=_parseImportText(text);
+  var res=_doImportRows(rows);
+  var el=document.getElementById('impres');
+  if(el) el.innerHTML='<div class="al ok">✅ Imported <strong>'+res.added+'</strong> students. ('+res.skipped+' skipped)</div>';
+}
+
+// ── Shared CSV parser — auto-detects comma / semicolon / tab ──
+function _parseImportText(text){
+  // Strip UTF-8 BOM and carriage returns
+  text = text.replace(/^\uFEFF/,'').replace(/\r/g,'');
+  var lines = text.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  if(!lines.length) return [];
+  // Detect separator from first non-empty line
+  var sep = ',';
+  var sample = lines[0];
+  if((sample.match(/;/g)||[]).length > (sample.match(/,/g)||[]).length) sep = ';';
+  else if((sample.match(/\t/g)||[]).length > (sample.match(/,/g)||[]).length) sep = '\t';
+  // Skip header row if first cell looks like a label
+  var firstCell = lines[0].split(sep)[0].trim().toLowerCase().replace(/^["']|["']$/g,'');
+  var isHeader = firstCell === 'name' || firstCell === 'nom' || firstCell === 'student' || firstCell === '#';
+  var data = isHeader ? lines.slice(1) : lines;
+  return data.map(function(line){
+    // Handle quoted fields
+    var cols = [];
+    var re = sep === ',' ? /(".*?"|[^,]+)(?=,|$)/g : new RegExp('([^'+sep+']+)','g');
+    var parts = line.split(sep).map(function(x){ return x.trim().replace(/^["']|["']$/g,''); });
+    return parts;
+  });
+}
+
+// ── Core import logic — used by both old and new UI ──
+function _doImportRows(rows){
+  var added=0, skipped=0;
+  rows.forEach(function(p){
+    var name = (p[0]||'').trim();
+    if(!name){ skipped++; return; }
+    var sid   = (p[1]||'').trim() || String(DB.students.length+added+1);
+    var cname = (p[2]||'').trim();
+    var gender= (p[3]||'').trim();
+    var dob   = (p[4]||'').trim();
     var classId='';
     if(cname){
       var cls=DB.classes.find(function(c){return c.name.toLowerCase()===cname.toLowerCase();});
@@ -7283,11 +7377,137 @@ function processCSV(text){
       classId=cls.id;
     }
     if(DB.students.find(function(s){return s.sid===sid&&(s.termYearId||null)===(CURRENT_TERM_YEAR_ID||null);})){skipped++;return;}
-    DB.students.push({id:'ST'+Date.now()+Math.random(),name:name,sid:sid,classId:classId,termYearId:CURRENT_TERM_YEAR_ID||null});
+    var st={id:'ST'+Date.now()+Math.random(),name:name,sid:sid,classId:classId,termYearId:CURRENT_TERM_YEAR_ID||null};
+    if(gender) st.gender=gender;
+    if(dob)    st.dob=dob;
+    DB.students.push(st);
     added++;
   });
-  addLog('Imported '+added+' students');dbSave();renderStudents();renderClasses();syncAll();
-  document.getElementById('impres').innerHTML='<div class="al ok">✅ Imported <strong>'+added+'</strong> students. ('+skipped+' skipped)</div>';
+  if(added){ addLog('Imported '+added+' students'); dbSave(); renderStudents(); renderClasses(); syncAll(); }
+  return {added:added, skipped:skipped};
+}
+
+// ══════════════════════════════════════════
+// BULK FIX NAMES — inline rename all students
+// ══════════════════════════════════════════
+function openBulkFixNames(){
+  var panel = document.getElementById('bulkFixPanel');
+  var imp   = document.getElementById('studentImportPanel');
+  if(imp) imp.style.display='none';
+  panel.style.display='block';
+  var list  = document.getElementById('bulkFixList');
+  var students = yearStudents().slice().sort(function(a,b){return a.name.localeCompare(b.name);});
+  if(!students.length){ list.innerHTML='<div class="empty"><p>No students to edit.</p></div>'; return; }
+  list.innerHTML = students.map(function(s){
+    var cls = DB.classes.find(function(c){return c.id===s.classId;});
+    return '<div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .2rem;border-bottom:1px solid rgba(255,255,255,.05);">'
+      +'<span style="width:28px;text-align:right;font-size:.75rem;color:var(--ink3);flex-shrink:0;">'+esc(s.sid)+'</span>'
+      +'<span style="font-size:.7rem;color:var(--gold);background:rgba(246,201,14,.1);padding:1px 7px;border-radius:8px;white-space:nowrap;flex-shrink:0;">'+(cls?esc(cls.name):'—')+'</span>'
+      +'<input type="text" value="'+esc(s.name)+'" data-sid="'+s.id+'" '
+      +'style="flex:1;padding:5px 9px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-size:.85rem;font-family:Outfit,sans-serif;outline:none;min-width:0;">'
+      +'</div>';
+  }).join('');
+  document.getElementById('bulkFixMsg').innerHTML='';
+}
+function closeBulkFixNames(){
+  document.getElementById('bulkFixPanel').style.display='none';
+}
+function saveBulkFixNames(){
+  var inputs = document.querySelectorAll('#bulkFixList input[data-sid]');
+  var changed=0, empty=0;
+  inputs.forEach(function(inp){
+    var sid=inp.getAttribute('data-sid');
+    var newName=inp.value.trim();
+    if(!newName){empty++;return;}
+    var st=DB.students.find(function(s){return s.id===sid;});
+    if(st && st.name!==newName){ st.name=newName; changed++; }
+  });
+  if(empty){ document.getElementById('bulkFixMsg').innerHTML='<div class="al err">⚠️ '+empty+' student(s) have empty names — please fill them in.</div>'; return; }
+  if(!changed){ document.getElementById('bulkFixMsg').innerHTML='<div class="al info">No changes detected.</div>'; return; }
+  addLog('Bulk fixed '+changed+' student names'); dbSave(); renderStudents(); syncAll();
+  document.getElementById('bulkFixMsg').innerHTML='<div class="al ok">✅ Saved '+changed+' name change'+(changed!==1?'s':'')+' successfully.</div>';
+}
+
+// ══════════════════════════════════════════
+// NEW STUDENT IMPORT — with preview
+// ══════════════════════════════════════════
+function openStudentImport(){
+  var panel = document.getElementById('studentImportPanel');
+  var fix   = document.getElementById('bulkFixPanel');
+  if(fix) fix.style.display='none';
+  panel.style.display='block';
+  document.getElementById('stImportPreview').innerHTML='';
+  document.getElementById('stImportMsg').innerHTML='';
+}
+function closeStudentImport(){
+  document.getElementById('studentImportPanel').style.display='none';
+}
+function handleStImportDrop(e){
+  var f=e.dataTransfer.files[0];
+  if(!f) return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    document.getElementById('stImportPaste').value=ev.target.result;
+    previewStudentImport();
+  };
+  r.readAsText(f,'UTF-8');
+}
+function handleStImportFile(e){
+  var f=e.target.files[0];
+  if(!f) return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    document.getElementById('stImportPaste').value=ev.target.result;
+    previewStudentImport();
+  };
+  r.readAsText(f,'UTF-8');
+}
+function previewStudentImport(){
+  var text=document.getElementById('stImportPaste').value.trim();
+  var msgEl=document.getElementById('stImportMsg');
+  var preEl=document.getElementById('stImportPreview');
+  if(!text){ msgEl.innerHTML='<div class="al err">⚠️ Nothing to preview — paste data or upload a file first.</div>'; preEl.innerHTML=''; return; }
+  var rows=_parseImportText(text);
+  if(!rows.length){ msgEl.innerHTML='<div class="al err">⚠️ Could not parse any rows. Check your file format.</div>'; preEl.innerHTML=''; return; }
+  // Build preview table
+  var willAdd=0,willSkip=0;
+  var tBody=rows.map(function(p,i){
+    var name=(p[0]||'').trim();
+    var sid=(p[1]||'').trim()||'—';
+    var cname=(p[2]||'').trim()||'—';
+    var gender=(p[3]||'').trim()||'—';
+    var dob=(p[4]||'').trim()||'—';
+    if(!name){willSkip++;return '';}
+    var exists=DB.students.find(function(s){return s.sid===sid&&sid!=='—'&&(s.termYearId||null)===(CURRENT_TERM_YEAR_ID||null);});
+    if(exists){willSkip++;
+      return '<tr style="opacity:.45;">'
+        +'<td style="color:var(--red);">⚠️ dup</td>'
+        +'<td>'+esc(name)+'</td><td>'+esc(sid)+'</td><td>'+esc(cname)+'</td><td>'+esc(gender)+'</td><td>'+esc(dob)+'</td></tr>';
+    }
+    willAdd++;
+    return '<tr>'
+      +'<td style="color:var(--green);">✓</td>'
+      +'<td><strong>'+esc(name)+'</strong></td><td>'+esc(sid)+'</td><td>'+esc(cname)+'</td><td>'+esc(gender)+'</td><td>'+esc(dob)+'</td></tr>';
+  }).join('');
+  preEl.innerHTML='<div class="tw" style="margin-bottom:.7rem;">'
+    +'<table><thead><tr><th></th><th>Name</th><th>Number</th><th>Class</th><th>Gender</th><th>DOB</th></tr></thead>'
+    +'<tbody>'+tBody+'</tbody></table></div>'
+    +'<div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">'
+    +'<div style="flex:1;font-size:.8rem;color:var(--ink2);">Will add <strong style="color:var(--green);">'+willAdd+'</strong> student'+(willAdd!==1?'s':'')+' · <strong style="color:var(--red);">'+willSkip+'</strong> will be skipped (duplicates / empty)</div>'
+    +(willAdd?'<button class="btn gold" onclick="confirmStudentImport()">✅ Confirm Import ('+willAdd+')</button>':'')
+    +'</div>';
+  msgEl.innerHTML='';
+}
+// Store parsed rows for confirm step
+var _pendingImportRows=[];
+function confirmStudentImport(){
+  var text=document.getElementById('stImportPaste').value.trim();
+  if(!text) return;
+  var rows=_parseImportText(text);
+  var res=_doImportRows(rows);
+  document.getElementById('stImportPreview').innerHTML='';
+  document.getElementById('stImportMsg').innerHTML='<div class="al ok">✅ Imported <strong>'+res.added+'</strong> student'+(res.added!==1?'s':'')+'. ('+res.skipped+' skipped)</div>';
+  document.getElementById('stImportPaste').value='';
 }
 
 // ██████████████████████████████████████████████████████████████████
@@ -9631,7 +9851,19 @@ function updateTopbarModeBtn(){
 
 function getActiveQuizYear(){
   if(!DB.quizYears||!DB.quizYears.length) return null;
-  return DB.quizYears.find(function(y){return y.id===CURRENT_QUIZ_YEAR_ID;})||null;
+  // If a year is explicitly selected, use it
+  if(CURRENT_QUIZ_YEAR_ID){
+    var found = DB.quizYears.find(function(y){return y.id===CURRENT_QUIZ_YEAR_ID;});
+    if(found) return found;
+  }
+  // Auto-select: prefer the most recent unlocked year, fallback to most recent overall
+  var active = DB.quizYears.slice().reverse().find(function(y){return !y.locked;})
+             || DB.quizYears[DB.quizYears.length-1];
+  if(active){
+    // Persist so dropdowns stay in sync
+    CURRENT_QUIZ_YEAR_ID = active.id;
+  }
+  return active||null;
 }
 
 function quizMarkKey(stId, subId, weekId){
@@ -9640,7 +9872,7 @@ function quizMarkKey(stId, subId, weekId){
 }
 
 function syncQuizWeekDropdowns(){
-  var yr = getActiveQuizYear();
+  var yr = getActiveQuizYear(); // auto-selects if CURRENT_QUIZ_YEAR_ID is null
   var opts = yr && yr.weeks && yr.weeks.length
     ? yr.weeks.map(function(w){return'<option value="'+w.id+'">'+w.label+'</option>';}).join('')
     : '<option value="">— No weeks — ask director —</option>';
@@ -9660,6 +9892,13 @@ function syncQuizWeekDropdowns(){
   });
   var badge = document.getElementById('qz-year-locked-badge');
   if(badge) badge.style.display = locked ? 'inline-block' : 'none';
+  // Persist auto-selected year to session so teachers don't need to re-select on refresh
+  if(CURRENT_QUIZ_YEAR_ID){
+    try{
+      var sess = localStorage.getItem('scorix_session');
+      if(sess){ var sd=JSON.parse(sess); sd.quizYearId=CURRENT_QUIZ_YEAR_ID; localStorage.setItem('scorix_session',JSON.stringify(sd)); }
+    }catch(e){}
+  }
 }
 
 // Show year selector screen (called when quiz mode entered)
