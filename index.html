@@ -2182,15 +2182,15 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
             <div class="fg">
               <label>💬 Class Teacher Remarks</label>
-              <input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term…" oninput="genReport()">
+              <input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term…" oninput="saveRemarkFields();genReport()">
             </div>
             <div class="fg">
               <label>📋 Discipline Note</label>
-              <input type="text" id="rpDiscipline" placeholder="e.g. Good conduct, respectful…" oninput="genReport()">
+              <input type="text" id="rpDiscipline" placeholder="e.g. Good conduct, respectful…" oninput="saveRemarkFields();genReport()">
             </div>
             <div class="fg">
               <label>🎖️ Conduct Score <span style="color:var(--ink3);font-weight:400;">(e.g. 39/40)</span></label>
-              <input type="text" id="rpConduct" placeholder="e.g. 39/40" oninput="genReport()">
+              <input type="text" id="rpConduct" placeholder="e.g. 39/40" oninput="saveRemarkFields();genReport()">
             </div>
           </div>
           <div id="rpTeacherApproval"></div>
@@ -3771,6 +3771,7 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
     if(d.approvals&&typeof d.approvals==='object') DB.approvals=d.approvals;
     if(d.attendance&&typeof d.attendance==='object') DB.attendance=d.attendance;
+    if(d.remarks&&typeof d.remarks==='object') DB.remarks=d.remarks;
     if(Array.isArray(d.quizYears)) DB.quizYears=d.quizYears;
     if(Array.isArray(d.termYears)) DB.termYears=d.termYears;
     if(Array.isArray(d.parents))   DB.parents=d.parents;
@@ -4760,7 +4761,7 @@ function doLogout(){
   ME=null; PARENT_USER=null; CURRENT_SCHOOL_ID=null; _markMode='term'; CURRENT_LEVEL='PRIMARY';
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   _userIndexCache = null; // force fresh login lookup next time
-  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],parentChats:{},
+  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],parentChats:{},remarks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],quizYears:[],termYears:[],attendance:{},
     terms:[
@@ -5654,7 +5655,10 @@ function attChangeDate(classId, delta){
   var cur = _attDate[classId] || getTodayKey();
   var parts = cur.split('-');
   var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-  d.setDate(d.getDate() + delta);
+  // Skip weekends
+  do {
+    d.setDate(d.getDate() + delta);
+  } while(d.getDay()===0 || d.getDay()===6);
   // Don't go into the future
   var today = getTodayKey();
   var newKey = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -5720,60 +5724,153 @@ function saveAttendance(classId){
   }
 }
 
+// ── Attendance history week offset (0 = current week, -1 = last week, etc.)
+var _attHistoryWeek = {};
+
 function viewAttHistory(classId){
   var panel = document.getElementById('att-history-panel');
   if(!panel) return;
-  // Toggle
-  if(panel.innerHTML.trim()){panel.innerHTML='';return;}
+  // Toggle off if already open for same class
+  if(panel.dataset.openClass === classId && panel.innerHTML.trim()){
+    panel.innerHTML=''; panel.dataset.openClass=''; return;
+  }
+  panel.dataset.openClass = classId;
+  if(!_attHistoryWeek[classId]) _attHistoryWeek[classId] = 0;
+  _renderAttHistory(classId);
+}
 
+function _getWeekdays(weekOffset){
+  // Returns array of YYYY-MM-DD strings for Mon–Fri of the target week
+  var today = new Date();
+  // Go to Monday of current week
+  var day = today.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  var diffToMon = (day === 0) ? -6 : 1 - day;
+  var mon = new Date(today);
+  mon.setDate(today.getDate() + diffToMon + (weekOffset * 7));
+  var days = [];
+  for(var i=0;i<5;i++){
+    var d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    days.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+  }
+  return days;
+}
+
+function _weekLabel(weekDays){
+  if(!weekDays.length) return '';
+  var fmt = function(s){ var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+  return fmt(weekDays[0]) + ' – ' + fmt(weekDays[4]);
+}
+
+function _renderAttHistory(classId){
+  var panel = document.getElementById('att-history-panel');
+  if(!panel) return;
   if(!DB.attendance) DB.attendance={};
   var cls = DB.classes.find(function(c){return c.id===classId;});
   var students = yearStudents().filter(function(s){return s.classId===classId;})
     .sort(function(a,b){return a.name.localeCompare(b.name);});
+  var weekOffset = _attHistoryWeek[classId] || 0;
+  var todayKey = getTodayKey();
+  var weekDays = _getWeekdays(weekOffset);
+  var isCurrentWeek = (weekOffset === 0);
 
-  // Get all attendance dates for this class, last 14 days
-  var allDates = Object.keys(DB.attendance)
-    .filter(function(k){return k.startsWith('att_'+classId+'_');})
-    .map(function(k){return k.replace('att_'+classId+'_','');})
-    .sort().reverse().slice(0,14);
+  // Day-of-week short labels
+  var DOW = ['Mon','Tue','Wed','Thu','Fri'];
+  var statusIcon = {
+    present:'<span style="color:var(--green);font-weight:700;">P</span>',
+    absent :'<span style="color:var(--red);font-weight:700;">A</span>',
+    late   :'<span style="color:var(--gold);font-weight:700;">L</span>',
+    excused:'<span style="color:var(--blue);font-weight:700;">E</span>'
+  };
 
-  if(!allDates.length){
-    panel.innerHTML='<div class="card"><div class="empty"><p>No attendance records yet.</p></div></div>';
-    return;
-  }
-
-  var statusIcon={present:'<span style="color:var(--green);">P</span>',absent:'<span style="color:var(--red);">A</span>',late:'<span style="color:var(--gold);">L</span>',excused:'<span style="color:var(--blue);">E</span>'};
-
-  var thead='<tr><th style="padding:6px 8px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:2px solid var(--bd);">Student</th>'
-    +allDates.map(function(d){
-      var parts=d.split('-'); return'<th style="padding:6px 5px;text-align:center;font-size:.62rem;font-weight:700;color:var(--ink3);border-bottom:2px solid var(--bd);white-space:nowrap;">'+parts[2]+'/'+parts[1]+'</th>';
-    }).join('')
+  // Build header columns
+  var thead = '<tr>'
+    +'<th style="padding:6px 8px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:2px solid var(--bd);min-width:120px;">Student</th>'
+    + weekDays.map(function(d, i){
+        var isFuture = d > todayKey;
+        var parts = d.split('-');
+        var isToday = d === todayKey;
+        var hasRecord = !!DB.attendance[getAttKey(classId, d)];
+        var dotColor = isFuture ? 'var(--bd)' : hasRecord ? 'var(--green)' : 'var(--red)';
+        var dotTitle = isFuture ? '' : hasRecord ? 'Recorded' : 'Not recorded';
+        return '<th style="padding:6px 5px;text-align:center;font-size:.62rem;font-weight:700;color:'+(isToday?'var(--gold)':'var(--ink3)')+';border-bottom:2px solid var(--bd);white-space:nowrap;'+(isToday?'background:rgba(240,180,41,.07);':'')+'min-width:44px;">'
+          +'<div>'+DOW[i]+'</div>'
+          +'<div style="font-size:.7rem;color:'+(isToday?'var(--gold)':'var(--ink2)')+';">'+parts[2]+'/'+parts[1]+'</div>'
+          +(isToday?'<div style="font-size:.55rem;color:var(--gold);font-weight:800;letter-spacing:.05em;">TODAY</div>':'')
+          +'<div title="'+dotTitle+'" style="width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin:2px auto 0;'+(isFuture?'opacity:.3;':'')+'"></div>'
+          +'</th>';
+      }).join('')
     +'<th style="padding:6px 8px;text-align:center;font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:2px solid var(--bd);">Abs</th>'
+    +'<th style="padding:6px 8px;text-align:center;font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:2px solid var(--bd);">Rate</th>'
     +'</tr>';
 
-  var tbody=students.map(function(st,i){
-    var absCnt=0;
-    var cells=allDates.map(function(d){
-      var rec=DB.attendance[getAttKey(classId,d)]||{};
-      var v=rec[st.id]||'';
+  var tbody = students.map(function(st, i){
+    var absCnt=0, recordedDays=0;
+    var cells = weekDays.map(function(d){
+      var isFuture = d > todayKey;
+      if(isFuture){
+        return '<td style="padding:5px;text-align:center;font-size:.75rem;border-bottom:1px solid var(--bd);background:rgba(255,255,255,.02);">'
+          +'<span style="color:var(--bd);font-size:.6rem;">—</span></td>';
+      }
+      var dayRecord = DB.attendance[getAttKey(classId,d)];
+      var hasRec = !!dayRecord;
+      // If the day was recorded but this student has no entry, treat as present
+      // (consistent with saveAttendance() which defaults unmarked → present)
+      var v = hasRec ? (dayRecord[st.id] || 'present') : '';
+      if(hasRec) recordedDays++;
       if(v==='absent') absCnt++;
-      return'<td style="padding:5px;text-align:center;font-size:.75rem;font-weight:700;border-bottom:1px solid var(--bd);">'+(v?statusIcon[v]:'<span style="color:var(--bd);">·</span>')+'</td>';
+      var isToday = d===todayKey;
+      var showDot = hasRec && !dayRecord[st.id]; // defaulted to present — show lighter indicator
+      return '<td style="padding:5px;text-align:center;font-size:.75rem;font-weight:700;border-bottom:1px solid var(--bd);'+(isToday?'background:rgba(240,180,41,.05);':'')+(hasRec?'':'background:rgba(255,77,109,.04);')+'">'
+        +(v ? (showDot ? '<span style="color:var(--green);opacity:.5;" title="Defaulted to present">P</span>' : statusIcon[v]) : '<span style="color:var(--bd);font-size:.6rem;" title="Not recorded">·</span>')
+        +'</td>';
     }).join('');
-    var rowBg=i%2===0?'background:var(--s2);':'';
-    return'<tr style="'+rowBg+'">'
-      +'<td style="padding:6px 8px;font-size:.8rem;font-weight:600;border-bottom:1px solid var(--bd);">'+st.name+'</td>'
+    // Attendance rate: present+late / recorded days
+    var presentDays = weekDays.reduce(function(n,d){
+      if(d>todayKey) return n;
+      var dayRecord=DB.attendance[getAttKey(classId,d)];
+      if(!dayRecord) return n;
+      var v = dayRecord[st.id] || 'present'; // default to present if unmarked
+      return n + (v==='present'||v==='late'?1:0);
+    },0);
+    var rate = recordedDays>0 ? Math.round((presentDays/recordedDays)*100)+'%' : '—';
+    var rateColor = recordedDays===0?'var(--ink3)':presentDays===recordedDays?'var(--green)':presentDays/recordedDays>=.8?'var(--gold)':'var(--red)';
+    var rowBg = i%2===0?'background:rgba(255,255,255,.01);':'';
+    return '<tr style="'+rowBg+'">'
+      +'<td style="padding:6px 8px;font-size:.8rem;font-weight:600;border-bottom:1px solid var(--bd);white-space:nowrap;">'+esc(st.name)+'</td>'
       +cells
       +'<td style="padding:5px;text-align:center;font-size:.78rem;font-weight:700;color:'+(absCnt>3?'var(--red)':absCnt>0?'var(--gold)':'var(--green)')+';border-bottom:1px solid var(--bd);">'+absCnt+'</td>'
+      +'<td style="padding:5px;text-align:center;font-size:.78rem;font-weight:700;color:'+rateColor+';border-bottom:1px solid var(--bd);">'+rate+'</td>'
       +'</tr>';
   }).join('');
 
-  panel.innerHTML='<div class="card" style="margin-bottom:.9rem;">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">'
-      +'<div class="ctitle" style="margin-bottom:0;">📊 Attendance History — '+(cls?cls.name:'')+'</div>'
+  panel.innerHTML =
+    '<div class="card" style="margin-bottom:.9rem;">'
+    // Header
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;flex-wrap:wrap;gap:.5rem;">'
+      +'<div class="ctitle" style="margin-bottom:0;">📊 Attendance History — <span style="color:var(--gold);">'+(cls?esc(cls.name):'')+'</span></div>'
       +'<button class="btn sm ghost" onclick="viewAttHistory(\''+classId+'\')">✕ Close</button>'
     +'</div>'
-    +'<div style="font-size:.68rem;color:var(--ink3);margin-bottom:.6rem;">Last '+allDates.length+' recorded days &nbsp;|&nbsp; <strong style="color:var(--green);">P</strong>=Present &nbsp;<strong style="color:var(--red);">A</strong>=Absent &nbsp;<strong style="color:var(--gold);">L</strong>=Late &nbsp;<strong style="color:var(--blue);">E</strong>=Excused</div>'
-    +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+    // Week navigation
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;flex-wrap:wrap;">'
+      +'<button onclick="_attHistoryWeek[\''+classId+'\']--;_renderAttHistory(\''+classId+'\')" style="padding:5px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.82rem;cursor:pointer;">◀ Prev Week</button>'
+      +'<div style="flex:1;text-align:center;font-size:.82rem;font-weight:700;color:var(--ink);background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:5px 12px;">📅 '+_weekLabel(weekDays)+(isCurrentWeek?' <span style="font-size:.68rem;color:var(--green);font-weight:600;">(This week)</span>':'')+'</div>'
+      +'<button onclick="_attHistoryWeek[\''+classId+'\']++;_renderAttHistory(\''+classId+'\')" '+(isCurrentWeek?'disabled style="padding:5px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--s3);color:var(--ink3);font-size:.82rem;cursor:not-allowed;opacity:.4;"':'style="padding:5px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.82rem;cursor:pointer;"')+'>Next Week ▶</button>'
+      +(!isCurrentWeek?'<button onclick="_attHistoryWeek[\''+classId+'\']=0;_renderAttHistory(\''+classId+'\')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--bd);background:rgba(240,180,41,.12);color:var(--gold);font-size:.72rem;font-weight:700;cursor:pointer;">Today</button>':'')
+    +'</div>'
+    // Legend
+    +'<div style="font-size:.68rem;color:var(--ink3);margin-bottom:.6rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
+      +'<span><strong style="color:var(--green);">P</strong> Present</span>'
+      +'<span><strong style="color:var(--red);">A</strong> Absent</span>'
+      +'<span><strong style="color:var(--gold);">L</strong> Late</span>'
+      +'<span><strong style="color:var(--blue);">E</strong> Excused</span>'
+      +'<span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;"></span> Recorded</span>'
+      +'<span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;"></span> Not recorded</span>'
+      +'<span style="background:rgba(255,77,109,.08);border-radius:4px;padding:1px 5px;">Pink cell = missing record</span>'
+    +'</div>'
+    // Table
+    +'<div style="overflow-x:auto;">'
+    +'<table style="width:100%;border-collapse:collapse;">'
     +'<thead>'+thead+'</thead><tbody>'+tbody+'</tbody>'
     +'</table></div>'
     +'</div>';
@@ -7892,6 +7989,52 @@ function unapproveReports(classId, termId){
   renderDash();
   loadMkTable(); // refresh marks table to show inputs again
 }
+// ══════════════════════════════════════════
+// REMARKS / CONDUCT — save & load per student+term
+// ══════════════════════════════════════════
+function _remarkKey(stid, termRaw){
+  // key = "rc_remark_STUDENTID_TERMRAW"
+  return 'rc_'+stid+'_'+(termRaw||'').replace(/[^a-zA-Z0-9_\-]/g,'_');
+}
+var _lastRemarkStid = null;
+var _lastRemarkTerm = null;
+
+function saveRemarkFields(){
+  var stid = isAdmin()
+    ? (document.getElementById('rpSt')||{}).value||''
+    : (document.getElementById('rpSt2')||{}).value||'';
+  var termRaw = isAdmin()
+    ? (document.getElementById('rpTerm')||{}).value||''
+    : (document.getElementById('rpTerm2')||{}).value||'';
+  if(!stid||!termRaw) return;
+  var key = _remarkKey(stid, termRaw);
+  if(!DB.remarks) DB.remarks={};
+  DB.remarks[key]={
+    remark   : (document.getElementById('rpRemark')||{}).value||'',
+    discipline:(document.getElementById('rpDiscipline')||{}).value||'',
+    conduct  : (document.getElementById('rpConduct')||{}).value||''
+  };
+  // Debounce the actual DB write so typing doesn't hammer Supabase
+  if(window._remarkSaveTimer) clearTimeout(window._remarkSaveTimer);
+  window._remarkSaveTimer = setTimeout(function(){ dbSave(); }, 900);
+}
+
+function loadRemarkFields(stid, termRaw){
+  if(!stid||!termRaw) return;
+  // Avoid unnecessary reload when same student+term
+  if(stid===_lastRemarkStid && termRaw===_lastRemarkTerm) return;
+  _lastRemarkStid = stid;
+  _lastRemarkTerm = termRaw;
+  var key = _remarkKey(stid, termRaw);
+  var data = (DB.remarks && DB.remarks[key]) || {};
+  var rEl = document.getElementById('rpRemark');
+  var dEl = document.getElementById('rpDiscipline');
+  var cEl = document.getElementById('rpConduct');
+  if(rEl) rEl.value = data.remark    || '';
+  if(dEl) dEl.value = data.discipline|| '';
+  if(cEl) cEl.value = data.conduct   || '';
+}
+
 function genReport(){
   var stid = isAdmin()
     ? (document.getElementById('rpSt')||{}).value||''
@@ -7899,6 +8042,8 @@ function genReport(){
   var selectedTermRaw = isAdmin()
     ? (document.getElementById('rpTerm')||{}).value||''
     : (document.getElementById('rpTerm2')||{}).value||'';
+  // ── Load saved remarks/conduct for this student+term ──
+  loadRemarkFields(stid, selectedTermRaw);
   var out=document.getElementById('rpOut');
   if(isAdmin()) renderApprovalStatus(); else renderTeacherApprovalBtn();
   if(!stid){out.innerHTML='<div class="empty"><div class="ei">&#128196;</div><p>Select a student to preview their report card.</p></div>';return;}
