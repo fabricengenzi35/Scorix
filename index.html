@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   SCORIX — International Academic Management System
-  Version: 3.1 International
+  Version: 4.0 Performance Edition
   International Features:
   - 10 languages: EN, FR, ES, PT, SW, AR, DE, ZH, RW, HI
   - 8 grading systems: Standard, US GPA, UK A-Level, French Bac, IB, German, East Africa, Rwanda
@@ -49,7 +49,7 @@
 <meta name="apple-mobile-web-app-title" content="SCORIX">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com https://zabdtormeyrucjwjipzl.supabase.co data: blob:;">
 <meta name="referrer" content="no-referrer-when-downgrade">
-<title>SCORIX — International Academic System v3.1 ✦ Best×∞</title>
+<title>SCORIX — International Academic System v4.0 ✦ Performance Edition</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <!--
   ╔══════════════════════════════════════════════════════════╗
@@ -778,25 +778,58 @@ tr:hover td{background:var(--s2);}
 .pchat-close:hover{background:var(--s2);}
 .pchat-msgs{
   flex:1;overflow-y:auto;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.65rem;
-  min-height:200px;
+  min-height:200px;scroll-behavior:smooth;
 }
+/* Teacher side = RIGHT (blue) — from teacher's own view */
 .pchat-msgs .cm-bubble{
-  max-width:80%;padding:.6rem .85rem;border-radius:12px;font-size:.84rem;line-height:1.45;
+  max-width:78%;padding:.6rem .9rem;border-radius:14px;font-size:.84rem;line-height:1.5;
   word-break:break-word;
 }
 .pchat-msgs .cm-bubble.teacher{
-  align-self:flex-end;
-  background:linear-gradient(135deg,rgba(72,149,239,.22),rgba(72,149,239,.12));
-  border:1px solid rgba(72,149,239,.3);color:var(--ink);
-  border-bottom-right-radius:4px;
+  background:linear-gradient(135deg,#4895ef,#3a7bd5);
+  color:#fff;border-bottom-right-radius:3px;
+  box-shadow:0 2px 8px rgba(72,149,239,.3);
 }
 .pchat-msgs .cm-bubble.parent{
-  align-self:flex-start;
-  background:linear-gradient(135deg,rgba(0,214,143,.14),rgba(0,214,143,.06));
-  border:1px solid rgba(0,214,143,.25);color:var(--ink);
-  border-bottom-left-radius:4px;
+  background:var(--s2);border:1px solid var(--bd);
+  color:var(--ink);border-bottom-left-radius:3px;
 }
 .cm-meta{font-size:.62rem;color:var(--ink3);margin-top:3px;}
+/* Parent portal: parent = RIGHT (blue), teacher = LEFT (green) */
+.par-bubble-wrap { display:flex;flex-direction:column;gap:2px; }
+.par-bubble-wrap.right { align-items:flex-end; }
+.par-bubble-wrap.left  { align-items:flex-start; }
+.par-bubble {
+  max-width:80%;padding:.6rem .9rem;border-radius:14px;font-size:.84rem;
+  line-height:1.5;word-break:break-word;
+}
+.par-bubble.from-parent {
+  background:linear-gradient(135deg,#4895ef,#3a7bd5);
+  color:#fff;border-bottom-right-radius:3px;
+  box-shadow:0 2px 8px rgba(72,149,239,.25);
+}
+.par-bubble.from-teacher {
+  background:var(--s2);border:1px solid var(--bd);
+  color:var(--ink);border-bottom-left-radius:3px;
+}
+.par-bubble-meta { font-size:.6rem;color:var(--ink3);margin-top:2px; }
+
+/* Mobile keyboard: shrink thread, keep input visible */
+@media(max-width:700px){
+  [id^="par-thread-"]{
+    max-height:38vh !important;
+    -webkit-overflow-scrolling:touch;
+  }
+  [id^="par-inp-row-"]{
+    position:sticky;
+    bottom:0;
+    z-index:10;
+    background:var(--s1);
+    padding-bottom:max(.6rem, env(safe-area-inset-bottom));
+  }
+  /* Extra bottom room on parent portal so last input isn't under browser nav */
+  #parent-portal-content { padding-bottom:80px !important; }
+}
 .pchat-empty{text-align:center;padding:2rem;color:var(--ink3);font-size:.83rem;}
 .pchat-footer{
   padding:.75rem 1rem;border-top:1px solid var(--bd);
@@ -811,7 +844,7 @@ tr:hover td{background:var(--s2);}
 }
 .pchat-input:focus{border-color:var(--blue);}
 .pchat-send{
-  padding:8px 14px;background:var(--grd-blue);color:#fff;border:none;
+  padding:8px 16px;background:var(--grd-blue);color:#fff;border:none;
   border-radius:9px;cursor:pointer;font-size:.82rem;font-weight:600;
   transition:all .15s;white-space:nowrap;align-self:flex-end;
 }
@@ -1369,6 +1402,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 @keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -2373,6 +2407,21 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <button class="btn gold" onclick="addTermYear()">+ New Academic Year</button>
           </div>
         </div>
+        <!-- DATA BACKUP CARD — Admin only -->
+        <div class="card admin-only" style="max-width:520px;border:1px solid rgba(0,214,143,.25);background:linear-gradient(135deg,rgba(0,214,143,.04),var(--s1));">
+          <div class="ctitle">💾 Data Backup</div>
+          <div style="font-size:.76rem;color:var(--ink3);margin-bottom:1rem;line-height:1.7;">
+            Download a full backup of all school data — students, marks, teachers, classes, subjects and settings. Save it to a safe place (USB, Google Drive, email). <strong style="color:var(--ink2);">Recommended: once a month.</strong>
+          </div>
+          <div id="backup-last" style="font-size:.72rem;color:var(--ink3);margin-bottom:.9rem;"></div>
+          <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;">
+            <button class="btn green" onclick="downloadBackup()" style="background:var(--grd-green);color:#fff;border:none;padding:10px 22px;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(0,214,143,.25);transition:all .18s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 22px rgba(0,214,143,.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,214,143,.25)'">
+              ⬇️ Download Backup (.json)
+            </button>
+            <span style="font-size:.72rem;color:var(--ink3);">File includes all data except passwords</span>
+          </div>
+        </div>
+
         <div class="card" style="max-width:450px;">
           <div class="ctitle">Change My Password</div>
           <div id="pwal"></div>
@@ -2529,6 +2578,34 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <button class="btn red" onclick="clearAll()">🗑️ Clear All Data</button>
           </div>
           <input type="file" id="bkf" accept=".json" style="display:none" onchange="loadBackup(event)">
+        </div>
+      </div>
+
+      <!-- BACKUP PAGE -->
+      <div class="page" id="p-backup">
+        <div class="ph"><div><div class="phtitle">💾 Data Backup</div><div class="phsub">Download a full backup of all school data</div></div></div>
+        <div class="card admin-only" style="max-width:520px;border:1px solid rgba(0,214,143,.25);background:linear-gradient(135deg,rgba(0,214,143,.04),var(--s1));">
+          <div class="ctitle">💾 Download Backup</div>
+          <div style="font-size:.82rem;color:var(--ink3);margin-bottom:1rem;line-height:1.7;">
+            Download a full backup of all school data — students, marks, teachers, classes, subjects and settings. Save it to a safe place (USB, Google Drive, email). <strong style="color:var(--ink2);">Recommended: once a month.</strong>
+          </div>
+          <div id="backup-last2" style="font-size:.72rem;color:var(--ink3);margin-bottom:.9rem;"></div>
+          <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;">
+            <button class="btn green" onclick="downloadBackup()" style="background:var(--grd-green);color:#fff;border:none;padding:10px 22px;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(0,214,143,.25);transition:all .18s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 22px rgba(0,214,143,.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,214,143,.25)'">
+              ⬇️ Download Backup (.json)
+            </button>
+            <span style="font-size:.72rem;color:var(--ink3);">File includes all data except passwords</span>
+          </div>
+        </div>
+        <div class="card admin-only" style="max-width:520px;">
+          <div class="ctitle" style="color:var(--red);">⚠️ Restore / Import Backup</div>
+          <div style="font-size:.82rem;color:var(--ink3);margin-bottom:1rem;line-height:1.7;">
+            Import a previously downloaded backup file. <strong style="color:var(--red);">This will overwrite all current data.</strong>
+          </div>
+          <div style="display:flex;gap:.7rem;flex-wrap:wrap;">
+            <button class="btn ghost" onclick="document.getElementById('bkf2').click()">📥 Import Backup (.json)</button>
+          </div>
+          <input type="file" id="bkf2" accept=".json" style="display:none" onchange="loadBackup(event)">
         </div>
       </div>
 
@@ -3458,9 +3535,147 @@ function fmtDate(isoStr, locale){
 const SUPABASE_URL = "https://zabdtormeyrucjwjipzl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphYmR0b3JtZXlydWNqd2ppcHpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NTkzODUsImV4cCI6MjA4OTAzNTM4NX0.Rs-puu3GLuQBJzpVdYfgP63GNnb8AxU8XFcvGEpwHPw";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  realtime: { params: { eventsPerSecond: 2 } },
-  global: { headers: { 'x-client-info': 'scorix/1.0' } }
+  realtime: { params: { eventsPerSecond: 10 } },
+  global: { headers: { 'x-client-info': 'scorix/4.0' } },
+  db: { schema: 'public' },
+  auth: { persistSession: false }
 });
+
+// ── REALTIME SUBSCRIPTION ── push updates instantly to all connected users
+var _realtimeChannel = null;
+var _parentRealtimeChannel = null;
+
+function _startRealtimeSubscription(){
+  if(_realtimeChannel) _realtimeChannel.unsubscribe();
+  if(!CURRENT_SCHOOL_ID || CURRENT_SCHOOL_ID === '__super__') return;
+  var key = schoolDbKey(CURRENT_SCHOOL_ID);
+  _realtimeChannel = supabaseClient
+    .channel('scorix-school-'+CURRENT_SCHOOL_ID)
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'epaza_data', filter: 'id=eq.'+key },
+      function(payload){
+        // Ignore if we triggered this update ourselves (within 2s of last save)
+        if(Date.now() - _lastSaveTimestamp < 2000) return;
+        if(payload.new && payload.new.data){
+          _applyRemoteData(payload.new.data);
+        }
+      }
+    )
+    .subscribe(function(status){
+      if(status === 'SUBSCRIBED') showSyncStatus('live');
+    });
+}
+
+function _startParentRealtimeSubscription(){
+  if(_parentRealtimeChannel) _parentRealtimeChannel.unsubscribe();
+  if(!CURRENT_SCHOOL_ID || !PARENT_USER) return;
+  var key = schoolDbKey(CURRENT_SCHOOL_ID);
+  _parentRealtimeChannel = supabaseClient
+    .channel('scorix-parent-'+CURRENT_SCHOOL_ID)
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'epaza_data', filter: 'id=eq.'+key },
+      function(payload){
+        if(payload.new && payload.new.data){
+          var d = payload.new.data;
+          if(d.parentChats) DB.parentChats = d.parentChats;
+          if(d.messages)    DB.messages    = d.messages;
+          // Re-render parent chat sections
+          var codes = PARENT_USER.studentCodes || [];
+          codes.forEach(function(code){
+            var student = DB.students.find(function(s){ return s.sid && s.sid.toUpperCase()===code.toUpperCase(); });
+            if(!student) return;
+            var section = document.getElementById('par-chat-section-'+student.id);
+            if(section) renderParentChatForStudent(student.id, section);
+          });
+          parentUpdateBadge();
+        }
+      }
+    )
+    .subscribe();
+}
+
+function _stopRealtimeSubscription(){
+  if(_realtimeChannel){ _realtimeChannel.unsubscribe(); _realtimeChannel=null; }
+}
+function _stopParentRealtimeSubscription(){
+  if(_parentRealtimeChannel){ _parentRealtimeChannel.unsubscribe(); _parentRealtimeChannel=null; }
+}
+
+// Apply remote data diff — only update changed fields, never overwrite mid-entry marks
+var _lastSaveTimestamp = 0;
+function _applyRemoteData(d){
+  if(!d) return;
+  // Structural data: always apply (teachers, classes, subjects, students, settings…)
+  if(Array.isArray(d.users)&&d.users.length)       DB.users=d.users;
+  if(Array.isArray(d.teachers))                    DB.teachers=d.teachers;
+  if(Array.isArray(d.classes))                     DB.classes=d.classes;
+  if(Array.isArray(d.subjects))                    DB.subjects=d.subjects;
+  if(Array.isArray(d.students))                    DB.students=d.students;
+  if(d.settings&&typeof d.settings==='object')     DB.settings=Object.assign(DB.settings,d.settings);
+  if(Array.isArray(d.activity))                    DB.activity=d.activity;
+  if(Array.isArray(d.terms)&&d.terms.length)       DB.terms=d.terms;
+  if(d.approvals&&typeof d.approvals==='object')   DB.approvals=d.approvals;
+  if(d.attendance&&typeof d.attendance==='object') DB.attendance=d.attendance;
+  if(d.remarks&&typeof d.remarks==='object')       DB.remarks=d.remarks;
+  if(Array.isArray(d.quizYears))                   DB.quizYears=d.quizYears;
+  if(Array.isArray(d.termYears))                   DB.termYears=d.termYears;
+  if(Array.isArray(d.parents))                     DB.parents=d.parents;
+  if(Array.isArray(d.messages))                    DB.messages=d.messages;
+  if(d.parentChats&&typeof d.parentChats==='object') DB.parentChats=d.parentChats;
+  // Marks: merge carefully — don't overwrite unsaved local changes
+  if(d.marks&&typeof d.marks==='object'){
+    Object.keys(d.marks).forEach(function(k){
+      if(!_pendingMarkKeys || !_pendingMarkKeys[k]) DB.marks[k]=d.marks[k];
+    });
+  }
+  // Re-render active page silently
+  _silentRerender();
+  msgUpdateBadge();
+}
+
+// Track which mark inputs are currently being edited
+var _pendingMarkKeys = {};
+function _markPendingKey(key){ _pendingMarkKeys[key]=true; }
+function _clearPendingKeys(){ _pendingMarkKeys={}; }
+
+function _silentRerender(){
+  var activePage = document.querySelector('.page.on');
+  if(!activePage) return;
+  var pageId = activePage.id.replace('p-','');
+  var silentFns = {
+    dashboard: renderDash,
+    messages: msgSetup,
+    analytics: setupAnalytics
+  };
+  // Never auto-re-render marks — user may be mid-entry
+  if(silentFns[pageId]) try{ silentFns[pageId](); }catch(e){}
+  // Auto-refresh teacher's open chat modal if a new parent message arrived
+  if(_parChatStudentId){
+    var modal = document.getElementById('parChatModal');
+    if(modal && modal.classList.contains('open')){
+      // Mark newly arrived parent messages as read
+      var thread = DB.parentChats && DB.parentChats[_parChatStudentId];
+      if(thread){
+        var hadUnread = false;
+        thread.forEach(function(m){
+          if(m.senderRole==='parent' && !m.readByTeacher){ m.readByTeacher=true; hadUnread=true; }
+        });
+        parChatRender();
+        if(hadUnread) dbSave();
+      }
+    }
+  }
+  // Auto-refresh parent portal chat sections
+  if(PARENT_USER && DB.parentChats){
+    var codes = PARENT_USER.studentCodes || [];
+    codes.forEach(function(code){
+      var student = DB.students.find(function(s){ return s.sid && s.sid.toUpperCase()===code.toUpperCase(); });
+      if(!student) return;
+      var section = document.getElementById('par-chat-section-'+student.id);
+      if(section) renderParentChatForStudent(student.id, section);
+    });
+  }
+}
 
 
 // ██████████████████████████████████████████████████████████████████
@@ -3575,7 +3790,7 @@ async function _drainQueue(){
 
 // Deduplicated write — merges rapid saves into one network call
 var _pendingWrites = {}; // key → {data, timer}
-var WRITE_DEBOUNCE = 400; // ms
+var WRITE_DEBOUNCE = 250; // ms — faster than 400ms for snappier saves
 
 function _scheduleWrite(key, data){
   // Always update local cache immediately — instant for offline reads
@@ -3599,14 +3814,16 @@ async function _flushWrite(key, data){
     return;
   }
   showSyncStatus('saving');
+  _lastSaveTimestamp = Date.now(); // tell realtime to ignore our own echo
   try{
     await _withRetry(function(){
       return _withTimeout(
         supabaseClient.from('epaza_data').upsert({id:key, data:data}),
-        5000
+        4000  // reduced from 5000ms for faster failure detection
       );
     }, 3, 'write:'+key);
     showSyncStatus('saved');
+    _clearPendingKeys(); // marks are safely persisted — realtime can merge again
     // Drain any queued writes now we know we're online
     _drainQueue();
   }catch(e){
@@ -3617,8 +3834,19 @@ async function _flushWrite(key, data){
   }
 }
 
+// In-memory read cache — avoids repeated Supabase round-trips for same key in same session
+var _readCache = {};
+var _readCacheTTL = 8000; // 8 seconds — data is fresh enough from realtime
+
 async function _resilientRead(key, timeoutMs){
-  timeoutMs = timeoutMs || 5000;
+  timeoutMs = timeoutMs || 4000; // reduced from 5000ms
+
+  // 0. In-memory cache hit (fastest — zero network)
+  var cached = _readCache[key];
+  if(cached && (Date.now() - cached.ts) < _readCacheTTL){
+    return cached.data;
+  }
+
   // 1. Try Supabase with fast timeout
   try{
     var res = await _withTimeout(
@@ -3626,6 +3854,8 @@ async function _resilientRead(key, timeoutMs){
       timeoutMs
     );
     if(res && res.data && res.data.data){
+      // Store in memory cache
+      _readCache[key] = { data: res.data.data, ts: Date.now() };
       // Freshen localStorage cache
       try{ localStorage.setItem(key, JSON.stringify(res.data.data)); }catch(e){}
       return res.data.data;
@@ -3636,9 +3866,18 @@ async function _resilientRead(key, timeoutMs){
   // 2. localStorage fallback — works 100% offline
   try{
     var raw = localStorage.getItem(key);
-    if(raw) return JSON.parse(raw);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      _readCache[key] = { data: parsed, ts: Date.now() };
+      return parsed;
+    }
   }catch(e){}
   return null;
+}
+
+// Invalidate cache for a key after we save it
+function _invalidateReadCache(key){
+  delete _readCache[key];
 }
 
 // ██████████████████████████████████████████████████████████████████
@@ -3728,6 +3967,8 @@ async function supabaseSave(){
   var key = schoolDbKey(CURRENT_SCHOOL_ID);
   // Trim activity log to last 60 entries before saving (keeps payload small)
   if(DB.activity && DB.activity.length>60) DB.activity = DB.activity.slice(-60);
+  // Invalidate read cache so next load gets fresh data
+  _invalidateReadCache(key);
   // Write school data (debounced + offline-queued automatically)
   _scheduleWrite(key, DB);
   // Update user index in memory only — background sync, no await
@@ -3758,7 +3999,7 @@ async function _syncUserIndexEntry(schoolId, users){
 
 async function supabaseLoad(sid){
   var key = schoolDbKey(sid);
-  var d = await _resilientRead(key, 5000);
+  var d = await _resilientRead(key, 4000);
   if(d){
     if(Array.isArray(d.users)&&d.users.length)     DB.users=d.users;
     if(Array.isArray(d.teachers))                  DB.teachers=d.teachers;
@@ -3910,7 +4151,12 @@ function showSyncStatus(state){
     dot.style.background='var(--green)'; dot.style.animation='none';
     el.style.borderColor='rgba(62,207,142,.3)';
     txt.textContent = APP_LANG==='fr'?'✅ Sauvegardé':'✅ Saved';
-    setTimeout(function(){ el.style.display='none'; }, 2500);
+    setTimeout(function(){ el.style.display='none'; }, 2000);
+  } else if(state==='live'){
+    dot.style.background='var(--green)'; dot.style.animation='blink 2s ease infinite';
+    el.style.borderColor='rgba(62,207,142,.25)';
+    txt.textContent = APP_LANG==='fr'?'🟢 En direct':'🟢 Live';
+    setTimeout(function(){ el.style.display='none'; }, 3000);
   } else if(state==='error'){
     dot.style.background='var(--red)'; dot.style.animation='none';
     el.style.borderColor='rgba(224,82,82,.3)';
@@ -3921,7 +4167,6 @@ function showSyncStatus(state){
     el.style.borderColor='rgba(224,82,82,.3)';
     txt.textContent = APP_LANG==='fr'?'📵 Hors ligne — en attente':'📵 Offline — changes queued';
     srAnnounce('You are offline. Changes will be saved when connection returns.');
-    // Don't auto-hide — stays visible until connection restored
   }
 }
 
@@ -3932,7 +4177,7 @@ function _doSave(){
 
 async function userIndexLoad(){
   if(_userIndexCache) return _userIndexCache;
-  var d = await _resilientRead('epaza_users', 4000);
+  var d = await _resilientRead('epaza_users', 3000); // faster: 3s not 4s
   if(d){ _userIndexCache = d; return d; }
   return null;
 }
@@ -4163,6 +4408,8 @@ function enterParentPortal(){
   wrap.style.display = 'block';
   renderParentPortal();
   setTimeout(parentUpdateBadge, 600);
+  // Start background live-sync for parent portal (realtime + 8s fallback)
+  startParentLiveSync();
 }
 
 // ── Render Parent Portal Content ──
@@ -4188,12 +4435,13 @@ function _buildParentAttendance(student, cls){
       +'</div>';
   }
 
-  // Summary counters for all time
+  // Summary counters for all time — excluding day-offs
   var totP=0, totA=0, totL=0, totE=0, totDays=0;
   allDates.forEach(function(d){
+    if(isDayOff(d)) return; // skip day-offs
     var rec = DB.attendance['att_'+classId+'_'+d] || {};
     var v = rec[student.id];
-    if(!v) return; // date exists but student not recorded
+    if(!v) return;
     totDays++;
     if(v==='present') totP++;
     else if(v==='absent') totA++;
@@ -4534,6 +4782,7 @@ function parentShowInbox(){
 }
 
 function doParentLogout(){
+  stopParentLiveSync();
   PARENT_USER = null;
   var pp = document.getElementById('parentPortalWrap'); if(pp) pp.style.display='none';
   document.getElementById('landingWrap').style.display='block';
@@ -4591,7 +4840,7 @@ async function doLogin(){
     ME=su; CURRENT_SCHOOL_ID='__super__'; enterApp(); return;
   }
 
-  // 2. Fast lookup via cached user index (single network call or local cache)
+  // 2. Fast lookup via cached user index (zero network if pre-warmed)
   var index = await userIndexLoad();
   var foundSchoolId = null;
 
@@ -4601,11 +4850,12 @@ async function doLogin(){
     if(entry.password===pHash || entry.password===p){
       foundSchoolId = entry.schoolId;
     } else {
+      // Password mismatch — don't bother scanning schools
       err.style.display='flex'; err.textContent='❌ Invalid username or password.'; return;
     }
   }
 
-  // 3. Fallback — scan schools (only runs if index missing; uses resilient parallel reads)
+  // 3. Fallback — scan schools in parallel (only if index missing/stale)
   if(!foundSchoolId && SUPERDB.schools.length){
     var found = null;
     var scanResults = await Promise.all(SUPERDB.schools.map(function(sc){
@@ -4742,21 +4992,32 @@ function enterApp(){
   }catch(e){}
   if(!isSuperAdmin()) dbSave();
 
-  // Re-render after Supabase data loads
+  // Freshen data from Supabase in background, then re-render
   setTimeout(function(){
-    renderDash();
-    syncAll();
-    _applyLevelBar(CURRENT_LEVEL);
-    var ovPage=document.getElementById('p-overview');
-    if(ovPage&&ovPage.classList.contains('on')) renderOverview();
-  }, 1200);
+    supabaseLoad(CURRENT_SCHOOL_ID).then(function(){
+      renderDash();
+      syncAll();
+      _applyLevelBar(CURRENT_LEVEL);
+      var ovPage=document.getElementById('p-overview');
+      if(ovPage&&ovPage.classList.contains('on')) renderOverview();
+    }).catch(function(){});
+  }, 300);
 
   // Show diamond mode switch before entering app
   showDiamondSwitch();
+  // Start realtime subscription + 8s fallback poll
+  startLiveSync();
 
 }
 
 function doLogout(){
+  stopLiveSync();        // stops realtime subscription + poll
+  stopParentLiveSync();  // stops parent realtime + poll
+  // Clear all in-memory caches
+  _readCache = {};
+  _userIndexCache = null;
+  _pendingMarkKeys = {};
+  _pendingWrites = {};
   try{ localStorage.removeItem('scorix_session'); }catch(e){}
   ME=null; PARENT_USER=null; CURRENT_SCHOOL_ID=null; _markMode='term'; CURRENT_LEVEL='PRIMARY';
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
@@ -4906,7 +5167,7 @@ function buildSidebar(){
         {id:'subjects',icon:'📚',label:L('subjects')},
         {id:'students',icon:'👨‍🎓',label:L('students')},
       ]);
-      grp(L('grpMarking'),[{id:'import',icon:'📥',label:L('importData')}]);
+      grp(L('grpMarking'),[{id:'import',icon:'📥',label:L('importData')},{id:'backup',icon:'💾',label:'Backup'}]);
     } else {
       grp(L('grpMyClasses'),[{id:'students',icon:'👨‍🎓',label:L('students')}]);
       grp(L('grpMarking'),[{id:'marks',icon:'✏️',label:L('marks')}]);
@@ -4929,7 +5190,7 @@ function showPage(id){
     terms:renderTerms, subjects:renderSubjects, students:setupStudents,
     marks:setupMarks, import:function(){}, reports:setupReports,
     analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
-    messages:msgSetup,
+    messages:msgSetup, backup:renderBackupInfo,
     super:renderSuperPanel, overview:renderOverview, quizprocl:setupQuizProcl
   };
   if(fns[id]) fns[id]();
@@ -5524,9 +5785,10 @@ function ovRenderQuizYearsList(){
 }
 
 // ██████████████████████████████████████████████████████████████████
-// █  §13  ATTENDANCE
-// █  setAtt(), saveAttendance(), viewAttHistory(), renderAttendance()
-// █  ✏️  To change attendance statuses or history display
+// ██████████████████████████████████████████████████████████████████
+// █  §13  ATTENDANCE  v4.0
+// █  Day-off support, monthly averages (cumulative), history
+// █  ✏️  To change statuses or add new holiday types
 // ██████████████████████████████████████████████████████████████████
 // ═══════════════════════════════════════
 function getTodayKey(){
@@ -5535,6 +5797,43 @@ function getTodayKey(){
 }
 
 function getAttKey(classId, date){ return 'att_'+classId+'_'+date; }
+
+// Day-off key: stored as school-wide (not per class) — all classes share the same day-off calendar
+function getDayOffKey(date){ return 'dayoff_'+date; }
+
+// Check if a date is marked as a day off
+function isDayOff(date){
+  if(!DB.attendance) return false;
+  var rec = DB.attendance[getDayOffKey(date)];
+  return !!(rec && rec.__dayoff);
+}
+
+// Mark/unmark a day as school-closed
+function toggleDayOff(classId, date){
+  if(!DB.attendance) DB.attendance={};
+  var key = getDayOffKey(date);
+  if(!DB.attendance[key]) DB.attendance[key]={};
+  var wasOff = !!DB.attendance[key].__dayoff;
+  DB.attendance[key].__dayoff = !wasOff;
+  DB.attendance[key].__dayoffLabel = DB.attendance[key].__dayoff
+    ? (DB.attendance[key].__dayoffLabel || 'Day Off')
+    : '';
+  addLog('📅 '+(wasOff?'Removed day off':'Marked as Day Off')+' — '+date);
+  dbSave();
+  // Re-render widget
+  var attDiv = document.getElementById('dash-attendance');
+  if(attDiv) renderAttendanceWidget(attDiv, classId);
+}
+
+// Set a custom label for a day off
+function setDayOffLabel(classId, date, label){
+  if(!DB.attendance) DB.attendance={};
+  var key = getDayOffKey(date);
+  if(!DB.attendance[key]) DB.attendance[key]={};
+  DB.attendance[key].__dayoff = true;
+  DB.attendance[key].__dayoffLabel = label || 'Day Off';
+  dbSave();
+}
 
 // Active attendance date per class (defaults to today)
 var _attDate = {};
@@ -5546,12 +5845,21 @@ function renderAttendanceWidget(container, classId){
     .sort(function(a,b){return a.name.localeCompare(b.name);});
   if(!students.length){ container.innerHTML=''; return; }
 
-  // Use stored selected date or today
+  // ── Preserve open panel (Monthly View / Week History) across re-renders ──
+  var _prevPanelHTML = '';
+  var _prevPanelOpenClass = '';
+  var _existingPanel = document.getElementById('att-history-panel');
+  if(_existingPanel && _existingPanel.innerHTML.trim()){
+    _prevPanelHTML = _existingPanel.innerHTML;
+    _prevPanelOpenClass = _existingPanel.dataset.openClass || '';
+  }
+
   var today = getTodayKey();
   if(!_attDate[classId]) _attDate[classId] = today;
   var selDate = _attDate[classId];
   var attKey  = getAttKey(classId, selDate);
-  var saved   = DB.attendance[attKey] || {};
+  var dayOff  = isDayOff(selDate);
+  var saved   = dayOff ? {} : (DB.attendance[attKey] || {});
 
   // Format display date label
   var dParts = selDate.split('-');
@@ -5559,64 +5867,133 @@ function renderAttendanceWidget(container, classId){
   var displayDate = dObj.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   var isToday = (selDate === today);
 
-  // Build student rows
-  var rows = _buildAttRows(students, saved, classId);
+  // Day-off label
+  var dayOffLabel = '';
+  if(dayOff){
+    var dofKey = getDayOffKey(selDate);
+    var dofRec = DB.attendance[dofKey] || {};
+    dayOffLabel = dofRec.__dayoffLabel || 'Day Off';
+  }
 
-  // Summary counts
-  var counts = _attCounts(students, saved);
+  // Monthly stats for this class
+  var monthStats = _calcMonthlyStats(classId, selDate);
+  var cumulativeStats = _calcCumulativeStats(classId, selDate);
+
+  // Build student rows (disabled if day off)
+  var rows = dayOff ? _buildDayOffRows(students) : _buildAttRows(students, saved, classId);
+  var counts = dayOff ? {p:0,a:0,l:0,e:0} : _attCounts(students, saved);
 
   container.innerHTML =
     '<div class="card" style="margin-bottom:.9rem;">'
-    // ── Header row: title + date picker ──
+    // ── Header ──
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.7rem;">'
       +'<div class="ctitle" style="margin-bottom:0;">📅 Attendance — <span style="color:var(--gold);">'+(cls?cls.name:'')+'</span></div>'
       +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
-        // ◀ prev day
         +'<button onclick="attChangeDate(\''+classId+'\',-1)" title="Previous day" style="padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.85rem;cursor:pointer;line-height:1;">◀</button>'
-        // date input
         +'<input type="date" id="att-date-'+classId+'" value="'+selDate+'" max="'+today+'" onchange="attPickDate(\''+classId+'\')" style="padding:5px 8px;border-radius:7px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-size:.8rem;outline:none;cursor:pointer;">'
-        // ▶ next day (disabled if already today)
         +'<button onclick="attChangeDate(\''+classId+'\',1)" title="Next day" '+(isToday?'disabled style="padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--s3);color:var(--ink3);font-size:.85rem;cursor:not-allowed;line-height:1;opacity:.4;"':'style="padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.85rem;cursor:pointer;line-height:1;"')+'>▶</button>'
-        // Today shortcut
         +(!isToday?'<button onclick="attGoToday(\''+classId+'\')" style="padding:4px 10px;border-radius:7px;border:1px solid var(--bd);background:rgba(240,180,41,.15);color:var(--gold);font-size:.72rem;font-weight:700;cursor:pointer;">Today</button>':'')
       +'</div>'
     +'</div>'
-    // Date label
-    +'<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.7rem;">'+displayDate+(isToday?' <span style="background:rgba(62,207,142,.15);color:var(--green);border-radius:8px;padding:1px 7px;font-weight:700;font-size:.68rem;">TODAY</span>':'')+'</div>'
-    // Summary pills
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.8rem;" id="att-pills-'+classId+'">'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(62,207,142,.15);color:var(--green);font-size:.72rem;font-weight:700;border:1px solid rgba(62,207,142,.3);" id="att-sum-p">✓ Present: '+counts.p+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(224,82,82,.12);color:var(--red);font-size:.72rem;font-weight:700;border:1px solid rgba(224,82,82,.25);" id="att-sum-a">✗ Absent: '+counts.a+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(240,180,41,.12);color:var(--gold);font-size:.72rem;font-weight:700;border:1px solid rgba(240,180,41,.3);" id="att-sum-l">⏰ Late: '+counts.l+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(74,143,255,.12);color:var(--blue);font-size:.72rem;font-weight:700;border:1px solid rgba(74,143,255,.25);" id="att-sum-e">📋 Excused: '+counts.e+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:var(--s3);color:var(--ink3);font-size:.72rem;font-weight:700;">Total: '+students.length+'</span>'
+
+    // Date label + day-off badge
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:.7rem;">'
+      +'<span style="font-size:.72rem;color:var(--ink3);">'+displayDate+'</span>'
+      +(isToday?'<span style="background:rgba(62,207,142,.15);color:var(--green);border-radius:8px;padding:1px 7px;font-weight:700;font-size:.68rem;">TODAY</span>':'')
+      +(dayOff?'<span style="background:rgba(255,136,0,.18);color:var(--orange);border-radius:8px;padding:2px 10px;font-weight:700;font-size:.72rem;border:1px solid rgba(255,136,0,.4);">🚫 '+esc(dayOffLabel)+'</span>':'')
     +'</div>'
-    // Table
+
+    // ── DAY OFF TOGGLE BAR ──
+    +'<div style="display:flex;align-items:center;gap:8px;padding:.55rem .9rem;border-radius:9px;background:var(--s2);border:1px solid var(--bd);margin-bottom:.8rem;flex-wrap:wrap;">'
+      +'<span style="font-size:.76rem;font-weight:600;color:var(--ink2);">📋 Day type:</span>'
+      +(dayOff
+        ?'<button onclick="toggleDayOff(\''+classId+'\',\''+selDate+'\')" style="padding:4px 13px;border-radius:7px;border:2px solid var(--orange);background:rgba(255,136,0,.15);color:var(--orange);font-size:.75rem;font-weight:700;cursor:pointer;">✅ School Day</button>'
+         +'<input type="text" id="att-dayoff-label-'+classId+'" placeholder="Holiday label…" value="'+esc(dayOffLabel)+'" onchange="setDayOffLabel(\''+classId+'\',\''+selDate+'\',this.value)" style="padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:var(--s3);color:var(--ink);font-size:.75rem;outline:none;max-width:160px;">'
+        :'<button onclick="toggleDayOff(\''+classId+'\',\''+selDate+'\')" style="padding:4px 13px;border-radius:7px;border:2px solid var(--bd);background:var(--s3);color:var(--ink3);font-size:.75rem;font-weight:700;cursor:pointer;">🚫 Mark as Day Off</button>'
+         +'<span style="font-size:.7rem;color:var(--ink3);">(holiday, exam day, etc. — excluded from averages)</span>'
+      )
+    +'</div>'
+
+    // Summary pills (hidden on day off)
+    +(dayOff
+      ?'<div style="padding:.6rem .9rem;border-radius:9px;background:rgba(255,136,0,.08);border:1px solid rgba(255,136,0,.2);margin-bottom:.8rem;font-size:.78rem;color:var(--orange);font-weight:600;">🚫 This day is marked off — no attendance recorded. It will not count in monthly averages.</div>'
+      :'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.8rem;" id="att-pills-'+classId+'">'
+        +'<span style="padding:3px 10px;border-radius:12px;background:rgba(62,207,142,.15);color:var(--green);font-size:.72rem;font-weight:700;border:1px solid rgba(62,207,142,.3);" id="att-sum-p">✓ Present: '+counts.p+'</span>'
+        +'<span style="padding:3px 10px;border-radius:12px;background:rgba(224,82,82,.12);color:var(--red);font-size:.72rem;font-weight:700;border:1px solid rgba(224,82,82,.25);" id="att-sum-a">✗ Absent: '+counts.a+'</span>'
+        +'<span style="padding:3px 10px;border-radius:12px;background:rgba(240,180,41,.12);color:var(--gold);font-size:.72rem;font-weight:700;border:1px solid rgba(240,180,41,.3);" id="att-sum-l">⏰ Late: '+counts.l+'</span>'
+        +'<span style="padding:3px 10px;border-radius:12px;background:rgba(74,143,255,.12);color:var(--blue);font-size:.72rem;font-weight:700;border:1px solid rgba(74,143,255,.25);" id="att-sum-e">📋 Excused: '+counts.e+'</span>'
+        +'<span style="padding:3px 10px;border-radius:12px;background:var(--s3);color:var(--ink3);font-size:.72rem;font-weight:700;">Total: '+students.length+'</span>'
+      +'</div>'
+    )
+
+    // ── STUDENT TABLE ──
     +'<div style="overflow-x:auto;">'
     +'<table style="width:100%;border-collapse:collapse;">'
     +'<thead><tr>'
       +'<th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-bottom:2px solid var(--bd);">Student</th>'
-      +'<th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-bottom:2px solid var(--bd);">Status</th>'
+      +(dayOff
+        ?'<th style="padding:6px 10px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-bottom:2px solid var(--bd);">Month Avg</th>'
+        :'<th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-bottom:2px solid var(--bd);">Status</th>'
+         +'<th style="padding:6px 10px;text-align:center;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-bottom:2px solid var(--bd);">Month Avg</th>'
+      )
     +'</tr></thead>'
     +'<tbody id="att-tbody">'+rows+'</tbody>'
     +'</table></div>'
+
+    // ── MONTHLY OVERVIEW ──
+    +_buildMonthlyOverview(monthStats, cumulativeStats, selDate)
+
     // Buttons
-    +'<div style="margin-top:.9rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
-      +'<button class="btn gold" onclick="saveAttendance(\''+classId+'\')">💾 Save Attendance</button>'
-      +'<button class="btn ghost" onclick="viewAttHistory(\''+classId+'\')" style="font-size:.78rem;">📊 View History</button>'
-      +'<div id="att-flash" style="font-size:.78rem;"></div>'
-    +'</div>'
+    +(dayOff?''
+      :'<div style="margin-top:.9rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+        +'<button class="btn gold" onclick="saveAttendance(\''+classId+'\')">💾 Save Attendance</button>'
+        +'<button class="btn ghost" onclick="viewAttHistory(\''+classId+'\')" style="font-size:.78rem;">📊 Week History</button>'
+        +'<button class="btn ghost" onclick="viewAttMonthly(\''+classId+'\')" style="font-size:.78rem;">📆 Monthly View</button>'
+        +'<div id="att-flash" style="font-size:.78rem;"></div>'
+      +'</div>'
+    )
     +'</div>'
     +'<div id="att-history-panel"></div>';
+
+  // ── Restore the previously open panel (monthly/history) ──
+  if(_prevPanelHTML){
+    var _newPanel = document.getElementById('att-history-panel');
+    if(_newPanel){
+      _newPanel.innerHTML = _prevPanelHTML;
+      _newPanel.dataset.openClass = _prevPanelOpenClass;
+    }
+  }
+}
+
+// ── Build rows for a day-off date (read-only, shows monthly avg per student) ──
+function _buildDayOffRows(students){
+  return students.map(function(st){
+    return '<tr>'
+      +'<td style="padding:7px 10px;font-size:.84rem;font-weight:600;border-bottom:1px solid var(--bd);opacity:.5;">'+esc(st.name)
+        +'<span style="font-size:.68rem;color:var(--ink3);margin-left:6px;">'+st.sid+'</span></td>'
+      +'<td style="padding:7px 10px;text-align:center;border-bottom:1px solid var(--bd);">'
+        +'<span style="font-size:.72rem;color:var(--ink3);">—</span>'
+      +'</td>'
+      +'</tr>';
+  }).join('');
 }
 
 function _buildAttRows(students, saved, classId){
+  var selDate = _attDate[classId] || getTodayKey();
+  // Get the month prefix for this date (YYYY-MM)
+  var monthPrefix = selDate.slice(0, 7);
   return students.map(function(st){
     var status   = saved[st.id] || 'present';
     var isPresent = status==='present', isAbsent = status==='absent';
     var isLate    = status==='late',    isExcused = status==='excused';
+
+    // Per-student month average (excluding day-offs)
+    var stMonthRate = _studentMonthRate(st.id, classId, monthPrefix);
+    var rateColor = stMonthRate===null ? 'var(--ink3)' : stMonthRate>=90 ? 'var(--green)' : stMonthRate>=75 ? 'var(--gold)' : 'var(--red)';
+    var rateLabel = stMonthRate===null ? '—' : stMonthRate.toFixed(0)+'%';
+
     return '<tr id="att-row-'+st.id+'">'
-      +'<td style="padding:7px 10px;font-size:.84rem;font-weight:600;border-bottom:1px solid var(--bd);">'+st.name
+      +'<td style="padding:7px 10px;font-size:.84rem;font-weight:600;border-bottom:1px solid var(--bd);">'+esc(st.name)
         +'<span style="font-size:.68rem;color:var(--ink3);margin-left:6px;">'+st.sid+'</span></td>'
       +'<td style="padding:7px 6px;border-bottom:1px solid var(--bd);white-space:nowrap;">'
         +'<div style="display:flex;gap:4px;">'
@@ -5625,7 +6002,11 @@ function _buildAttRows(students, saved, classId){
           +'<button onclick="setAtt(\''+classId+'\',\''+st.id+'\',\'late\')" id="attb-l-'+st.id+'" style="padding:3px 8px;border-radius:6px;border:2px solid '+(isLate?'var(--gold)':'var(--bd)')+';background:'+(isLate?'rgba(240,180,41,.18)':'var(--s3)')+';color:'+(isLate?'var(--gold)':'var(--ink3)')+';font-size:.7rem;font-weight:700;cursor:pointer;transition:all .15s;">⏰ L</button>'
           +'<button onclick="setAtt(\''+classId+'\',\''+st.id+'\',\'excused\')" id="attb-e-'+st.id+'" style="padding:3px 8px;border-radius:6px;border:2px solid '+(isExcused?'var(--blue)':'var(--bd)')+';background:'+(isExcused?'rgba(74,143,255,.18)':'var(--s3)')+';color:'+(isExcused?'var(--blue)':'var(--ink3)')+';font-size:.7rem;font-weight:700;cursor:pointer;transition:all .15s;">📋 E</button>'
         +'</div>'
-      +'</td></tr>';
+      +'</td>'
+      +'<td style="padding:7px 10px;text-align:center;border-bottom:1px solid var(--bd);">'
+        +'<span style="font-size:.8rem;font-weight:700;color:'+rateColor+';">'+rateLabel+'</span>'
+      +'</td>'
+      +'</tr>';
   }).join('');
 }
 
@@ -5636,6 +6017,190 @@ function _attCounts(students, saved){
     if(v==='present')p++;else if(v==='absent')a++;else if(v==='late')l++;else if(v==='excused')e++;
   });
   return{p:p,a:a,l:l,e:e};
+}
+
+// ── Per-student attendance rate for a given month (YYYY-MM), excluding day-offs ──
+function _studentMonthRate(studentId, classId, monthPrefix){
+  if(!DB.attendance) return null;
+  var prefix = 'att_'+classId+'_'+monthPrefix;
+  var keys = Object.keys(DB.attendance).filter(function(k){ return k.startsWith(prefix); });
+  if(!keys.length) return null;
+  var recorded=0, present=0;
+  keys.forEach(function(k){
+    var dateStr = k.replace('att_'+classId+'_','');
+    if(isDayOff(dateStr)) return; // skip day-offs
+    var rec = DB.attendance[k];
+    if(!rec) return;
+    recorded++;
+    var v = rec[studentId] || 'present';
+    if(v==='present' || v==='late') present++;
+  });
+  return recorded>0 ? (present/recorded)*100 : null;
+}
+
+// ── Monthly class-level stats (recorded school days, absences, rate) ──
+// Returns object: {monthKey, label, schoolDays, totalPresent, totalAbsent, totalLate, totalExcused, classRate, dayOffCount}
+function _calcMonthlyStats(classId, refDate){
+  if(!DB.attendance) return null;
+  var monthPrefix = refDate.slice(0,7);
+  var students = yearStudents().filter(function(s){return s.classId===classId;});
+  if(!students.length) return null;
+  var prefix = 'att_'+classId+'_'+monthPrefix;
+  var keys = Object.keys(DB.attendance).filter(function(k){ return k.startsWith(prefix); });
+  if(!keys.length) return null;
+
+  var schoolDays=0, dayOffCount=0, p=0, a=0, l=0, e=0;
+  keys.forEach(function(k){
+    var dateStr = k.replace('att_'+classId+'_','');
+    if(isDayOff(dateStr)){ dayOffCount++; return; }
+    schoolDays++;
+    var rec = DB.attendance[k] || {};
+    students.forEach(function(st){
+      var v = rec[st.id] || 'present';
+      if(v==='present') p++;
+      else if(v==='absent') a++;
+      else if(v==='late') l++;
+      else if(v==='excused') e++;
+    });
+  });
+  var total = schoolDays * students.length;
+  var d = new Date(parseInt(monthPrefix.slice(0,4)), parseInt(monthPrefix.slice(5,7))-1, 1);
+  var label = d.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  return {
+    monthKey: monthPrefix, label: label,
+    schoolDays: schoolDays, dayOffCount: dayOffCount,
+    totalPresent: p, totalAbsent: a, totalLate: l, totalExcused: e,
+    classRate: total>0 ? ((p+l)/total)*100 : null,
+    students: students.length
+  };
+}
+
+// ── All months with data for a class (cumulative, sorted oldest→newest) ──
+function _calcCumulativeStats(classId, refDate){
+  if(!DB.attendance) return [];
+  var prefix = 'att_'+classId+'_';
+  // Collect all unique YYYY-MM prefixes with data
+  var months = {};
+  Object.keys(DB.attendance).forEach(function(k){
+    if(!k.startsWith(prefix)) return;
+    var dateStr = k.replace(prefix,'');
+    if(dateStr.length<7) return;
+    var mp = dateStr.slice(0,7);
+    months[mp] = true;
+  });
+  var sortedMonths = Object.keys(months).sort();
+  // Only include months up to refDate's month
+  var refMonth = refDate.slice(0,7);
+  sortedMonths = sortedMonths.filter(function(m){ return m<=refMonth; });
+  return sortedMonths.map(function(mp){
+    return _calcMonthlyStats(classId, mp+'-01');
+  }).filter(Boolean);
+}
+
+// ── Build monthly overview panel shown below attendance widget ──
+function _buildMonthlyOverview(monthStats, cumulativeStats, refDate){
+  if(!monthStats) return '';
+
+  // Current month summary bar
+  var rateColor = monthStats.classRate===null ? 'var(--ink3)'
+    : monthStats.classRate>=90 ? 'var(--green)'
+    : monthStats.classRate>=75 ? 'var(--gold)' : 'var(--red)';
+
+  var html = '<div style="margin-top:.9rem;border-top:1px solid var(--bd);padding-top:.8rem;">'
+    +'<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:.6rem;">📆 '+monthStats.label+' — Class Overview</div>'
+
+    // Stats row
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.6rem;">'
+      +'<div style="padding:5px 11px;border-radius:9px;background:rgba(72,149,239,.1);border:1px solid rgba(72,149,239,.2);text-align:center;">'
+        +'<div style="font-size:1rem;font-weight:700;color:var(--blue);">'+monthStats.schoolDays+'</div>'
+        +'<div style="font-size:.6rem;color:var(--ink3);">School Days</div>'
+      +'</div>'
+      +(monthStats.dayOffCount>0
+        ?'<div style="padding:5px 11px;border-radius:9px;background:rgba(255,136,0,.1);border:1px solid rgba(255,136,0,.25);text-align:center;">'
+          +'<div style="font-size:1rem;font-weight:700;color:var(--orange);">'+monthStats.dayOffCount+'</div>'
+          +'<div style="font-size:.6rem;color:var(--ink3);">Days Off</div>'
+        +'</div>':''
+      )
+      +'<div style="padding:5px 11px;border-radius:9px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);text-align:center;">'
+        +'<div style="font-size:1rem;font-weight:700;color:var(--green);">'+monthStats.totalPresent+'</div>'
+        +'<div style="font-size:.6rem;color:var(--ink3);">Present</div>'
+      +'</div>'
+      +'<div style="padding:5px 11px;border-radius:9px;background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.25);text-align:center;">'
+        +'<div style="font-size:1rem;font-weight:700;color:var(--red);">'+monthStats.totalAbsent+'</div>'
+        +'<div style="font-size:.6rem;color:var(--ink3);">Absent</div>'
+      +'</div>'
+      +(monthStats.classRate!==null
+        ?'<div style="padding:5px 11px;border-radius:9px;background:rgba(72,149,239,.08);border:1px solid rgba(72,149,239,.2);text-align:center;">'
+          +'<div style="font-size:1rem;font-weight:700;color:'+rateColor+';">'+monthStats.classRate.toFixed(1)+'%</div>'
+          +'<div style="font-size:.6rem;color:var(--ink3);">Month Rate</div>'
+        +'</div>':''
+      )
+    +'</div>';
+
+  // Attendance rate bar
+  if(monthStats.classRate!==null){
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:.7rem;">'
+      +'<div style="flex:1;height:7px;background:var(--bd);border-radius:4px;overflow:hidden;">'
+        +'<div style="height:100%;width:'+Math.min(monthStats.classRate,100).toFixed(1)+'%;background:'+rateColor+';border-radius:4px;transition:width .4s;"></div>'
+      +'</div>'
+      +'<span style="font-size:.72rem;font-weight:700;color:'+rateColor+';white-space:nowrap;">'+monthStats.classRate.toFixed(1)+'%</span>'
+    +'</div>';
+  }
+
+  // ── CUMULATIVE MONTHLY TABLE (all months) ──
+  if(cumulativeStats && cumulativeStats.length>1){
+    html += '<div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:.45rem;margin-top:.5rem;">📊 All Months — Cumulative</div>'
+      +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.75rem;">'
+      +'<thead><tr style="background:var(--s2);">'
+        +'<th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--bd);font-size:.65rem;color:var(--ink3);">Month</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid var(--bd);font-size:.65rem;color:var(--ink3);">Days</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid var(--bd);font-size:.65rem;color:var(--ink3);">Off</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid var(--bd);font-size:.65rem;color:var(--green);">P</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid var(--bd);font-size:.65rem;color:var(--red);">A</th>'
+        +'<th style="padding:5px 6px;text-align:center;border-bottom:1px solid var(--bd);font-size:.65rem;color:var(--gold);">L</th>'
+        +'<th style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--bd);font-size:.65rem;color:var(--ink3);">Rate</th>'
+      +'</tr></thead><tbody>';
+
+    // Running cumulative totals
+    var cumDays=0, cumP=0, cumA=0, cumL=0, cumE=0, cumTotal=0;
+    cumulativeStats.forEach(function(ms, idx){
+      var isCurrent = ms.monthKey === refDate.slice(0,7);
+      cumDays  += ms.schoolDays;
+      cumP     += ms.totalPresent;
+      cumA     += ms.totalAbsent;
+      cumL     += ms.totalLate;
+      cumTotal += ms.schoolDays * ms.students;
+      var mRate = ms.classRate!==null ? ms.classRate.toFixed(1)+'%' : '—';
+      var mColor = ms.classRate===null ? 'var(--ink3)' : ms.classRate>=90 ? 'var(--green)' : ms.classRate>=75 ? 'var(--gold)' : 'var(--red)';
+      html += '<tr style="background:'+(isCurrent?'rgba(240,180,41,.06)':idx%2===0?'rgba(255,255,255,.01)':'')+(isCurrent?';border-left:3px solid var(--gold)':'')+'">'
+        +'<td style="padding:5px 8px;font-weight:'+(isCurrent?'700':'500')+';color:'+(isCurrent?'var(--gold)':'var(--ink)')+';border-bottom:1px solid var(--bd);">'+ms.label+(isCurrent?' <span style="font-size:.6rem;">(current)</span>':'')+'</td>'
+        +'<td style="padding:5px 6px;text-align:center;color:var(--blue);font-weight:600;border-bottom:1px solid var(--bd);">'+ms.schoolDays+'</td>'
+        +'<td style="padding:5px 6px;text-align:center;color:'+(ms.dayOffCount>0?'var(--orange)':'var(--ink3)')+';border-bottom:1px solid var(--bd);">'+(ms.dayOffCount||'—')+'</td>'
+        +'<td style="padding:5px 6px;text-align:center;color:var(--green);border-bottom:1px solid var(--bd);">'+ms.totalPresent+'</td>'
+        +'<td style="padding:5px 6px;text-align:center;color:var(--red);border-bottom:1px solid var(--bd);">'+ms.totalAbsent+'</td>'
+        +'<td style="padding:5px 6px;text-align:center;color:var(--gold);border-bottom:1px solid var(--bd);">'+ms.totalLate+'</td>'
+        +'<td style="padding:5px 8px;text-align:center;font-weight:700;color:'+mColor+';border-bottom:1px solid var(--bd);">'+mRate+'</td>'
+      +'</tr>';
+    });
+
+    // Cumulative totals row
+    var cumRate = cumTotal>0 ? (((cumP+cumL)/cumTotal)*100).toFixed(1)+'%' : '—';
+    var cumColor = cumTotal>0 ? (((cumP+cumL)/cumTotal)>=.90?'var(--green)':((cumP+cumL)/cumTotal)>=.75?'var(--gold)':'var(--red)') : 'var(--ink3)';
+    html += '<tr style="background:var(--s2);font-weight:700;">'
+      +'<td style="padding:5px 8px;color:var(--ink);font-size:.73rem;">📊 Cumulative Total</td>'
+      +'<td style="padding:5px 6px;text-align:center;color:var(--blue);">'+cumDays+'</td>'
+      +'<td style="padding:5px 6px;text-align:center;color:var(--ink3);">—</td>'
+      +'<td style="padding:5px 6px;text-align:center;color:var(--green);">'+cumP+'</td>'
+      +'<td style="padding:5px 6px;text-align:center;color:var(--red);">'+cumA+'</td>'
+      +'<td style="padding:5px 6px;text-align:center;color:var(--gold);">'+cumL+'</td>'
+      +'<td style="padding:5px 8px;text-align:center;color:'+cumColor+';">'+cumRate+'</td>'
+    +'</tr>';
+
+    html += '</tbody></table></div>';
+  }
+
+  html += '</div>';
+  return html;
 }
 
 // Date navigation helpers
@@ -5707,6 +6272,12 @@ function setAtt(classId, studentId, status){
 
 function saveAttendance(classId){
   var selDate = _attDate[classId] || getTodayKey();
+  // Block saving if this day is marked as day off
+  if(isDayOff(selDate)){
+    var fl=document.getElementById('att-flash');
+    if(fl){ fl.innerHTML='<span style="color:var(--orange);font-weight:600;">🚫 Cannot save — this day is marked as Day Off.</span>'; setTimeout(function(){if(fl)fl.innerHTML='';},3500); }
+    return;
+  }
   var attKey  = getAttKey(classId, selDate);
   if(!DB.attendance) DB.attendance={};
   var students = yearStudents().filter(function(s){return s.classId===classId;});
@@ -5724,7 +6295,198 @@ function saveAttendance(classId){
   }
 }
 
-// ── Attendance history week offset (0 = current week, -1 = last week, etc.)
+// ── Monthly calendar view ──
+var _attMonthOffset = {}; // classId → offset from current month (0=current, -1=prev, etc.)
+
+function viewAttMonthly(classId){
+  var panel = document.getElementById('att-history-panel');
+  if(!panel) return;
+  // Toggle off
+  if(panel.dataset.openClass === classId+'_monthly' && panel.innerHTML.trim()){
+    panel.innerHTML=''; panel.dataset.openClass=''; return;
+  }
+  panel.dataset.openClass = classId+'_monthly';
+  if(_attMonthOffset[classId]===undefined) _attMonthOffset[classId]=0;
+  _renderAttMonthly(classId);
+}
+
+function _renderAttMonthly(classId){
+  var panel = document.getElementById('att-history-panel');
+  if(!panel) return;
+  if(!DB.attendance) DB.attendance={};
+  var cls = DB.classes.find(function(c){return c.id===classId;});
+  var students = yearStudents().filter(function(s){return s.classId===classId;})
+    .sort(function(a,b){return a.name.localeCompare(b.name);});
+  var offset = _attMonthOffset[classId] || 0;
+  var today = new Date();
+  var refDate = new Date(today.getFullYear(), today.getMonth()+offset, 1);
+  var year  = refDate.getFullYear();
+  var month = refDate.getMonth(); // 0-indexed
+  var monthKey = year+'-'+String(month+1).padStart(2,'0');
+  var monthLabel = refDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  var isCurrentMonth = (offset===0);
+  var todayKey = getTodayKey();
+
+  // All days in this month
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  var allDays = [];
+  for(var dd=1;dd<=daysInMonth;dd++){
+    allDays.push(year+'-'+String(month+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0'));
+  }
+  // Only weekdays (Mon-Fri)
+  var schoolDayKeys = allDays.filter(function(d){
+    var w = new Date(d).getDay(); return w>0 && w<6;
+  });
+
+  var statusIcon={present:'<span style="color:var(--green);font-weight:700;">P</span>',absent:'<span style="color:var(--red);font-weight:700;">A</span>',late:'<span style="color:var(--gold);font-weight:700;">L</span>',excused:'<span style="color:var(--blue);font-weight:700;">E</span>'};
+
+  // Table header — day numbers
+  var thead = '<tr style="background:var(--s2);">'
+    +'<th style="padding:5px 8px;text-align:left;font-size:.65rem;border-bottom:2px solid var(--bd);min-width:100px;position:sticky;left:0;background:var(--s2);z-index:2;">Student</th>';
+  schoolDayKeys.forEach(function(d){
+    var dNum = parseInt(d.slice(8));
+    var dObj = new Date(d);
+    var dow = ['Su','Mo','Tu','We','Th','Fr','Sa'][dObj.getDay()];
+    var isOff = isDayOff(d);
+    var isToday2 = d===todayKey;
+    thead += '<th style="padding:4px 3px;text-align:center;font-size:.6rem;border-bottom:2px solid var(--bd);min-width:26px;'
+      +(isOff?'background:rgba(255,136,0,.12);':'')
+      +(isToday2?'background:rgba(240,180,41,.1);':'')
+      +'" title="'+d+(isOff?' — Day Off':'')+'">'
+      +'<div style="color:'+(isOff?'var(--orange)':isToday2?'var(--gold)':'var(--ink3)')+';font-size:.58rem;">'+dow+'</div>'
+      +'<div style="font-weight:700;color:'+(isOff?'var(--orange)':isToday2?'var(--gold)':'var(--ink)')+';font-size:.68rem;">'+(isOff?'🚫':dNum)+'</div>'
+      +'</th>';
+  });
+  thead += '<th style="padding:5px 6px;text-align:center;font-size:.65rem;border-bottom:2px solid var(--bd);color:var(--ink3);white-space:nowrap;">Abs</th>'
+    +'<th style="padding:5px 8px;text-align:center;font-size:.65rem;border-bottom:2px solid var(--bd);color:var(--ink3);white-space:nowrap;">Rate</th>'
+    +'</tr>';
+
+  // Build rows
+  var tbody = '';
+  if(!students.length){
+    tbody = '<tr><td colspan="99" style="padding:1rem;text-align:center;color:var(--ink3);">No students in this class.</td></tr>';
+  } else {
+    students.forEach(function(st,i){
+      var absCnt=0, recordedDays=0, presentDays=0;
+      var cells = schoolDayKeys.map(function(d){
+        var isOff = isDayOff(d);
+        var isFuture = d > todayKey;
+        if(isOff){
+          return '<td style="padding:4px 3px;text-align:center;background:rgba(255,136,0,.08);border-bottom:1px solid var(--bd);border-right:1px solid rgba(255,136,0,.15);">'
+            +'<span style="color:var(--orange);font-size:.6rem;">🚫</span></td>';
+        }
+        if(isFuture){
+          return '<td style="padding:4px 3px;text-align:center;background:rgba(255,255,255,.01);border-bottom:1px solid var(--bd);">'
+            +'<span style="color:var(--bd);font-size:.6rem;">—</span></td>';
+        }
+        var dayRec = DB.attendance[getAttKey(classId,d)];
+        if(!dayRec){
+          return '<td style="padding:4px 3px;text-align:center;background:rgba(255,77,109,.03);border-bottom:1px solid var(--bd);" title="Not recorded">'
+            +'<span style="color:var(--bd);font-size:.58rem;">·</span></td>';
+        }
+        recordedDays++;
+        var v = dayRec[st.id] || 'present';
+        if(v==='absent') absCnt++;
+        if(v==='present'||v==='late') presentDays++;
+        var isToday3 = d===todayKey;
+        return '<td style="padding:4px 3px;text-align:center;font-size:.72rem;font-weight:700;border-bottom:1px solid var(--bd);'+(isToday3?'background:rgba(240,180,41,.06);':'')+(v==='absent'?'background:rgba(224,82,82,.06);':'')+'">'+statusIcon[v]+'</td>';
+      }).join('');
+      var rate = recordedDays>0 ? Math.round((presentDays/recordedDays)*100)+'%' : '—';
+      var rateColor = recordedDays===0?'var(--ink3)':presentDays===recordedDays?'var(--green)':presentDays/recordedDays>=.9?'var(--green)':presentDays/recordedDays>=.75?'var(--gold)':'var(--red)';
+      tbody += '<tr style="background:'+(i%2===0?'rgba(255,255,255,.01)':'')+';">'
+        +'<td style="padding:5px 8px;font-size:.78rem;font-weight:600;border-bottom:1px solid var(--bd);white-space:nowrap;position:sticky;left:0;background:'+(i%2===0?'var(--s1)':'var(--s2)')+';z-index:1;">'+esc(st.name)+'</td>'
+        +cells
+        +'<td style="padding:4px 6px;text-align:center;font-weight:700;color:'+(absCnt>3?'var(--red)':absCnt>0?'var(--gold)':'var(--green)')+';border-bottom:1px solid var(--bd);">'+absCnt+'</td>'
+        +'<td style="padding:4px 8px;text-align:center;font-weight:700;color:'+rateColor+';border-bottom:1px solid var(--bd);">'+rate+'</td>'
+        +'</tr>';
+    });
+
+    // Class totals row
+    var totalRow = '<tr style="background:var(--s2);font-weight:700;border-top:2px solid var(--bd);">'
+      +'<td style="padding:5px 8px;font-size:.72rem;color:var(--ink3);position:sticky;left:0;background:var(--s2);z-index:1;">Class Avg</td>';
+    schoolDayKeys.forEach(function(d){
+      var isOff = isDayOff(d); var isFuture = d>todayKey;
+      if(isOff||isFuture){ totalRow+='<td style="border-bottom:1px solid var(--bd);'+(isOff?'background:rgba(255,136,0,.06);':'')+'"></td>'; return; }
+      var dayRec = DB.attendance[getAttKey(classId,d)];
+      if(!dayRec){ totalRow+='<td style="background:rgba(255,77,109,.03);border-bottom:1px solid var(--bd);"></td>'; return; }
+      var presentCount = students.filter(function(st){ var v=dayRec[st.id]||'present'; return v==='present'||v==='late'; }).length;
+      var pct = Math.round((presentCount/students.length)*100);
+      var col = pct>=90?'var(--green)':pct>=75?'var(--gold)':'var(--red)';
+      totalRow+='<td style="padding:3px;text-align:center;font-size:.62rem;font-weight:700;color:'+col+';border-bottom:1px solid var(--bd);">'+pct+'%</td>';
+    });
+    // Monthly class rate
+    var ms = _calcMonthlyStats(classId, monthKey+'-01');
+    var classMonthRate = ms&&ms.classRate!==null ? ms.classRate.toFixed(1)+'%' : '—';
+    var classRateColor = ms&&ms.classRate!==null ? (ms.classRate>=90?'var(--green)':ms.classRate>=75?'var(--gold)':'var(--red)') : 'var(--ink3)';
+    totalRow += '<td></td><td style="padding:4px 8px;text-align:center;font-weight:700;color:'+classRateColor+';border-bottom:1px solid var(--bd);">'+classMonthRate+'</td>';
+    totalRow += '</tr>';
+    tbody += totalRow;
+  }
+
+  // Day-off legend (show which days were off this month)
+  var offDays = schoolDayKeys.filter(function(d){ return isDayOff(d); });
+  var offLegend = '';
+  if(offDays.length){
+    offLegend = '<div style="margin-top:.5rem;padding:.5rem .8rem;background:rgba(255,136,0,.08);border:1px solid rgba(255,136,0,.2);border-radius:8px;font-size:.7rem;color:var(--orange);">'
+      +'🚫 <strong>Days Off this month:</strong> '
+      +offDays.map(function(d){
+        var dofRec = DB.attendance[getDayOffKey(d)]||{};
+        var lbl = dofRec.__dayoffLabel||'Day Off';
+        var parsed = d.split('-'); var dNum=parseInt(parsed[2]);
+        return '<span style="background:rgba(255,136,0,.15);border-radius:5px;padding:1px 6px;margin:0 2px;">'+dNum+' — '+lbl+'</span>';
+      }).join('')
+    +'</div>';
+  }
+
+  // Cumulative summary across all months
+  var cumStats = _calcCumulativeStats(classId, monthKey+'-01');
+  var cumHtml = '';
+  if(cumStats.length>1){
+    var cumTotal=0,cumP=0,cumL=0;
+    cumStats.forEach(function(ms){ cumTotal+=ms.schoolDays*ms.students; cumP+=ms.totalPresent; cumL+=ms.totalLate; });
+    var cumRate = cumTotal>0?((cumP+cumL)/cumTotal*100).toFixed(1)+'%':'—';
+    var cumColor = cumTotal>0?(((cumP+cumL)/cumTotal)>=.9?'var(--green)':((cumP+cumL)/cumTotal)>=.75?'var(--gold)':'var(--red)'):'var(--ink3)';
+    cumHtml = '<div style="display:flex;align-items:center;gap:10px;padding:.55rem .9rem;background:var(--s2);border-radius:9px;border:1px solid var(--bd);margin-top:.7rem;flex-wrap:wrap;">'
+      +'<span style="font-size:.75rem;font-weight:700;color:var(--ink);">📊 Cumulative Rate (all '+cumStats.length+' months):</span>'
+      +'<span style="font-size:1.1rem;font-weight:700;color:'+cumColor+';">'+cumRate+'</span>'
+      +'<div style="flex:1;min-width:80px;height:7px;background:var(--bd);border-radius:4px;overflow:hidden;">'
+        +'<div style="height:100%;width:'+(cumTotal>0?Math.min((cumP+cumL)/cumTotal*100,100).toFixed(1):0)+'%;background:'+cumColor+';border-radius:4px;transition:width .4s;"></div>'
+      +'</div>'
+    +'</div>';
+  }
+
+  panel.innerHTML = '<div class="card" style="margin-bottom:.9rem;">'
+    // Header
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;flex-wrap:wrap;gap:.5rem;">'
+      +'<div class="ctitle" style="margin-bottom:0;">📆 Monthly Attendance — <span style="color:var(--gold);">'+(cls?esc(cls.name):'')+'</span></div>'
+      +'<button class="btn sm ghost" onclick="viewAttMonthly(\''+classId+'\')">✕ Close</button>'
+    +'</div>'
+    // Month navigation
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;flex-wrap:wrap;">'
+      +'<button onclick="_attMonthOffset[\''+classId+'\']--;_renderAttMonthly(\''+classId+'\')" style="padding:5px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.82rem;cursor:pointer;">◀ Prev Month</button>'
+      +'<div style="flex:1;text-align:center;font-size:.88rem;font-weight:700;color:var(--ink);background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:5px 12px;">📆 '+monthLabel+(isCurrentMonth?' <span style="font-size:.68rem;color:var(--green);">(This month)</span>':'')+'</div>'
+      +'<button onclick="_attMonthOffset[\''+classId+'\']++;_renderAttMonthly(\''+classId+'\')" '+(isCurrentMonth?'disabled style="padding:5px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--s3);color:var(--ink3);font-size:.82rem;cursor:not-allowed;opacity:.4;"':'style="padding:5px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink2);font-size:.82rem;cursor:pointer;"')+'>Next Month ▶</button>'
+      +(!isCurrentMonth?'<button onclick="_attMonthOffset[\''+classId+'\']=0;_renderAttMonthly(\''+classId+'\')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--bd);background:rgba(240,180,41,.12);color:var(--gold);font-size:.72rem;font-weight:700;cursor:pointer;">This Month</button>':'')
+    +'</div>'
+    // Legend
+    +'<div style="font-size:.68rem;color:var(--ink3);margin-bottom:.6rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
+      +'<span><strong style="color:var(--green);">P</strong> Present</span>'
+      +'<span><strong style="color:var(--red);">A</strong> Absent</span>'
+      +'<span><strong style="color:var(--gold);">L</strong> Late</span>'
+      +'<span><strong style="color:var(--blue);">E</strong> Excused</span>'
+      +'<span style="background:rgba(255,136,0,.12);border-radius:5px;padding:1px 6px;color:var(--orange);">🚫 Day Off</span>'
+      +'<span style="background:rgba(255,77,109,.07);border-radius:5px;padding:1px 6px;color:var(--ink3);">· Not recorded</span>'
+    +'</div>'
+    // Table
+    +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+    +'<thead>'+thead+'</thead><tbody>'+tbody+'</tbody>'
+    +'</table></div>'
+    +offLegend
+    +cumHtml
+    +'</div>';
+}
+
+
 var _attHistoryWeek = {};
 
 function viewAttHistory(classId){
@@ -5790,13 +6552,17 @@ function _renderAttHistory(classId){
         var isFuture = d > todayKey;
         var parts = d.split('-');
         var isToday = d === todayKey;
-        var hasRecord = !!DB.attendance[getAttKey(classId, d)];
-        var dotColor = isFuture ? 'var(--bd)' : hasRecord ? 'var(--green)' : 'var(--red)';
-        var dotTitle = isFuture ? '' : hasRecord ? 'Recorded' : 'Not recorded';
-        return '<th style="padding:6px 5px;text-align:center;font-size:.62rem;font-weight:700;color:'+(isToday?'var(--gold)':'var(--ink3)')+';border-bottom:2px solid var(--bd);white-space:nowrap;'+(isToday?'background:rgba(240,180,41,.07);':'')+'min-width:44px;">'
+        var isOff = isDayOff(d);
+        var hasRecord = !isOff && !!DB.attendance[getAttKey(classId, d)];
+        var dotColor = isFuture ? 'var(--bd)' : isOff ? 'var(--orange)' : hasRecord ? 'var(--green)' : 'var(--red)';
+        var dotTitle = isFuture ? '' : isOff ? 'Day Off' : hasRecord ? 'Recorded' : 'Not recorded';
+        return '<th style="padding:6px 5px;text-align:center;font-size:.62rem;font-weight:700;color:'+(isOff?'var(--orange)':isToday?'var(--gold)':'var(--ink3)')+';border-bottom:2px solid var(--bd);white-space:nowrap;'+(isOff?'background:rgba(255,136,0,.08);':isToday?'background:rgba(240,180,41,.07);':'')+'min-width:44px;">'
           +'<div>'+DOW[i]+'</div>'
-          +'<div style="font-size:.7rem;color:'+(isToday?'var(--gold)':'var(--ink2)')+';">'+parts[2]+'/'+parts[1]+'</div>'
-          +(isToday?'<div style="font-size:.55rem;color:var(--gold);font-weight:800;letter-spacing:.05em;">TODAY</div>':'')
+          +(isOff
+            ?'<div style="font-size:.8rem;">🚫</div><div style="font-size:.55rem;color:var(--orange);">OFF</div>'
+            :'<div style="font-size:.7rem;color:'+(isToday?'var(--gold)':'var(--ink2)')+';">'+parts[2]+'/'+parts[1]+'</div>'
+             +(isToday?'<div style="font-size:.55rem;color:var(--gold);font-weight:800;letter-spacing:.05em;">TODAY</div>':'')
+          )
           +'<div title="'+dotTitle+'" style="width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin:2px auto 0;'+(isFuture?'opacity:.3;':'')+'"></div>'
           +'</th>';
       }).join('')
@@ -5812,25 +6578,30 @@ function _renderAttHistory(classId){
         return '<td style="padding:5px;text-align:center;font-size:.75rem;border-bottom:1px solid var(--bd);background:rgba(255,255,255,.02);">'
           +'<span style="color:var(--bd);font-size:.6rem;">—</span></td>';
       }
+      // Check day-off BEFORE looking up attendance
+      if(isDayOff(d)){
+        return '<td style="padding:5px;text-align:center;font-size:.75rem;border-bottom:1px solid var(--bd);background:rgba(255,136,0,.08);" title="Day Off">'
+          +'<span style="color:var(--orange);font-size:.68rem;">🚫</span></td>';
+      }
       var dayRecord = DB.attendance[getAttKey(classId,d)];
       var hasRec = !!dayRecord;
       // If the day was recorded but this student has no entry, treat as present
-      // (consistent with saveAttendance() which defaults unmarked → present)
       var v = hasRec ? (dayRecord[st.id] || 'present') : '';
       if(hasRec) recordedDays++;
       if(v==='absent') absCnt++;
       var isToday = d===todayKey;
-      var showDot = hasRec && !dayRecord[st.id]; // defaulted to present — show lighter indicator
+      var showDot = hasRec && !dayRecord[st.id];
       return '<td style="padding:5px;text-align:center;font-size:.75rem;font-weight:700;border-bottom:1px solid var(--bd);'+(isToday?'background:rgba(240,180,41,.05);':'')+(hasRec?'':'background:rgba(255,77,109,.04);')+'">'
         +(v ? (showDot ? '<span style="color:var(--green);opacity:.5;" title="Defaulted to present">P</span>' : statusIcon[v]) : '<span style="color:var(--bd);font-size:.6rem;" title="Not recorded">·</span>')
         +'</td>';
     }).join('');
-    // Attendance rate: present+late / recorded days
+    // Attendance rate: present+late / recorded days (excluding day-offs)
     var presentDays = weekDays.reduce(function(n,d){
       if(d>todayKey) return n;
+      if(isDayOff(d)) return n; // skip day-offs
       var dayRecord=DB.attendance[getAttKey(classId,d)];
       if(!dayRecord) return n;
-      var v = dayRecord[st.id] || 'present'; // default to present if unmarked
+      var v = dayRecord[st.id] || 'present';
       return n + (v==='present'||v==='late'?1:0);
     },0);
     var rate = recordedDays>0 ? Math.round((presentDays/recordedDays)*100)+'%' : '—';
@@ -6619,12 +7390,14 @@ function renderStudents(){
     var phone=s.parentPhone||'';
     var phoneCell='';
     if(isClassTeacher){
-      phoneCell='<td style="min-width:160px;">'
+      phoneCell='<td style="min-width:180px;">'
         +'<div style="display:flex;align-items:center;gap:4px;">'
         +'<input type="tel" value="'+phone.replace(/"/g,'&quot;')+'" placeholder="📞 Parent phone…" '
-        +'data-sid="'+s.id+'" oninput="teacherUpdatePhone(this)" '
+        +'id="ph-inp-'+s.id+'" data-sid="'+s.id+'" data-orig="'+phone.replace(/"/g,'&quot;')+'" oninput="teacherPhoneInput(this)" '
         +'style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-size:.8rem;font-family:Outfit,sans-serif;outline:none;transition:border .15s;">'
-        +(phone?'<span style="color:var(--green);font-size:1rem;flex-shrink:0;">✓</span>':'<span style="color:var(--ink3);font-size:.75rem;flex-shrink:0;">—</span>')
+        +'<button id="ph-btn-'+s.id+'" data-sid="'+s.id+'" onclick="teacherSavePhone(this.dataset.sid)" title="Save phone number"'
+        +' style="flex-shrink:0;padding:4px 10px;border-radius:6px;border:none;background:var(--s3);color:var(--ink3);font-size:.75rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;">💾</button>'
+        +'<span id="ph-tick-'+s.id+'" style="flex-shrink:0;font-size:1rem;">'+(phone?'<span style="color:var(--green);">✓</span>':'<span style="color:var(--ink3);font-size:.75rem;">—</span>')+'</span>'
         +'</div></td>';
     }
     html+='<tr style="'+rowBg+'">'
@@ -6639,21 +7412,57 @@ function renderStudents(){
   tb.innerHTML=html;
 }
 
-function teacherUpdatePhone(input){
-  var sid=input.dataset.sid;
-  var phone=input.value.trim();
-  var s=DB.students.find(function(x){return x.id===sid;});
-  if(!s) return;
-  s.parentPhone=phone;
-  if(window._phoneTimer) clearTimeout(window._phoneTimer);
-  window._phoneTimer=setTimeout(function(){
-    dbSave();
-    var tick=input.nextElementSibling;
-    if(tick) tick.innerHTML=phone
-      ?'<span style="color:var(--green);font-size:1rem;">✓</span>'
-      :'<span style="color:var(--ink3);font-size:.75rem;">—</span>';
-  },800);
+function teacherPhoneInput(input){
+  var sid = input.dataset.sid;
+  var phone = input.value.trim();
+  var changed = phone !== (input.dataset.orig || '');
+  // Highlight save button when value has changed
+  var btn = document.getElementById('ph-btn-'+sid);
+  if(btn){
+    if(changed){
+      btn.style.background = 'var(--grd-blue)';
+      btn.style.color = '#fff';
+      btn.textContent = '💾 Save';
+    } else {
+      btn.style.background = 'var(--s3)';
+      btn.style.color = 'var(--ink3)';
+      btn.textContent = '💾';
+    }
+  }
+  // Update in-memory immediately
+  var s = DB.students.find(function(x){ return x.id === sid; });
+  if(s) s.parentPhone = phone;
 }
+
+function teacherSavePhone(sid){
+  var inp = document.getElementById('ph-inp-'+sid);
+  var btn = document.getElementById('ph-btn-'+sid);
+  var tick = document.getElementById('ph-tick-'+sid);
+  if(!inp) return;
+  var phone = inp.value.trim();
+  var s = DB.students.find(function(x){ return x.id === sid; });
+  if(!s) return;
+  s.parentPhone = phone;
+  inp.dataset.orig = phone;
+  dbSave();
+  // Feedback: button turns green briefly
+  if(btn){
+    btn.style.background = 'var(--grd-green)';
+    btn.style.color = '#fff';
+    btn.textContent = '✓ Saved';
+    setTimeout(function(){
+      btn.style.background = 'var(--s3)';
+      btn.style.color = 'var(--ink3)';
+      btn.textContent = '💾';
+    }, 1800);
+  }
+  if(tick) tick.innerHTML = phone
+    ? '<span style="color:var(--green);">✓</span>'
+    : '<span style="color:var(--ink3);font-size:.75rem;">—</span>';
+}
+
+// Legacy alias (kept for safety)
+function teacherUpdatePhone(input){ teacherPhoneInput(input); }
 
 function openEditStudent(id){
   var s=DB.students.find(function(x){return x.id===id;});if(!s)return;
@@ -7219,7 +8028,7 @@ function loadMkTable(){
       ? '<select class="mksel" id="mk_'+s.id+'" onchange="prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')"><option value="">—</option>'
         +['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(val===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>'
       : '<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+maxMark+'" step="0.5" value="'+val+'"'
-        +' oninput="sanitizeMarkInput(this,'+maxMark+');prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')">';
+        +' oninput="_markPendingKey(\''+baseKey+'\');sanitizeMarkInput(this,'+maxMark+');prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')">';
 
     return '<tr>'
       +'<td>'+(i+1)+'</td>'
@@ -7399,6 +8208,7 @@ function saveAllMarks(){
     compSavedName=(isEUsave?'EU':'ET')+' — '+tLbl2;
   }
   addLog('Saved '+cnt+' marks — '+(selectedComp?compSavedName:tid));
+  _clearPendingKeys(); // realtime can now safely merge updates again
   dbSave();
   var flashEl = document.getElementById('mkSaveFlash');
   if(flashEl){
@@ -9320,12 +10130,21 @@ function msgUnreadCount(){
 
 function msgCanSee(m){
   if(!ME) return false;
-  if(isAdmin()) return true; // director sees all
-  // Teachers see messages to 'teachers' or 'all'
+  if(m.hiddenBy && m.hiddenBy.indexOf(ME.id) >= 0) return false;
+  if(isAdmin()) return true;
   if(ME.role==='teacher') return m.to==='teachers'||m.to==='all';
-  // Parents see messages to 'parents' or 'all'
   if(ME.role==='parent') return m.to==='parents'||m.to==='all';
   return false;
+}
+
+function msgDismiss(msgId){
+  if(!DB.messages || !ME) return;
+  if(!confirm('Remove this message from your inbox?')) return;
+  var m = DB.messages.find(function(x){ return x.id === msgId; });
+  if(!m) return;
+  if(!m.hiddenBy) m.hiddenBy = [];
+  if(m.hiddenBy.indexOf(ME.id) < 0){ m.hiddenBy.push(ME.id); dbSave(); }
+  msgRenderList(); msgUpdateBadge();
 }
 
 function msgMarkRead(msgId){
@@ -9382,6 +10201,8 @@ function msgRenderList(){
     html += '<div class="msgbody" id="msgbody-'+m.id+'" style="display:none;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--bd);font-size:.85rem;color:var(--ink);line-height:1.6;white-space:pre-wrap;">'+esc(m.body)+'</div>';
     if(isAdmin()){
       html += '<div style="margin-top:.5rem;"><button class="btn sm red" data-mid="'+m.id+'" onclick="event.stopPropagation();msgDelete(this.dataset.mid)" style="font-size:.7rem;">🗑️ Delete</button></div>';
+    } else {
+      html += '<div style="margin-top:.5rem;"><button class="btn sm ghost" data-mid="'+m.id+'" onclick="event.stopPropagation();msgDismiss(this.dataset.mid)" style="font-size:.7rem;color:var(--ink3);">🗑️ Dismiss</button></div>';
     }
     html += '</div>';
   });
@@ -9392,7 +10213,7 @@ function msgRenderList(){
 }
 
 function msgToggle(msgId){
-  var bodyEl = document.querySelector('.msg-body-'+msgId);
+  var bodyEl = document.getElementById('msgbody-'+msgId);
   if(!bodyEl) return;
   bodyEl.style.display = bodyEl.style.display==='none'?'block':'none';
 }
@@ -9403,6 +10224,83 @@ function msgDelete(msgId){
   DB.messages = DB.messages.filter(function(m){ return m.id!==msgId; });
   dbSave();
   msgRenderList();
+}
+
+// ██████████████████████████████████████████████████████████████████
+// █  LIVE SYNC — realtime push + 8s fallback poll
+// █  Supabase Realtime delivers changes instantly (~100ms)
+// █  Poll every 8s as a safety net if WebSocket drops
+// ██████████████████████████████████████████████████████████████████
+var _liveSyncInterval = null;
+var _parentLiveSyncInterval = null;
+var _liveSyncRunning = false;
+
+function startLiveSync(){
+  stopLiveSync();
+  // 1. Subscribe to realtime push — instant multi-user updates
+  _startRealtimeSubscription();
+  // 2. Fallback poll every 8s (catches anything missed by realtime)
+  _liveSyncInterval = setInterval(function(){
+    _liveSyncTick();
+  }, 8000);
+}
+function stopLiveSync(){
+  _stopRealtimeSubscription();
+  if(_liveSyncInterval){ clearInterval(_liveSyncInterval); _liveSyncInterval = null; }
+}
+
+async function _liveSyncTick(){
+  if(_liveSyncRunning || !CURRENT_SCHOOL_ID || !ME) return;
+  // Skip poll if realtime channel is healthy (connected)
+  if(_realtimeChannel && _realtimeChannel.state === 'joined') return;
+  _liveSyncRunning = true;
+  try {
+    var chatCountBefore = _parChatStudentId ? (DB.parentChats&&DB.parentChats[_parChatStudentId]||[]).length : -1;
+    // Bypass memory cache for poll — force fresh read
+    _invalidateReadCache(schoolDbKey(CURRENT_SCHOOL_ID));
+    await supabaseLoad(CURRENT_SCHOOL_ID);
+    _silentRerender();
+    msgUpdateBadge();
+    if(_parChatStudentId && document.getElementById('parChatModal') &&
+       document.getElementById('parChatModal').classList.contains('open')){
+      var chatCountAfter = (DB.parentChats&&DB.parentChats[_parChatStudentId]||[]).length;
+      if(chatCountAfter !== chatCountBefore) parChatRender();
+    }
+  } catch(e){}
+  _liveSyncRunning = false;
+}
+
+// Parent portal live sync — realtime push + 8s fallback
+function startParentLiveSync(){
+  stopParentLiveSync();
+  _startParentRealtimeSubscription();
+  _parentLiveSyncInterval = setInterval(function(){
+    _parentLiveSyncTick();
+  }, 8000);
+}
+function stopParentLiveSync(){
+  _stopParentRealtimeSubscription();
+  if(_parentLiveSyncInterval){ clearInterval(_parentLiveSyncInterval); _parentLiveSyncInterval = null; }
+}
+
+async function _parentLiveSyncTick(){
+  if(!CURRENT_SCHOOL_ID || !PARENT_USER) return;
+  // Skip if realtime is healthy
+  if(_parentRealtimeChannel && _parentRealtimeChannel.state === 'joined') return;
+  try {
+    _invalidateReadCache(schoolDbKey(CURRENT_SCHOOL_ID));
+    await supabaseLoad(CURRENT_SCHOOL_ID);
+    var codes = PARENT_USER.studentCodes || [];
+    codes.forEach(function(code){
+      var student = DB.students.find(function(s){
+        return s.sid && s.sid.toUpperCase() === code.toUpperCase();
+      });
+      if(!student) return;
+      var section = document.getElementById('par-chat-section-'+student.id);
+      if(section) renderParentChatForStudent(student.id, section);
+    });
+    parentUpdateBadge();
+  } catch(e){}
 }
 
 function setupSettings(){
@@ -9446,6 +10344,8 @@ function setupSettings(){
   if(admin) renderQuizYearsList();
   // Load term years
   if(admin) renderTermYearsList();
+  // Show last backup info
+  renderBackupInfo();
 }
 
 function savePromotionMark(){
@@ -9513,6 +10413,120 @@ function saveGrades(){
   DB.settings.grA=ls.grA; DB.settings.grB=ls.grB; DB.settings.grC=ls.grC; DB.settings.grD=ls.grD;
   dbSave();flash('gral','ok','✅ Grade thresholds saved for '+CURRENT_LEVEL+'.');
 }
+// █  EmailJS config
+var EMAILJS_SERVICE  = 'service_o61hije';
+var EMAILJS_TEMPLATE = 'template_a8js9t9';
+var EMAILJS_KEY      = 'XcvyLRKrkiAxxdrDx';
+var BACKUP_EMAIL     = 'fabricengenzi25@gmail.com';
+
+// █  downloadBackup() — exports full DB snapshot as JSON + sends email notification
+async function downloadBackup(){
+  var btn = document.querySelector('[onclick="downloadBackup()"]');
+  var lbl = document.getElementById('backup-last');
+  try{
+    // Update button to show loading
+    if(btn){ btn.disabled=true; btn.innerHTML='⏳ Creating backup...'; }
+
+    var schoolName = (DB.settings && DB.settings.schoolName) ? DB.settings.schoolName : 'SCORIX';
+    var now = new Date();
+    var dateStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+    var timeStr = String(now.getHours()).padStart(2,'0')+'h'+String(now.getMinutes()).padStart(2,'0');
+    var filename = schoolName.replace(/\s+/g,'_')+'_backup_'+dateStr+'_'+timeStr+'.json';
+
+    // Deep clone DB and strip passwords for safety
+    var exportData = JSON.parse(JSON.stringify(DB));
+    if(exportData.users)    exportData.users    = exportData.users.map(function(u){ return Object.assign({},u,{password:'[hidden]'}); });
+    if(exportData.teachers) exportData.teachers = exportData.teachers.map(function(t){ return Object.assign({},t,{password:'[hidden]'}); });
+    if(exportData.parents)  exportData.parents  = exportData.parents.map(function(p){ return Object.assign({},p,{password:'[hidden]'}); });
+
+    var studentCount = (DB.students||[]).length;
+    var payload = {
+      _backup_info:{
+        generated: now.toISOString(),
+        school: schoolName,
+        scorix_version: '4.2.3',
+        students: studentCount,
+        teachers: (DB.teachers||[]).length,
+        classes: (DB.classes||[]).length
+      },
+      data: exportData
+    };
+
+    // ── 1. Download file to device ──
+    var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // ── 2. Send full data inside email via EmailJS ──
+    if(btn){ btn.innerHTML='📧 Sending to Gmail...'; }
+    try{
+      // Split data into chunks if too large (EmailJS limit ~50KB per param)
+      var jsonStr = JSON.stringify(payload);
+      var chunkSize = 40000;
+      var chunks = [];
+      for(var i=0; i<jsonStr.length; i+=chunkSize){
+        chunks.push(jsonStr.slice(i, i+chunkSize));
+      }
+      var totalChunks = chunks.length;
+
+      emailjs.init(EMAILJS_KEY);
+
+      // Send each chunk as a separate email if needed
+      for(var c=0; c<totalChunks; c++){
+        var chunkLabel = totalChunks>1 ? ' [Part '+(c+1)+'/'+totalChunks+']' : '';
+        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+          school_name:   schoolName + chunkLabel,
+          date:          now.toLocaleString(),
+          student_count: studentCount,
+          backup_data:   chunks[c],
+          to_email:      BACKUP_EMAIL
+        });
+      }
+
+      // Success
+      try{ localStorage.setItem('scorix_last_backup', now.toISOString()); }catch(e){}
+      var emailNote = totalChunks>1 ? ' (sent in '+totalChunks+' emails)' : '';
+      var successMsg = '✅ Last backup: <strong style="color:var(--green);">'+now.toLocaleString()+'</strong> — 📧 Full data emailed to '+BACKUP_EMAIL+emailNote;
+      if(lbl) lbl.innerHTML=successMsg;
+      var lbl2=document.getElementById('backup-last2'); if(lbl2) lbl2.innerHTML=successMsg;
+      if(btn){ btn.disabled=false; btn.innerHTML='⬇️ Download Backup (.json)'; }
+    } catch(emailErr){
+      // File downloaded OK but email failed
+      console.warn('EmailJS error:', emailErr);
+      try{ localStorage.setItem('scorix_last_backup', now.toISOString()); }catch(e){}
+      var failMsg = '✅ Backup downloaded to device — ⚠️ Email failed: '+emailErr.text;
+      if(lbl) lbl.innerHTML=failMsg;
+      var lbl2=document.getElementById('backup-last2'); if(lbl2) lbl2.innerHTML=failMsg;
+      if(btn){ btn.disabled=false; btn.innerHTML='⬇️ Download Backup (.json)'; }
+    }
+  } catch(err){
+    if(btn){ btn.disabled=false; btn.innerHTML='⬇️ Download Backup (.json)'; }
+    if(lbl) lbl.innerHTML='❌ Backup failed: '+err.message;
+    alert('❌ Backup failed: '+err.message);
+  }
+}
+
+// Show last backup date on settings load
+function renderBackupInfo(){
+  try{
+    var lbl = document.getElementById('backup-last');
+    var lbl2 = document.getElementById('backup-last2');
+    var last = localStorage.getItem('scorix_last_backup');
+    var msg;
+    if(last){
+      msg = '🕐 Last backup: <strong style="color:var(--ink2);">'+new Date(last).toLocaleString()+'</strong>';
+    } else {
+      msg = '⚠️ <span style="color:var(--orange);">No backup made yet on this device.</span>';
+    }
+    if(lbl) lbl.innerHTML = msg;
+    if(lbl2) lbl2.innerHTML = msg;
+  }catch(e){}
+}
+
 async function changePw(){
   var oldV=document.getElementById('pwold').value;
   var nw=document.getElementById('pwnew').value;
@@ -10930,6 +11944,7 @@ function saveQuizMarks(){
     });
   });
   addLog('Saved '+cnt+' quiz marks — '+(DB.classes.find(function(c){return c.id===cid;})||{}).name+' / '+(yr?yr.label:'?')+' / '+week);
+  _clearPendingKeys();
   dbSave();
   var fl=document.getElementById('qzSaveFlash');
   if(fl){
@@ -11779,62 +12794,112 @@ async function initApp(){
   overlay.id='loadOverlay';
   overlay.style.cssText='position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;gap:14px;';
   overlay.innerHTML='<div id="loadBrand" style="font-family:\'Playfair Display\',serif;font-size:2rem;font-weight:700;">SC<span style="color:var(--gold)">ORIX</span></div>'
-    +'<div style="font-size:.88rem;color:var(--ink3);">Loading data…</div>'
-    +'<div style="width:48px;height:4px;background:var(--s3);border-radius:4px;overflow:hidden;"><div id="loadBar" style="height:100%;width:0%;background:var(--gold);border-radius:4px;transition:width .4s;"></div></div>';
+    +'<div style="font-size:.88rem;color:var(--ink3);">Loading…</div>'
+    +'<div style="width:48px;height:4px;background:var(--s3);border-radius:4px;overflow:hidden;"><div id="loadBar" style="height:100%;width:0%;background:var(--gold);border-radius:4px;transition:width .3s;"></div></div>';
   document.body.appendChild(overlay);
-  document.getElementById('loadBar').style.width='30%';
+  document.getElementById('loadBar').style.width='20%';
 
-  // Load superDB first (controls schools list and system branding)
-  await superLoad();
+  // ── STEP 1: Instant boot from localStorage (zero network, ~0ms) ──
+  try{
+    var _lsSuper = localStorage.getItem('scorix_superDB');
+    if(_lsSuper){
+      var _lsd = JSON.parse(_lsSuper);
+      if(Array.isArray(_lsd.superusers)&&_lsd.superusers.length) SUPERDB.superusers=_lsd.superusers;
+      if(Array.isArray(_lsd.schools))  SUPERDB.schools=_lsd.schools;
+      if(_lsd.settings&&typeof _lsd.settings==='object') SUPERDB.settings=Object.assign(SUPERDB.settings,_lsd.settings);
+    }
+  }catch(e){}
   applyBranding();
-  // Rebuild user index in background so login works from any device
-  rebuildUserIndex();
-  document.getElementById('loadBar').style.width='60%';
+  document.getElementById('loadBar').style.width='50%';
 
-  document.getElementById('loadBar').style.width='100%';
-  applySchool();
-  overlay.remove();
-
-  // Try to restore previous session (async IIFE — await is valid here)
-  (async function(){
-    var _sessionRestored = false;
-    try{
-      var _sess = localStorage.getItem('scorix_session');
-      if(_sess){
-        var _sd = JSON.parse(_sess);
-        if(_sd && _sd.userId && _sd.schoolId && (Date.now()-_sd.savedAt) < 43200000){
-          if(_sd.schoolId !== '__super__'){
-            await supabaseLoad(_sd.schoolId);
-            CURRENT_SCHOOL_ID = _sd.schoolId;
-          }
-          var _sessUser = DB.users.find(function(u){ return u.id===_sd.userId; });
-          if(_sessUser){
-            ME = _sessUser;
-            ME.classTeacher = _sessUser.classTeacher||'';
-            ME.role = _sessUser.role||'teacher';
-            CURRENT_LEVEL = _sd.level||'PRIMARY';
-            _markMode = _sd.markMode||'term';
-            CURRENT_TERM_YEAR_ID = _sd.termYearId||null;
-            CURRENT_QUIZ_YEAR_ID = _sd.quizYearId||null;
-            document.body.classList.remove('role-admin','role-teacher');
-            if(ME.role==='admin'||ME.role==='superadmin') document.body.classList.add('role-admin');
-            else document.body.classList.add('role-teacher');
-            applyAppLang();
-            buildSidebar();
-            _launchApp(_markMode);
-            syncTermYearBanner();
-            setTimeout(msgUpdateBadge, 800);
-            _sessionRestored = true;
-          }
+  // ── STEP 2: Try to restore session from localStorage (also instant) ──
+  var _sessionRestored = false;
+  try{
+    var _sess = localStorage.getItem('scorix_session');
+    if(_sess){
+      var _sd = JSON.parse(_sess);
+      if(_sd && _sd.userId && _sd.schoolId && (Date.now()-_sd.savedAt) < 43200000){
+        // Load school data from localStorage cache first (instant)
+        var _lsKey = schoolDbKey(_sd.schoolId);
+        var _lsSchool = localStorage.getItem(_lsKey);
+        if(_lsSchool){
+          try{
+            var _lsData = JSON.parse(_lsSchool);
+            // Apply cached school data immediately
+            if(Array.isArray(_lsData.users)&&_lsData.users.length) DB.users=_lsData.users;
+            if(Array.isArray(_lsData.teachers)) DB.teachers=_lsData.teachers;
+            if(Array.isArray(_lsData.classes))  DB.classes=_lsData.classes;
+            if(Array.isArray(_lsData.subjects)) DB.subjects=_lsData.subjects;
+            if(Array.isArray(_lsData.students)) DB.students=_lsData.students;
+            if(_lsData.marks)    DB.marks=_lsData.marks;
+            if(_lsData.settings) DB.settings=Object.assign(DB.settings,_lsData.settings);
+            if(Array.isArray(_lsData.terms)&&_lsData.terms.length) DB.terms=_lsData.terms;
+            if(_lsData.approvals) DB.approvals=_lsData.approvals;
+            if(_lsData.attendance) DB.attendance=_lsData.attendance;
+            if(_lsData.remarks)   DB.remarks=_lsData.remarks;
+            if(Array.isArray(_lsData.quizYears)) DB.quizYears=_lsData.quizYears;
+            if(Array.isArray(_lsData.termYears)) DB.termYears=_lsData.termYears;
+            if(Array.isArray(_lsData.parents))   DB.parents=_lsData.parents;
+            if(Array.isArray(_lsData.messages))  DB.messages=_lsData.messages;
+            if(_lsData.parentChats) DB.parentChats=_lsData.parentChats;
+          }catch(e){}
+        }
+        CURRENT_SCHOOL_ID = _sd.schoolId !== '__super__' ? _sd.schoolId : null;
+        var _sessUser = DB.users.find(function(u){ return u.id===_sd.userId; });
+        if(_sessUser){
+          ME = _sessUser;
+          ME.classTeacher = _sessUser.classTeacher||'';
+          ME.role = _sessUser.role||'teacher';
+          CURRENT_LEVEL = _sd.level||'PRIMARY';
+          _markMode = _sd.markMode||'term';
+          CURRENT_TERM_YEAR_ID = _sd.termYearId||null;
+          CURRENT_QUIZ_YEAR_ID = _sd.quizYearId||null;
+          if(_sd.schoolId === '__super__') CURRENT_SCHOOL_ID = '__super__';
+          document.body.classList.remove('role-admin','role-teacher');
+          if(ME.role==='admin'||ME.role==='superadmin') document.body.classList.add('role-admin');
+          else document.body.classList.add('role-teacher');
+          applyAppLang();
+          applySchool();
+          buildSidebar();
+          document.getElementById('loadBar').style.width='100%';
+          overlay.remove();
+          _launchApp(_markMode);
+          syncTermYearBanner();
+          _sessionRestored = true;
+          // ── STEP 3: Freshen from Supabase in background (non-blocking) ──
+          setTimeout(function(){
+            Promise.all([
+              superLoad(),
+              _sd.schoolId !== '__super__' ? supabaseLoad(_sd.schoolId) : Promise.resolve()
+            ]).then(function(){
+              applyBranding(); applySchool();
+              _silentRerender();
+              msgUpdateBadge();
+              startLiveSync();
+              rebuildUserIndex();
+            }).catch(function(){
+              startLiveSync(); // still start sync even if freshen fails
+            });
+          }, 100);
+          setTimeout(msgUpdateBadge, 900);
         }
       }
-    }catch(_se){ console.warn('Session restore failed', _se); }
-
-    if(!_sessionRestored){
-      document.getElementById('landingWrap').style.display='block';
-      setTimeout(function(){ startSunriseAnimation('landing-typing'); }, 500);
     }
-  })();
+  }catch(_se){ console.warn('[SCORIX] Session restore failed', _se); }
+
+  if(!_sessionRestored){
+    // No valid session — freshen superDB from Supabase now (user hasn't typed yet)
+    document.getElementById('loadBar').style.width='70%';
+    await superLoad();
+    applyBranding();
+    // Pre-warm user index so login is instant
+    setTimeout(function(){ userIndexLoad(); rebuildUserIndex(); }, 200);
+    document.getElementById('loadBar').style.width='100%';
+    applySchool();
+    overlay.remove();
+    document.getElementById('landingWrap').style.display='block';
+    setTimeout(function(){ startSunriseAnimation('landing-typing'); }, 500);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -12935,22 +14000,28 @@ function parChatRender(){
   }
 
   var html = '';
+  var stuId = _parChatStudentId;
   thread.forEach(function(m){
-    var isTeacher = m.senderRole === 'teacher';
+    var isMine = m.senderRole === 'teacher';
     var timeStr = m.sentAt ? new Date(m.sentAt).toLocaleString([], {
       month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
     }) : '';
-    html += '<div style="display:flex;flex-direction:column;align-items:'+(isTeacher?'flex-end':'flex-start')+';gap:2px;">'
-      + '<div class="cm-bubble '+(isTeacher?'teacher':'parent')+'">'+esc(m.text)+'</div>'
-      + '<div class="cm-meta" style="text-align:'+(isTeacher?'right':'left')+';">'
-        + '<strong>'+esc(m.senderName||m.senderRole)+'</strong>'
-        + (timeStr ? ' · '+timeStr : '')
-        + (!isTeacher && !m.readByTeacher ? ' · <span style="color:var(--blue);font-size:.6rem;">●</span>' : '')
+    var unreadDot = (!isMine && !m.readByTeacher)
+      ? ' <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--blue);vertical-align:middle;margin-left:3px;" title="Unread"></span>' : '';
+    var delBtn = isMine
+      ? '<button onclick="parChatDeleteMsg(\''+stuId+'\',\''+m.id+'\')" title="Delete"'
+        + ' style="background:none;border:none;color:var(--ink3);cursor:pointer;padding:0 2px;font-size:.7rem;opacity:.5;transition:all .12s;"'
+        + ' onmouseover="this.style.color=\'var(--red)\';this.style.opacity=1;"'
+        + ' onmouseout="this.style.color=\'var(--ink3)\';this.style.opacity=.5;">🗑️</button>' : '';
+    html += '<div style="display:flex;flex-direction:column;align-items:'+(isMine?'flex-end':'flex-start')+';gap:2px;">'
+      + '<div class="cm-bubble '+(isMine?'teacher':'parent')+'">'+esc(m.text)+'</div>'
+      + '<div class="cm-meta" style="text-align:'+(isMine?'right':'left')+';display:flex;align-items:center;'+(isMine?'justify-content:flex-end;':'')+'gap:4px;">'
+        + '<strong style="color:'+(isMine?'var(--blue)':'var(--green)')+';">'+(isMine?'You':'👪 '+esc(m.senderName||'Parent'))+'</strong>'
+        + (timeStr ? ' · '+timeStr : '') + unreadDot + delBtn
       + '</div>'
     + '</div>';
   });
   container.innerHTML = html;
-  // Scroll to bottom
   container.scrollTop = container.scrollHeight;
 }
 
@@ -12981,15 +14052,54 @@ function parChatSend(){
   };
 
   DB.parentChats[_parChatStudentId].push(msg);
-  dbSave();
 
+  // Clear input immediately — keeps keyboard open on mobile
   inp.value = '';
   inp.style.height = 'auto';
-  parChatRender();
+  inp.focus();
 
-  // Log
+  // ── Append bubble directly — no full re-render, keyboard stays open ──
+  var container = document.getElementById('pchat-msgs');
+  if(container){
+    var empty = container.querySelector('.pchat-empty');
+    if(empty) empty.remove();
+    var now = new Date().toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    var stuId = _parChatStudentId;
+    var bubble = document.createElement('div');
+    bubble.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;gap:2px;';
+    bubble.innerHTML = '<div class="cm-bubble teacher">'+esc(text)+'</div>'
+      + '<div class="cm-meta" style="text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:4px;">'
+      + '<strong style="color:var(--blue);">You</strong> · '+now
+      + '<button onclick="parChatDeleteMsg(\''+stuId+'\',\''+msg.id+'\')" title="Delete message"'
+      + ' style="background:none;border:none;color:var(--ink3);cursor:pointer;padding:0 2px;font-size:.7rem;line-height:1;opacity:.5;transition:all .12s;"'
+      + ' onmouseover="this.style.color=\'var(--red)\';this.style.opacity=1;"'
+      + ' onmouseout="this.style.color=\'var(--ink3)\';this.style.opacity=.5;">🗑️</button>'
+      + '</div>';
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // Save to Supabase (will push via realtime to parent instantly)
+  dbSave();
+
   var st = DB.students.find(function(s){ return s.id === _parChatStudentId; });
-  addLog('💬 Teacher sent message to parent of '+(st?st.name:'unknown student'));
+  addLog('💬 Teacher → Parent: '+(st?st.name:'unknown'));
+}
+
+function parChatDeleteMsg(studentId, msgId){
+  if(!confirm('Delete this message?')) return;
+  if(!DB.parentChats || !DB.parentChats[studentId]) return;
+  DB.parentChats[studentId] = DB.parentChats[studentId].filter(function(m){ return m.id !== msgId; });
+  dbSave();
+  if(_parChatStudentId === studentId) parChatRender();
+}
+
+function parentDeleteChatMsg(studentId, msgId){
+  if(!confirm('Delete this message?')) return;
+  if(!DB.parentChats || !DB.parentChats[studentId]) return;
+  DB.parentChats[studentId] = DB.parentChats[studentId].filter(function(m){ return m.id !== msgId; });
+  dbSave();
+  _refreshParChatMessages(studentId, DB.parentChats[studentId]);
 }
 
 // ── Parent portal: render chat thread for their child ──
@@ -12998,56 +14108,142 @@ function renderParentChatForStudent(studentId, containerEl){
   if(!DB.parentChats) DB.parentChats = {};
   var thread = DB.parentChats[studentId] || [];
 
-  var html = '<div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-top:.9rem;">'
-    + '<div style="padding:.65rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;">'
-    + '<div style="font-size:.82rem;font-weight:700;color:var(--ink);">💬 Chat with Teacher</div>'
+  // Check if chat box already exists — if so, just refresh messages without rebuilding
+  // This prevents keyboard dismissal on re-render
+  var existingBox = containerEl.querySelector('.par-chat-box-'+studentId);
+  if(existingBox){
+    _refreshParChatMessages(studentId, thread);
+    // Mark teacher messages as read
+    var changed2 = false;
+    thread.forEach(function(m){
+      if(m.senderRole==='teacher' && !m.readByParent){ m.readByParent=true; changed2=true; }
+    });
+    if(changed2){ DB.parentChats[studentId]=thread; dbSave(); }
+    return;
+  }
+
+  // ── Build chat box (only on first render or after full reset) ──
+  var html = '<div class="par-chat-box-'+studentId+'" style="'
+    + 'background:var(--s1);border:1px solid var(--bd);border-radius:14px;'
+    + 'overflow:hidden;margin-top:.9rem;'
+    + 'display:flex;flex-direction:column;'
+    // On mobile: let the chat box grow to fill available space properly
+    + 'min-height:320px;max-height:60vh;">'
+
+    // Header
+    + '<div style="padding:.7rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">'
+    + '<div style="font-size:.84rem;font-weight:700;color:var(--ink);">💬 Chat with Teacher</div>'
     + '<div style="font-size:.68rem;color:var(--ink3);">Performance conversations</div>'
+    + '</div>'
+
+    // Messages thread — scrollable, grows to fill space
+    + '<div id="par-thread-'+studentId+'" style="'
+    + 'flex:1;overflow-y:auto;padding:.85rem .9rem;'
+    + 'display:flex;flex-direction:column;gap:.65rem;'
+    + '-webkit-overflow-scrolling:touch;">'
+    + _buildParChatMessages(studentId, thread)
+    + '</div>'
+
+    // Input footer — always visible, never moves
+    + '<div id="par-inp-row-'+studentId+'" style="'
+    + 'padding:.6rem .8rem;border-top:1px solid var(--bd);'
+    + 'display:flex;gap:7px;align-items:flex-end;flex-shrink:0;'
+    + 'background:var(--s1);position:sticky;bottom:0;">'
+    + '<textarea id="par-chat-inp-'+studentId+'"'
+    + ' placeholder="Write a message…"'
+    + ' rows="1"'
+    + ' style="flex:1;padding:9px 12px;background:var(--s2);border:1.5px solid var(--bd);'
+    + 'border-radius:22px;color:var(--ink);font-size:.88rem;outline:none;resize:none;'
+    + 'font-family:Outfit,sans-serif;line-height:1.4;'
+    // Fixed min/max so keyboard doesn't squeeze it away
+    + 'min-height:40px;max-height:110px;'
+    + 'transition:border .13s;"'
+    // Grow textarea with content but never beyond max
+    + ' oninput="_parGrowTA(this)"'
+    + ' onfocus="_parChatFocus(\''+studentId+'\')"'
+    + ' onblur="this.style.borderColor=\'var(--bd)\'"'
+    + ' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey&&!event.ctrlKey){event.preventDefault();parentSendChat(\''+studentId+'\');}">'
+    + '</textarea>'
+    + '<button onclick="parentSendChat(\''+studentId+'\')"'
+    + ' style="flex-shrink:0;padding:0;width:42px;height:42px;background:var(--grd-blue);'
+    + 'color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:1rem;'
+    + 'display:flex;align-items:center;justify-content:center;'
+    + 'transition:all .15s;align-self:flex-end;">↑</button>'
+    + '</div>'
     + '</div>';
 
-  // Messages
-  html += '<div id="par-thread-'+studentId+'" style="padding:.8rem;display:flex;flex-direction:column;gap:.55rem;max-height:280px;overflow-y:auto;">';
-  if(!thread.length){
-    html += '<div style="text-align:center;padding:1.4rem;color:var(--ink3);font-size:.8rem;">'
-      + '<div style="font-size:1.8rem;margin-bottom:.4rem;">💬</div>No messages yet. Say hello to the teacher!</div>';
-  } else {
-    thread.forEach(function(m){
-      var isParent = m.senderRole === 'parent';
-      var timeStr = m.sentAt ? new Date(m.sentAt).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-      html += '<div style="display:flex;flex-direction:column;align-items:'+(isParent?'flex-end':'flex-start')+';gap:2px;">'
-        + '<div style="max-width:80%;padding:.55rem .8rem;border-radius:10px;font-size:.82rem;line-height:1.45;word-break:break-word;'
-          + (isParent
-            ? 'background:linear-gradient(135deg,rgba(72,149,239,.2),rgba(72,149,239,.1));border:1px solid rgba(72,149,239,.28);border-bottom-right-radius:3px;'
-            : 'background:linear-gradient(135deg,rgba(0,214,143,.13),rgba(0,214,143,.06));border:1px solid rgba(0,214,143,.22);border-bottom-left-radius:3px;')
-          + '">'+esc(m.text)+'</div>'
-        + '<div style="font-size:.6rem;color:var(--ink3);">'+esc(m.senderName||m.senderRole)+(timeStr?' · '+timeStr:'')+'</div>'
-        + '</div>';
-    });
-  }
-  html += '</div>';
-
-  // Input area
-  html += '<div style="padding:.65rem;border-top:1px solid var(--bd);display:flex;gap:7px;">'
-    + '<textarea id="par-chat-inp-'+studentId+'" placeholder="Write a message to the teacher…" rows="1" '
-    + 'style="flex:1;padding:7px 10px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;color:var(--ink);font-size:.83rem;outline:none;resize:none;font-family:Outfit,sans-serif;min-height:34px;max-height:90px;transition:border .13s;" '
-    + 'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,90)+\'px\';" '
-    + 'onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--bd)\'" '
-    + 'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();parentSendChat(\''+studentId+'\');}">'
-    + '</textarea>'
-    + '<button onclick="parentSendChat(\''+studentId+'\')" style="padding:7px 13px;background:var(--grd-blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:600;align-self:flex-end;">Send ↑</button>'
-    + '</div></div>';
-
   containerEl.innerHTML = html;
+
   // Mark teacher messages as read by parent
   var changed = false;
   thread.forEach(function(m){
     if(m.senderRole==='teacher' && !m.readByParent){ m.readByParent=true; changed=true; }
   });
   if(changed){ DB.parentChats[studentId]=thread; dbSave(); }
+
   // Scroll thread to bottom
+  _scrollParThread(studentId);
+}
+
+// Build message HTML without rebuilding the whole box
+function _buildParChatMessages(studentId, thread){
+  if(!thread.length){
+    return '<div style="text-align:center;padding:2rem 1rem;color:var(--ink3);font-size:.82rem;">'
+      + '<div style="font-size:2.2rem;margin-bottom:.5rem;">💬</div>'
+      + 'No messages yet.<br><span style="font-size:.74rem;">Say hello to the teacher!</span>'
+      + '</div>';
+  }
+  return thread.map(function(m){
+    var isMine = m.senderRole === 'parent';
+    var timeStr = m.sentAt ? new Date(m.sentAt).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    var unread = (m.senderRole==='parent' && !m.readByTeacher)
+      ? '<span style="font-size:.58rem;color:var(--gold);margin-left:3px;" title="Not yet read by teacher">⏳</span>' : '';
+    var delBtn = isMine
+      ? '<button onclick="parentDeleteChatMsg(\''+studentId+'\',\''+m.id+'\')" title="Delete"'
+        + ' style="background:none;border:none;color:var(--ink3);cursor:pointer;padding:0 2px;font-size:.7rem;opacity:.5;transition:all .12s;"'
+        + ' onmouseover="this.style.color=\'var(--red)\';this.style.opacity=1;"'
+        + ' onmouseout="this.style.color=\'var(--ink3)\';this.style.opacity=.5;">🗑️</button>' : '';
+    return '<div class="par-bubble-wrap '+(isMine?'right':'left')+'">'
+      + '<div class="par-bubble '+(isMine?'from-parent':'from-teacher')+'">'+esc(m.text)+'</div>'
+      + '<div class="par-bubble-meta" style="text-align:'+(isMine?'right':'left')+';display:flex;align-items:center;'+(isMine?'justify-content:flex-end;':'')+'gap:4px;">'
+        + '<strong style="color:'+(isMine?'var(--blue)':'var(--green)')+';">'+(isMine?'You':'👩‍🏫 '+esc(m.senderName||'Teacher'))+'</strong>'
+        + (timeStr?' · '+timeStr:'') + unread + delBtn
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+// Refresh only the messages area — keeps textarea untouched
+function _refreshParChatMessages(studentId, thread){
+  var threadEl = document.getElementById('par-thread-'+studentId);
+  if(!threadEl) return;
+  var wasAtBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 60;
+  threadEl.innerHTML = _buildParChatMessages(studentId, thread);
+  if(wasAtBottom) _scrollParThread(studentId);
+}
+
+function _scrollParThread(studentId){
   setTimeout(function(){
     var t = document.getElementById('par-thread-'+studentId);
     if(t) t.scrollTop = t.scrollHeight;
-  }, 50);
+  }, 60);
+}
+
+// Grow textarea as user types — never shrinks viewport
+function _parGrowTA(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+}
+
+// On focus: scroll the input into view above the keyboard
+function _parChatFocus(studentId){
+  var inp = document.getElementById('par-chat-inp-'+studentId);
+  if(inp) inp.style.borderColor = 'var(--blue)';
+  // Give keyboard 350ms to open, then scroll input into view
+  setTimeout(function(){
+    var row = document.getElementById('par-inp-row-'+studentId);
+    if(row) row.scrollIntoView({behavior:'smooth', block:'end'});
+  }, 350);
 }
 
 function parentSendChat(studentId){
@@ -13068,12 +14264,42 @@ function parentSendChat(studentId){
     readByParent: true
   };
   DB.parentChats[studentId].push(msg);
+
+  // ── Clear input WITHOUT rebuilding DOM (keyboard stays open) ──
+  if(inp){
+    inp.value = '';
+    inp.style.height = 'auto';
+    // Keep focus on textarea so keyboard stays up
+    inp.focus();
+  }
+
+  // ── Append bubble directly to thread (no full re-render) ──
+  var threadEl = document.getElementById('par-thread-'+studentId);
+  if(threadEl){
+    // Remove "no messages" placeholder if present
+    var placeholder = threadEl.querySelector('div[style*="text-align:center"]');
+    if(placeholder) placeholder.remove();
+
+    var now = new Date().toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    var bubble = document.createElement('div');
+    bubble.className = 'par-bubble-wrap right';
+    bubble.innerHTML = '<div class="par-bubble from-parent">'+esc(text)+'</div>'
+      + '<div class="par-bubble-meta" style="text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:4px;">'
+      + '<strong style="color:var(--blue);">You</strong>'
+      + ' · '+now
+      + ' <span style="font-size:.58rem;color:var(--gold);" title="Not yet read by teacher">⏳</span>'
+      + '<button onclick="parentDeleteChatMsg(\''+studentId+'\',\''+msg.id+'\')" title="Delete"'
+      + ' style="background:none;border:none;color:var(--ink3);cursor:pointer;padding:0 2px;font-size:.7rem;opacity:.5;transition:all .12s;"'
+      + ' onmouseover="this.style.color=\'var(--red)\';this.style.opacity=1;"'
+      + ' onmouseout="this.style.color=\'var(--ink3)\';this.style.opacity=.5;">🗑️</button>'
+      + '</div>';
+    threadEl.appendChild(bubble);
+    // Scroll to bottom without disturbing the input
+    threadEl.scrollTop = threadEl.scrollHeight;
+  }
+
+  // Save to Supabase — realtime pushes to teacher instantly
   dbSave();
-  inp.value = '';
-  inp.style.height = 'auto';
-  // Re-render chat section in parent portal
-  var container = document.getElementById('par-chat-section-'+studentId);
-  if(container) renderParentChatForStudent(studentId, container);
 }
 
 function setAppLang(lang){
@@ -13154,6 +14380,26 @@ if(document.readyState === 'loading'){
   document.getElementById('loginWrap').style.display = 'none';
   initApp();
 }
+
+// ── MOBILE KEYBOARD: scroll active chat input into view when keyboard opens ──
+// Uses visualViewport API (supported on all modern mobile browsers)
+(function(){
+  if(!window.visualViewport) return;
+  var _lastVVHeight = window.visualViewport.height;
+  window.visualViewport.addEventListener('resize', function(){
+    var vvh = window.visualViewport.height;
+    var keyboardOpened = vvh < _lastVVHeight - 100;
+    _lastVVHeight = vvh;
+    if(!keyboardOpened) return;
+    // Find the currently focused textarea in the parent chat
+    var focused = document.activeElement;
+    if(!focused || focused.tagName !== 'TEXTAREA') return;
+    // Give layout 200ms to settle, then scroll the focused element into view
+    setTimeout(function(){
+      focused.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }, 200);
+  });
+})();
 
 // Start typing on login page if shown directly (after session check fails)
 document.addEventListener('DOMContentLoaded', function(){
