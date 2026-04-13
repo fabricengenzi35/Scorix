@@ -2041,6 +2041,10 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
               </div>
             </div>
           </div>
+          <!-- Teacher marks progress dashboard (teacher-only) -->
+          <div id="mkProgressDashboard" class="teacher-only" style="margin-bottom:.9rem;display:none;"></div>
+          <!-- Class teacher subject submission overview -->
+          <div id="mkSubjectOverview" style="display:none;margin-bottom:.9rem;"></div>
           <div class="card">
             <div class="g4" style="margin-bottom:1rem;">
               <div class="fg"><label>Class</label><select id="mkCls" onchange="onMkClsChange()"><option value="">— Select Class —</option></select></div>
@@ -2198,6 +2202,18 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           <div id="rpApprovalStatus"></div>
         </div>
 
+        <!-- DIRECTOR APPROVAL DASHBOARD — all classes × active terms -->
+        <div class="card noprint admin-only" id="rpApprovalDashboard" style="margin-bottom:1rem;border:1px solid rgba(72,149,239,.25);background:linear-gradient(135deg,rgba(72,149,239,.04),var(--s1));">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.9rem;">
+            <div>
+              <div class="ctitle" style="margin-bottom:2px;color:var(--blue);">📋 Class Approval Status</div>
+              <div style="font-size:.72rem;color:var(--ink3);">All classes — approve then print directly from here</div>
+            </div>
+            <button class="btn sm ghost" onclick="renderApprovalDashboard()" style="font-size:.74rem;">🔄 Refresh</button>
+          </div>
+          <div id="rpApprovalDashboardList"><div style="font-size:.78rem;color:var(--ink3);text-align:center;padding:.8rem;">Loading…</div></div>
+        </div>
+
         <!-- DIRECTOR UNLOCK PANEL — shows all printed/locked class+term combos -->
         <div class="card noprint" id="rpUnlockPanel" style="border:1px solid rgba(224,82,82,.3);background:rgba(224,82,82,.04);">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.7rem;">
@@ -2213,21 +2229,30 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <div class="fg"><label>👨‍🎓 Student</label><select id="rpSt2" onchange="genReport()"><option value="">— Select Student —</option></select></div>
             <div class="fg"><label>📅 Term / Period</label><select id="rpTerm2" onchange="genReport()"></select></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.8rem;">
-            <div class="fg">
-              <label>💬 Class Teacher Remarks</label>
-              <input type="text" id="rpRemark" placeholder="e.g. Excellent effort this term…" oninput="saveRemarkFields();genReport()">
-            </div>
-            <div class="fg">
-              <label>📋 Discipline Note</label>
-              <input type="text" id="rpDiscipline" placeholder="e.g. Good conduct, respectful…" oninput="saveRemarkFields();genReport()">
-            </div>
-            <div class="fg">
-              <label>🎖️ Conduct Score <span style="color:var(--ink3);font-weight:400;">(e.g. 39/40)</span></label>
-              <input type="text" id="rpConduct" placeholder="e.g. 39/40" oninput="saveRemarkFields();genReport()">
-            </div>
+          <div style="margin-bottom:.8rem;">
+            <button class="btn gold" onclick="openRemarksWizard()" style="width:100%;font-size:.85rem;display:flex;align-items:center;justify-content:center;gap:8px;">
+              ✏️ Add / Edit Remarks &amp; Conduct
+            </button>
           </div>
           <div id="rpTeacherApproval"></div>
+        </div>
+
+        <!-- REMARKS WIZARD MODAL -->
+        <div id="remarksWizardOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;overflow-y:auto;padding:1rem;">
+          <div id="remarksWizardBox" style="background:var(--s1);border-radius:14px;max-width:520px;margin:0 auto;padding:1.2rem 1.1rem;position:relative;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+              <div style="font-size:.9rem;font-weight:700;color:var(--ink);">✏️ Remarks &amp; Conduct</div>
+              <button onclick="closeRemarksWizard()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--ink3);">✕</button>
+            </div>
+            <div id="remarksWizardContent"></div>
+          </div>
+        </div>
+
+        <!-- Hidden remark inputs used by saveRemarkFields/loadRemarkFields/genReport -->
+        <div style="display:none;">
+          <input id="rpRemark" type="text">
+          <input id="rpDiscipline" type="text">
+          <input id="rpConduct" type="text">
         </div>
 
         <div id="rpSettingsFlash"></div>
@@ -2259,6 +2284,50 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div id="prOut"><div class="empty"><div class="ei">🏆</div><p>Enter marks first to see rankings.</p></div></div>
       </div>
 
+
+      <!-- PERFORMANCE OVERVIEW PAGE -->
+      <div class="page" id="p-perfoverview">
+        <div class="ph">
+          <div>
+            <div class="phtitle">📊 Performance Overview</div>
+            <div class="phsub">Total marks per student, per subject — ranked by class</div>
+          </div>
+          <div class="phact admin-only">
+            <button class="btn gold" onclick="printPerfOverview()">🖨️ Download / Print</button>
+          </div>
+        </div>
+
+        <!-- FILTERS -->
+        <div class="card noprint" style="margin-bottom:1rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;align-items:end;">
+            <div class="fg">
+              <label>Level</label>
+              <select id="povLevel" onchange="povOnLevelChange()">
+                <option value="NURSERY">🌱 Nursery</option>
+                <option value="PRIMARY">🏫 Primary</option>
+                <option value="SECONDARY">🎓 Secondary</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Academic Year</label>
+              <select id="povYear" onchange="povOnYearChange()">
+                <option value="">— Select Year —</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Term</label>
+              <select id="povTerm"></select>
+            </div>
+          </div>
+          <div style="margin-top:.8rem;">
+            <button class="btn gold" onclick="renderPerfOverview()" style="padding:9px 24px;">🔍 Generate Overview</button>
+          </div>
+        </div>
+
+        <div id="povOut">
+          <div class="empty"><div class="ei">📊</div><p>Select Level, Year and Term then click Generate.</p></div>
+        </div>
+      </div>
 
       <!-- MESSAGES PAGE -->
       <div class="page" id="p-messages">
@@ -3328,20 +3397,61 @@ function getHonorRoll(pct){
 // ── Clipboard Paste Bulk Mark Entry ──
 // Accepts tab-separated or comma-separated values: studentName/ID, mark1, mark2, ...
 function pasteMarksFromClipboard(){
+  // SECURITY FIX #1: Enforce all lock layers before allowing paste
+  // SECURITY FIX #6: Restrict to teacher's assigned subjects only
+  // SECURITY FIX #7: Use yearStudents() to respect academic year scope
+
+  if(!document.getElementById('mkCls')){ alert('Please go to the Marks page first.'); return; }
+  var cid    = document.getElementById('mkCls').value;
+  var subId  = document.getElementById('mkSub').value;
+  var termRaw= document.getElementById('mkTerm').value;
+  var compRaw= (document.getElementById('mkComp')||{}).value||'';
+  if(!cid||!subId||!termRaw){ alert('Select class, subject and term before pasting.'); return; }
+
+  var tp = parseTermPeriod(termRaw);
+  var actualTid = tp.termId; var compId = tp.compId;
+  if(compRaw && compRaw.indexOf('__')>=0){
+    var sp2=compRaw.split('__'); actualTid=sp2[0]; compId=sp2[1];
+  }
+
+  // Lock check 1: academic year closed
+  var aty = getActiveTermYear();
+  if(aty && aty.locked){ alert('\uD83D\uDD12 Academic year is closed. Marks cannot be pasted.'); return; }
+
+  // Lock check 2: director term lock
+  if(!isAdmin()){
+    var termLockObj = DB.terms.find(function(t){return t.id===actualTid;});
+    if(termLockObj && termLockObj.marksLocked){
+      alert('\uD83D\uDD12 This term is locked by the director. Ask the director to unlock it first.');
+      return;
+    }
+    // Lock check 3: approval / director-printed lock
+    var apv = getApproval(cid, actualTid);
+    if(apv && (apv.approved || apv.directorPrinted)){
+      alert(apv.directorPrinted
+        ? '\u26D4 Marks are locked by the director (printed). Ask the director to unlock.'
+        : '\u26D4 Marks have been approved. Ask the class teacher to unapprove first.');
+      return;
+    }
+    // Lock check 4: subject assignment — teacher may only paste their own subjects
+    var u2 = DB.users.find(function(x){return x.id===(ME&&ME.id);});
+    var subIds2 = (u2&&u2.subjects&&u2.subjects.length)?u2.subjects:[];
+    var sub2 = DB.subjects.find(function(s){return s.id===subId;});
+    var isUniversal2 = sub2 && !!sub2.universal;
+    if(subIds2.length && !isUniversal2 && subIds2.indexOf(subId)<0){
+      alert('\u26D4 You are not assigned to this subject and cannot paste marks for it.');
+      return;
+    }
+  }
+
+  var sub = DB.subjects.find(function(s){ return s.id===subId; });
+  var maxMark = parseFloat((sub&&sub.scale)||100);
+
   navigator.clipboard.readText().then(function(text){
     if(!text){ alert('Clipboard is empty.'); return; }
     var lines = text.trim().split(/\r?\n/);
     var imported = 0, skipped = 0;
-    var sel = document.getElementById('mkCls');
-    var subSel = document.getElementById('mkSub');
-    var termSel = document.getElementById('mkTerm');
-    if(!sel||!subSel||!termSel){ alert('Please select class, subject, and term first.'); return; }
-    var cid = sel.value, subId = subSel.value;
-    var termRaw = termSel.value;
-    if(!cid||!subId||!termRaw){ alert('Select class, subject, and term before pasting.'); return; }
-    var tp = parseTermPeriod(termRaw);
-    var sub = DB.subjects.find(function(s){ return s.id===subId; });
-    var maxMark = parseFloat((sub&&sub.scale)||100);
+
     lines.forEach(function(line){
       var parts = line.split(/\t|,/);
       if(parts.length < 2) return;
@@ -3349,24 +3459,23 @@ function pasteMarksFromClipboard(){
       var markVal  = parseFloat(parts[1]);
       if(isNaN(markVal)) return;
       markVal = Math.min(Math.max(markVal, 0), maxMark);
-      // Match by name or SID
-      var st = DB.students.find(function(s){
+      // SECURITY FIX #7: use yearStudents() to respect academic year scope
+      var st = yearStudents().find(function(s){
         return s.classId===cid && (s.sid.toUpperCase()===nameOrId.toUpperCase() || s.name.toLowerCase()===nameOrId.toLowerCase());
       });
       if(!st){ skipped++; return; }
-      var term = DB.terms.find(function(t){ return t.id===tp.termId; });
-      var comp = term && term.components && term.components.find(function(c){ return c.id===tp.compId; });
+      var term = DB.terms.find(function(t){ return t.id===actualTid; });
+      var comp = term && term.components && term.components.find(function(c){ return c.id===compId; });
       if(!comp) comp = term && term.components && term.components[0];
       if(!comp) return;
       var key = getYearMarkKey(st.id, subId, term.id, comp.id);
-      DB.marks[key] = markVal;
+      DB.marks[key] = String(markVal);
       imported++;
     });
-    if(imported > 0){ dbSave(); setupMarks(); }
-    alert('✅ Pasted: '+imported+' marks imported. '+skipped+' rows skipped (student not found).');
+    if(imported > 0){ dbSave(); setupMarks(); loadMkTable(); }
+    alert('\u2705 Pasted: '+imported+' marks imported. '+skipped+' rows skipped (student not found).');
   }).catch(function(){ alert('Could not read clipboard. Make sure you have copied a table.'); });
 }
-
 // ── Smart International CSV Export ──
 function exportCSV(){
   var rows = [['Student Name','Student ID','Class','Subject','Component','Mark','Max Mark','%','Grade']];
@@ -3378,7 +3487,7 @@ function exportCSV(){
         if(!t.active) return;
         (t.components||[]).forEach(function(comp){
           var key = st.id+'_'+sub.id+'_'+t.id+'_'+comp.id;
-          var v = DB.marks[key];
+          var v = getTermMark(key);
           if(v===undefined||v==='') return;
           var mark = parseFloat(v);
           var maxMark = parseFloat(sub.scale||100);
@@ -3411,7 +3520,7 @@ function exportAnalyticsPDF(){
   var subs = DB.subjects.filter(function(s){ return s.scale!=='letter'; });
   var html = '<html><head><meta charset="UTF-8"><style>body{font-family:Outfit,Arial,sans-serif;background:#fff;color:#111;padding:20px;}h1{color:#1a237e;}table{border-collapse:collapse;width:100%;}th{background:#1a237e;color:#fff;padding:7px;}td{padding:6px;border:1px solid #ddd;}tr:nth-child(even){background:#f5f7fc;}.gb{padding:2px 8px;border-radius:8px;font-weight:700;}</style></head><body>';
   html += '<h1>📊 Analytics Report — '+(DB.settings.schoolName||'School')+'</h1>';
-  html += '<p style="color:#666;font-size:.85rem;">Generated: '+new Date().toLocaleString(DB.settings.locale||'en-US')+'  |  System: '+sys.name+'</p>';
+  html += '<p style="color:#666;font-size:.85rem;">Generated: '+new Date().toLocaleString(DB.settings.locale||'en-US')+'  |  System: '+esc(sys.name)+'</p>'; // XSS FIX
   html += '<h2 style="color:#283593;">Subject Averages</h2>';
   html += '<table><tr><th>Subject</th><th>Average %</th><th>Grade</th><th>Pass Rate</th><th>Highest</th><th>Lowest</th></tr>';
   subs.forEach(function(sub){
@@ -3420,18 +3529,18 @@ function exportAnalyticsPDF(){
       DB.terms.forEach(function(t){
         if(!t.active) return;
         (t.components||[]).forEach(function(c){
-          var v = DB.marks[st.id+'_'+sub.id+'_'+t.id+'_'+c.id];
+          var v = getTermMark(st.id+'_'+sub.id+'_'+t.id+'_'+c.id);
           if(v!==undefined&&v!=='') vals.push(parseFloat(v)/parseFloat(sub.scale||100)*100);
         });
       });
     });
-    if(!vals.length){ html += '<tr><td>'+sub.name+'</td><td colspan="5" style="color:#aaa;">No data</td></tr>'; return; }
+    if(!vals.length){ html += '<tr><td>'+esc(sub.name)+'</td><td colspan="5" style="color:#aaa;">No data</td></tr>'; return; } // XSS FIX
     var avg = vals.reduce(function(a,b){return a+b;},0)/vals.length;
     var passRate = vals.filter(function(v){ return v>=parseFloat(sub.pass||50)/parseFloat(sub.scale||100)*100; }).length/vals.length*100;
     var hi = Math.max.apply(null,vals), lo = Math.min.apply(null,vals);
     var grade = pctToGrade(avg);
     var color = avg>=80?'#2e7d32':avg>=60?'#1565c0':avg>=50?'#e65100':'#c62828';
-    html += '<tr><td>'+sub.name+'</td><td>'+avg.toFixed(1)+'%</td><td style="color:'+color+';font-weight:700;">'+grade+'</td><td>'+passRate.toFixed(0)+'%</td><td>'+hi.toFixed(1)+'%</td><td>'+lo.toFixed(1)+'%</td></tr>';
+    html += '<tr><td>'+esc(sub.name)+'</td><td>'+avg.toFixed(1)+'%</td><td style="color:'+color+';font-weight:700;">'+grade+'</td><td>'+passRate.toFixed(0)+'%</td><td>'+hi.toFixed(1)+'%</td><td>'+lo.toFixed(1)+'%</td></tr>'; // XSS FIX
   });
   html += '</table>';
   html += '<h2 style="color:#283593;">Honor Roll</h2>';
@@ -3443,7 +3552,7 @@ function exportAnalyticsPDF(){
       DB.terms.forEach(function(t){
         if(!t.active) return;
         (t.components||[]).forEach(function(c){
-          var v = DB.marks[st.id+'_'+sub.id+'_'+t.id+'_'+c.id];
+          var v = getTermMark(st.id+'_'+sub.id+'_'+t.id+'_'+c.id);
           if(v!==undefined&&v!=='') marks.push(parseFloat(v)/parseFloat(sub.scale||100)*100);
         });
       });
@@ -3460,7 +3569,7 @@ function exportAnalyticsPDF(){
     honorStudents.forEach(function(x){
       var cls = DB.classes.find(function(c){ return c.id===x.st.classId; });
       var gpa = pctToGPA(x.avg);
-      html += '<tr><td>'+x.hr.emoji+'</td><td>'+x.st.name+'</td><td>'+(cls?cls.name:'—')+'</td><td>'+x.avg.toFixed(1)+'%</td><td>'+gpa.toFixed(2)+'</td></tr>';
+      html += '<tr><td>'+x.hr.emoji+'</td><td>'+esc(x.st.name)+'</td><td>'+(cls?esc(cls.name):'—')+'</td><td>'+x.avg.toFixed(1)+'%</td><td>'+gpa.toFixed(2)+'</td></tr>'; // XSS FIX
     });
     html += '</table>';
   } else { html += '<p style="color:#aaa;">No honor roll data available yet.</p>'; }
@@ -3614,7 +3723,8 @@ function _applyRemoteData(d){
   if(d.settings&&typeof d.settings==='object')     DB.settings=Object.assign(DB.settings,d.settings);
   if(Array.isArray(d.activity))                    DB.activity=d.activity;
   if(Array.isArray(d.terms)&&d.terms.length)       DB.terms=d.terms;
-  if(d.approvals&&typeof d.approvals==='object')   DB.approvals=d.approvals;
+  if(d.approvals&&typeof d.approvals==="object")   DB.approvals=d.approvals;
+  if(d.subApprovals&&typeof d.subApprovals==="object") DB.subApprovals=d.subApprovals;
   if(d.attendance&&typeof d.attendance==='object') DB.attendance=d.attendance;
   if(d.remarks&&typeof d.remarks==='object')       DB.remarks=d.remarks;
   if(Array.isArray(d.quizYears))                   DB.quizYears=d.quizYears;
@@ -3933,6 +4043,7 @@ var DB = {
   termYears:[],   // [{id, label, locked, createdAt}] — each year uses its own marks via key prefix
   messages:[],    // [{id, from, fromName, subject, body, to:'all'|'teachers'|'parents', sentAt, readBy:[uid,...]}]
   parentChats:{}, // {studentId: [{id, senderRole:'teacher'|'parent', senderName, text, sentAt}]}
+  subApprovals:{}, // {clsId_termId_subId_eu|et: {submitted,submittedBy,submittedAt,savedBy,savedAt}}
   terms:[
     {id:'T1',name:'Term 1',type:'term',active:true,components:[
       {id:'T1_mid',name:'Midterm 1',maxMark:50},
@@ -4011,6 +4122,7 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.activity))                  DB.activity=d.activity;
     if(Array.isArray(d.terms)&&d.terms.length)     DB.terms=d.terms;
     if(d.approvals&&typeof d.approvals==='object') DB.approvals=d.approvals;
+    if(d.subApprovals&&typeof d.subApprovals==='object') DB.subApprovals=d.subApprovals;
     if(d.attendance&&typeof d.attendance==='object') DB.attendance=d.attendance;
     if(d.remarks&&typeof d.remarks==='object') DB.remarks=d.remarks;
     if(Array.isArray(d.quizYears)) DB.quizYears=d.quizYears;
@@ -4791,6 +4903,7 @@ function doParentLogout(){
 }
 
 document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('luser').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
 document.getElementById('lpass').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
 // Parent login — Enter key support
 document.addEventListener('keydown', function(e){
@@ -4918,7 +5031,7 @@ async function doLogin(){
     err.innerHTML='⛔ This is the <strong>Director</strong> login. Please use the <strong>Teacher</strong> portal on the home page.';
     ME=null; return;
   }
-  if(LOGIN_PORTAL==='teacher' && (userRole==='admin')){
+  if(LOGIN_PORTAL==='teacher' && (userRole==='admin' || userRole==='director')){
     err.style.display='flex';
     err.innerHTML='⛔ This is the <strong>Teacher</strong> login. Please use the <strong>Director</strong> portal on the home page.';
     ME=null; return;
@@ -5081,12 +5194,12 @@ function levelStudents(){
 }
 
 function isSuperAdmin(){ return ME&&ME.role==='superadmin'; }
-function isAdmin(){ 
+function isAdmin(){
   if(!ME) return false;
-  if(ME.role==='admin'||ME.role==='superadmin') return true;
-  // Fallback: if not explicitly a teacher, treat as admin
-  if(ME.role==='teacher') return false;
-  return true;
+  // SECURITY FIX #3: Only explicitly admin/superadmin roles get director privileges.
+  // Any unknown or misspelled role (e.g. 'Admin', 'director') is treated as a teacher,
+  // never silently elevated. Use the Supabase dashboard to correct role typos.
+  return ME.role==='admin' || ME.role==='superadmin';
 }
 function myClasses(){
   if(isAdmin()) return levelClasses();
@@ -5173,6 +5286,9 @@ function buildSidebar(){
       grp(L('grpMarking'),[{id:'marks',icon:'✏️',label:L('marks')}]);
     }
     grp(L('grpOutput'),[{id:'reports',icon:'📄',label:L('reports')},{id:'analytics',icon:'📊',label:L('analytics')},{id:'proclamation',icon:'🏆',label:L('proclamation')},{id:'quizprocl',icon:'🌅',label:APP_LANG==='fr'?'Classement Quiz':'Quiz Rankings'}]);
+    if(admin){
+      grp('Director Tools',[{id:'perfoverview',icon:'📈',label:'Performance Overview'}]);
+    }
     grp('Communication',[{id:'messages',icon:'✉️',label:admin?'Messagerie':'Inbox'}]);
     grp(L('grpAccount'),[{id:'settings',icon:'⚙️',label:L('settings')}]);
   }
@@ -5191,7 +5307,8 @@ function showPage(id){
     marks:setupMarks, import:function(){}, reports:setupReports,
     analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
     messages:msgSetup, backup:renderBackupInfo,
-    super:renderSuperPanel, overview:renderOverview, quizprocl:setupQuizProcl
+    super:renderSuperPanel, overview:renderOverview, quizprocl:setupQuizProcl,
+    perfoverview:setupPerfOverview
   };
   if(fns[id]) fns[id]();
   // Hide credit on reports page, show on all others
@@ -5417,7 +5534,7 @@ function classSparkData(classId){
     stds.forEach(function(st){
       subs.forEach(function(sub){
         var key = st.id+'_'+sub.id+'_'+t.id+'_'+comp.id;
-        var v = DB.marks[key];
+        var v = getTermMark(key);
         if(v !== undefined && v !== '') vals.push(parseFloat(v) / parseFloat(sub.scale||100) * 100);
       });
     });
@@ -7180,6 +7297,8 @@ function toggleTermLock(termId){
   addLog((willLock?'🔒 Director locked term: ':'🔓 Director unlocked term: ')+t.name);
   dbSave();
   renderTerms();
+  // BUG #5 FIX: refresh the marks entry table live so the lock/unlock state is immediately visible
+  if(typeof loadMkTable==='function') loadMkTable();
 }
 
 function openEditTerm(id){
@@ -7501,6 +7620,12 @@ function addStudent(){
   if(!name){alert('Please enter the student full name.');return;}
   if(!cid){alert('Please select a class.');return;}
   if(name.length<2){alert('Name is too short.');return;}
+  // BUG #1 FIX: Block adding students to a closed (locked) academic year
+  var _aty = getActiveTermYear();
+  if(_aty && _aty.locked){
+    alert('🔒 The current academic year "'+_aty.label+'" is closed.\n\nYou cannot add students to a locked year.\n\nPlease create a new academic year or ask the administrator to unlock it.');
+    return;
+  }
   var sid=document.getElementById('mstnum').value.trim()||String(DB.students.length+1);
   name = name.replace(/\s+/g,' ').trim(); // normalize whitespace
   DB.students.push({
@@ -7604,7 +7729,7 @@ function getMarkValue(studentId, subjectId, termId, sub){
     // Return as percentage of sub.scale for grade calculation
     return (tot/totMax*parseFloat(sub.scale)).toFixed(1);
   }
-  var v = DB.marks[studentId+'_'+subjectId+'_'+termId];
+  var v = getTermMark(studentId+'_'+subjectId+'_'+termId);
   return v!==undefined?v:'';
 }
 
@@ -7702,6 +7827,64 @@ function renderMkTeacherBanner(){
   if(title) title.innerHTML = 'Your Teaching Assignments';
   if(info)  info.innerHTML  = lines.join(' &nbsp;|&nbsp; ');
   banner.style.display = 'block';
+
+  // Also render the marks progress dashboard below banner
+  renderMkProgressDashboard();
+  if(typeof renderClassTeacherSubjectOverview==='function') renderClassTeacherSubjectOverview();
+}
+
+function renderMkProgressDashboard(){
+  var dash = document.getElementById('mkProgressDashboard');
+  if(!dash || isAdmin() || isSuperAdmin()){ if(dash) dash.style.display='none'; return; }
+
+  var u = DB.users.find(function(x){return x.id===(ME&&ME.id);});
+  var teacherClsIds = myClasses().map(function(c){return c.id;});
+  var ct = (u&&u.classTeacher)||(ME&&ME.classTeacher);
+  if(ct && teacherClsIds.indexOf(ct)<0) teacherClsIds.push(ct);
+
+  var activeTermsList = activeTerms();
+  var seenLabels = {}, groupedTermsList = [];
+  activeTermsList.forEach(function(t){
+    var lbl = t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||t.name;
+    if(!seenLabels[lbl]){seenLabels[lbl]=true; groupedTermsList.push({id:t.id,label:lbl});}
+  });
+
+  if(!teacherClsIds.length||!groupedTermsList.length){ dash.style.display='none'; return; }
+
+  var html = '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:.9rem 1rem;">'
+    +'<div style="font-size:.78rem;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.7rem;">📊 Your Marks Progress</div>';
+
+  teacherClsIds.forEach(function(cid){
+    var cls = DB.classes.find(function(c){return c.id===cid;}); if(!cls) return;
+    var isMyClass = ct===cid;
+    html += '<div style="margin-bottom:.7rem;">';
+    html += '<div style="font-size:.76rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">🏫 '+esc(cls.name)+(isMyClass?' <span style="font-size:.62rem;color:var(--gold);">(Your Class)</span>':'')+'</div>';
+
+    groupedTermsList.forEach(function(tg){
+      var prog = calcTeacherProgress(u, cid, tg.id);
+      var approval = getApproval(cid, tg.id);
+      var approved = approval&&approval.approved;
+      var dirPrinted = approval&&approval.directorPrinted;
+      var pct = prog.pct;
+      var barColor = dirPrinted?'#4895ef':approved?'#00d68f':pct===100?'#f6c90e':pct>=50?'#ff8800':'#ff4d6d';
+      var badge = dirPrinted?'<span style="font-size:.62rem;color:var(--blue);">🔒 Printed</span>'
+        :approved?'<span style="font-size:.62rem;color:var(--green);">✅ Approved</span>'
+        :'<span style="font-size:.62rem;color:'+barColor+';">'+pct+'%</span>';
+
+      html += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;">'
+        +'<span style="font-size:.7rem;color:var(--ink3);min-width:56px;">'+esc(tg.label)+'</span>'
+        +'<div style="flex:1;height:8px;background:var(--bd);border-radius:4px;overflow:hidden;">'
+        +'<div style="width:'+pct+'%;height:100%;background:'+barColor+';border-radius:4px;transition:width .4s;"></div>'
+        +'</div>'
+        +badge
+        +'</div>';
+    });
+    html += '</div>';
+  });
+
+  html += '</div>';
+  dash.innerHTML = html;
+  dash.style.display = 'block';
 }
 
 // Called when class dropdown changes
@@ -7891,47 +8074,61 @@ function loadMkTable(){
     }
     // ── TERM YEAR LOCK ── If current term year is closed, block editing
     var activeTY2 = getActiveTermYear();
-    if(activeTY2 && activeTY2.locked){
-      wrap.innerHTML='<div style="padding:1.2rem;background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-radius:10px;text-align:center;">'
-        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">🔒</div>'
-        +'<div style="font-weight:700;color:var(--red);font-size:.95rem;margin-bottom:.4rem;">Academic Year Closed</div>'
-        +'<div style="font-size:.78rem;color:var(--ink3);">The academic year "'+activeTY2.label+'" is closed. Term marks are read-only.</div>'
-        +'</div>';
-      return;
-    }
+    var _yearLocked = activeTY2 && activeTY2.locked;
+    var _yearLockedLabel = _yearLocked ? activeTY2.label : '';
 
 
-    // ── PER-TERM DIRECTOR LOCK ── If this specific term is locked by the director
+    // ── PER-TERM DIRECTOR LOCK ──
     var termObjLock = DB.terms.find(function(x){return x.id===actualTid;});
-    if(termObjLock && termObjLock.marksLocked){
-      wrap.innerHTML='<div style="padding:1.2rem;background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-radius:10px;text-align:center;">'
-        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">🔒</div>'
-        +'<div style="font-weight:700;color:var(--red);font-size:.95rem;margin-bottom:.4rem;">Term Locked by Director</div>'
-        +'<div style="font-size:.78rem;color:var(--ink3);">The director has locked marks for this term. Contact the director to unlock if changes are needed.</div>'
-        +'</div>';
-      return;
-    }
+    var _termDirLocked = termObjLock && termObjLock.marksLocked;
 
-    // ── APPROVAL LOCK ── If class teacher has approved, block all mark editing
+    // ── APPROVAL LOCK ── collect lock state but continue to show table
     var approval=getApproval(cid, actualTid);
-    if(approval&&(approval.approved||approval.directorPrinted)){
-      var isClassTeacher = ME&&ME.classTeacher===cid;
-      var lockReason = approval.directorPrinted
-        ? 'The director has printed the report cards for this term. Ask the director to unlock if corrections are needed.'
-        : 'The class teacher has approved these marks for printing. No changes are allowed.';
-      var lockIcon = approval.directorPrinted ? '🖨️' : '✅';
-      var lockTitle = approval.directorPrinted ? 'Printed & Locked by Director' : 'Marks Approved — Locked for Editing';
-      wrap.innerHTML='<div style="padding:1.2rem;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:10px;text-align:center;">'
-        +'<div style="font-size:1.5rem;margin-bottom:.5rem;">'+lockIcon+'</div>'
-        +'<div style="font-weight:700;color:var(--green);font-size:.95rem;margin-bottom:.4rem;">'+lockTitle+'</div>'
-        +'<div style="font-size:.78rem;color:var(--ink3);margin-bottom:.9rem;">'+lockReason+'</div>'
-        +(approval.directorPrinted && isAdmin()
-          ?'<button class="btn red" style="margin-top:.3rem;" data-cid="'+cid+'" data-tid="'+actualTid+'" onclick="mkDirectorUnlock(this.dataset.cid,this.dataset.tid)">🔓 Unlock This Term</button>'
-          :(isClassTeacher&&!approval.directorPrinted
-            ?'<button class="btn red" data-cid="'+cid+'" data-tid="'+actualTid+'" onclick="unapproveReports(this.dataset.cid,this.dataset.tid)">🔓 Unapprove to Edit Again</button>'
-            :'<div style="font-size:.75rem;color:var(--ink3);">'+(approval.directorPrinted?'Ask the director to unlock this term.':'Ask the class teacher to unapprove if changes are needed.')+'</div>'))
+    var _approvalLocked = approval&&(approval.approved||approval.directorPrinted);
+    var _isClassTeacher = ME&&ME.classTeacher===cid;
+  }
+
+  // ── Determine overall read-only state (any lock source) ──
+  var _readOnly = false, _lockBanner = '';
+  if(!isAdmin()){
+    var _activeTY2b = getActiveTermYear();
+    var _yearLockedB = _activeTY2b && _activeTY2b.locked;
+    var _termObjLockB = DB.terms.find(function(x){return x.id===actualTid;});
+    var _termDirLockedB = _termObjLockB && _termObjLockB.marksLocked;
+    var _approvalB = getApproval(cid, actualTid);
+    var _approvalLockedB = _approvalB&&(_approvalB.approved||_approvalB.directorPrinted);
+    var _isClassTeacherB = ME&&ME.classTeacher===cid;
+    if(_yearLockedB){
+      _readOnly = true;
+      _lockBanner = '<div style="display:flex;align-items:center;gap:10px;padding:.65rem 1rem;background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-radius:8px;margin-bottom:.8rem;">'
+        +'<span style="font-size:1.1rem;">🔒</span>'
+        +'<span style="font-size:.82rem;color:var(--red);font-weight:600;">Academic Year Closed — Read Only</span>'
+        +'<span style="font-size:.76rem;color:var(--ink3);margin-left:4px;">\"'+(_activeTY2b.label||'')+'\"</span>'
         +'</div>';
-      return;
+    } else if(_termDirLockedB){
+      _readOnly = true;
+      _lockBanner = '<div style="display:flex;align-items:center;gap:10px;padding:.65rem 1rem;background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-radius:8px;margin-bottom:.8rem;">'
+        +'<span style="font-size:1.1rem;">🔒</span>'
+        +'<span style="font-size:.82rem;color:var(--red);font-weight:600;">Term Locked by Director — Read Only</span>'
+        +'</div>';
+    } else if(_approvalLockedB){
+      _readOnly = true;
+      var _lockIcon2 = _approvalB.directorPrinted ? '🖨️' : '✅';
+      var _lockTitle2 = _approvalB.directorPrinted ? 'Printed & Locked by Director' : 'Marks Approved — Locked for Editing';
+      var _lockReason2 = _approvalB.directorPrinted
+        ? 'The director has printed the report cards. Ask the director to unlock if corrections are needed.'
+        : 'The class teacher has approved these marks. No changes are allowed.';
+      var _unlockBtn2 = _approvalB.directorPrinted && isAdmin()
+        ? '<button class="btn red sm" style="margin-left:auto;" data-cid="'+cid+'" data-tid="'+actualTid+'" onclick="mkDirectorUnlock(this.dataset.cid,this.dataset.tid)">🔓 Unlock</button>'
+        : (_isClassTeacherB&&!_approvalB.directorPrinted
+          ? '<button class="btn red sm" style="margin-left:auto;" data-cid="'+cid+'" data-tid="'+actualTid+'" onclick="unapproveReports(this.dataset.cid,this.dataset.tid)">🔓 Unapprove</button>'
+          : '<span style="font-size:.74rem;color:var(--ink3);margin-left:auto;">'+(_approvalB.directorPrinted?'Ask the director to unlock.':'Ask the class teacher to unapprove.')+'</span>');
+      _lockBanner = '<div style="display:flex;align-items:center;gap:10px;padding:.65rem 1rem;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:8px;margin-bottom:.8rem;">'
+        +'<span style="font-size:1.1rem;">'+_lockIcon2+'</span>'
+        +'<div><div style="font-size:.83rem;font-weight:700;color:var(--green);">'+_lockTitle2+'</div>'
+        +'<div style="font-size:.75rem;color:var(--ink3);">'+_lockReason2+'</div></div>'
+        +_unlockBtn2
+        +'</div>';
     }
   }
 
@@ -7943,7 +8140,7 @@ function loadMkTable(){
     var rows2=students2.map(function(s,i){
       var tot=0,cnt=0;
       var cells=DB.subjects.map(function(sub){
-        var v=DB.marks[s.id+'_'+sub.id+'_'+tid]||'';
+        var v=getTermMark(s.id+'_'+sub.id+'_'+tid)||'';
         if(v!==''&&sub.scale!=='letter'){tot+=(parseFloat(v)/parseFloat(sub.scale))*100;cnt++;}
         var pct=v!==''&&sub.scale!=='letter'?((parseFloat(v)/parseFloat(sub.scale))*100).toFixed(0)+'%':'—';
         return'<td style="text-align:center;font-size:.8rem;">'+pct+'</td>';
@@ -7954,7 +8151,7 @@ function loadMkTable(){
     // Calculate positions
     var scored2=students2.map(function(s){
       var t=0,c=0;
-      DB.subjects.forEach(function(sub){var v=DB.marks[s.id+'_'+sub.id+'_'+tid]||'';if(v!==''&&sub.scale!=='letter'){t+=(parseFloat(v)/parseFloat(sub.scale))*100;c++;}});
+      DB.subjects.forEach(function(sub){var v=getTermMark(s.id+'_'+sub.id+'_'+tid)||'';if(v!==''&&sub.scale!=='letter'){t+=(parseFloat(v)/parseFloat(sub.scale))*100;c++;}});
       return{id:s.id,avg:c?t/c:null};
     });
     rows2=rows2.map(function(r,i){
@@ -7975,92 +8172,299 @@ function loadMkTable(){
   if(!students.length){ wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>'; return; }
   if(!sub){ wrap.innerHTML='<div class="empty"><p>Subject not found.</p></div>'; return; }
 
-  // Find the selected component (period)
+  var isL = sub.scale==='letter';
+  var subMaxMark = isL ? null : parseFloat(sub.scale);
+  var maxMark = subMaxMark || parseFloat(sub.scale);
+
+  // ── Resolve EU and ET components for this term group ──
+  var termLabel2 = term && (term.termLabel || term.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()) || '';
+  var allSiblings2 = termLabel2
+    ? DB.terms.filter(function(t){ var tl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||''; return tl===termLabel2&&t.active; })
+    : [term];
+  var euComp=null, etComp=null, euTid=null, etTid=null;
+  allSiblings2.forEach(function(sib){
+    if(!sib||!sib.components) return;
+    sib.components.forEach(function(c){
+      var isEU=c.name.toLowerCase().indexOf('midterm')>=0;
+      if(isEU&&!euComp){euComp=c;euTid=sib.id;}
+      else if(!isEU&&!etComp){etComp=c;etTid=sib.id;}
+    });
+  });
+
+  // Find the selected component (period) — still needed for single-mode save
   var allComps = (term&&term.components&&term.components.length) ? term.components : null;
   var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
-  var isL = sub.scale==='letter';
+  // Determine mode: dual (both EU+ET available) or single (only one)
+  var dualMode = !!(euComp && etComp);
 
-  // ── Per-subject max for this period ──
-  // sub.scale = the subject's max mark per component (e.g. Math=90 means EU out of 90, ET out of 90)
-  // component.maxMark is a global period default — we always use sub.scale for subject entry
-  var subMaxMark = isL ? null : parseFloat(sub.scale);
+  // ── Per-component submission state ──
+  var _saEU  = dualMode ? getSubApproval(cid, euTid, sid, 'eu')  : null;
+  var _saET  = dualMode ? getSubApproval(cid, etTid, sid, 'et')  : null;
+  var _saSingle = !dualMode ? getSubApproval(cid, actualTid, sid, 'single') : null;
+  var _euSubmitted    = _saEU   && _saEU.submitted;
+  var _etSubmitted    = _saET   && _saET.submitted;
+  var _singleSubmitted= _saSingle && _saSingle.submitted;
+  // In dual mode, _readOnly is per-column; for banner we use the whole-row lock
+  // _readOnly already set above covers whole-term locks
+  // We'll use _euLocked / _etLocked / _singleLocked for column-level read-only
+  var _euLocked     = _readOnly || _euSubmitted;
+  var _etLocked     = _readOnly || _etSubmitted;
+  var _singleLocked = _readOnly || _singleSubmitted;
 
-  // Banner showing what period we are entering
+  // ── Banners ──
   var banner = '';
-  // ── FEATURE: Universal subject notice ──
   if(sub && sub.universal && !isAdmin()){
     banner += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:.7rem;padding:.6rem 1rem;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.3);border-radius:8px;">'
       +'<span style="font-size:1rem;">🌍</span>'
-      +'<span style="font-size:.82rem;color:var(--gold);"><strong>Universal Subject</strong> — Enter marks for your class only. Other class teachers enter marks for their own classes.</span>'
+      +'<span style="font-size:.82rem;color:var(--gold);"><strong>Universal Subject</strong> — Enter marks for your class only.</span>'
       +'</div>';
   }
-  if(selectedComp){
-    var isEUcomp = selectedComp.name.toLowerCase().indexOf('midterm')>=0 || (term&&term.periodType==='Midterm');
-    var termLbl = term&&(term.termLabel||term.name)||'Term';
-    var compDisplayName = (isEUcomp?'EU':'ET')+' — '+termLbl;
+  // Lock banner (set earlier)
+  banner += _lockBanner;
+  // Period info banner (single mode only)
+  if(!dualMode && selectedComp){
+    var isEUcomp0 = selectedComp.name.toLowerCase().indexOf('midterm')>=0||(term&&term.periodType==='Midterm');
+    var termLbl0 = term&&(term.termLabel||term.name)||'Term';
     banner += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:.9rem;padding:.7rem 1rem;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.25);border-radius:8px;">'
-      +'<span style="font-size:1.1rem;">'+(isEUcomp?'📘':'📗')+'</span>'
-      +'<span style="font-size:.85rem;font-weight:600;color:var(--gold);">'+compDisplayName+'</span>'
-      +'<span style="font-size:.75rem;color:var(--ink3);margin-left:4px;">— Enter marks out of <strong style="color:var(--ink);">'+subMaxMark+'</strong></span>'
+      +'<span style="font-size:1.1rem;">'+(isEUcomp0?'📘':'📗')+'</span>'
+      +'<span style="font-size:.85rem;font-weight:600;color:var(--gold);">'+(isEUcomp0?'EU':'ET')+' — '+termLbl0+'</span>'
+      +'<span style="font-size:.75rem;color:var(--ink3);margin-left:4px;">— marks out of <strong style="color:var(--ink);">'+maxMark+'</strong></span>'
       +'</div>';
   }
 
-  // Build table header — max = sub.scale (per component)
-  var maxMark = subMaxMark || parseFloat(sub.scale);
-  var thead = '<tr><th>#</th><th>Student</th><th>📋 Code</th>'
-    +'<th style="text-align:center;">Mark <span style="font-weight:400;color:var(--ink3);">/'+maxMark+'</span></th>'
-    +'<th style="text-align:center;">Grade</th>'
-    +'<th style="text-align:center;">Status</th>'
-    +'</tr>';
-
-  // Build rows — one mark input per student for this period
-  var rows = students.map(function(s,i){
-    var baseKey = selectedComp
-      ? s.id+'_'+sid+'_'+actualTid+'_'+selectedComp.id
-      : s.id+'_'+sid+'_'+actualTid;
-    // Read from year-scoped key first, then fall back to bare key (legacy)
-    var val = getTermMark(baseKey);
-    if(val===undefined) val='';
-    var gr  = val!=='' ? calcGrade((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : '—';
-    var ps  = val!=='' ? checkPass((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : null;
-
-    var inp = isL
-      ? '<select class="mksel" id="mk_'+s.id+'" onchange="prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')"><option value="">—</option>'
-        +['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(val===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>'
-      : '<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+maxMark+'" step="0.5" value="'+val+'"'
-        +' oninput="_markPendingKey(\''+baseKey+'\');sanitizeMarkInput(this,'+maxMark+');prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')">';
-
-    return '<tr>'
-      +'<td>'+(i+1)+'</td>'
-      +'<td><strong>'+s.name+'</strong></td>'
-      +'<td>'+s.sid+'</td>'
-      +'<td style="text-align:center;">'+inp+'</td>'
-      +'<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>'
-      +'<td style="text-align:center;" id="ps_'+s.id+'">'+(val!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—')+'</td>'
-      +'</tr>';
-  }).join('');
-
-  var studentCount = students.length;
-  var subjectName = sub ? sub.name : '';
   var clsObj = DB.classes.find(function(c){return c.id===cid;});
   var clsName = clsObj ? clsObj.name : '';
+  var studentCount = students.length;
 
+  // ── Info bar ──
+  var saveBtn = _readOnly ? '' : '<button class="btn green" onclick="saveAllMarks()" style="font-size:.8rem;">💾 Save</button>';
   var infoBar = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.9rem;padding:.6rem 1rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
     +'<div style="display:flex;align-items:center;gap:10px;">'
     +'<span style="font-size:1.1rem;">&#128101;</span>'
     +'<div><span style="font-size:.84rem;font-weight:700;color:var(--ink);">'+clsName+'</span>'
     +'<span style="font-size:.76rem;color:var(--ink3);margin-left:8px;">'+studentCount+' student'+(studentCount!==1?'s':'')+'</span>'
     +'<span style="margin:0 6px;color:var(--bd);">|</span>'
-    +'<span style="font-size:.8rem;font-weight:600;color:var(--blue);">'+subjectName+'</span></div>'
+    +'<span style="font-size:.8rem;font-weight:600;color:var(--blue);">'+(sub?sub.name:'')+'</span></div>'
     +'</div>'
-    +'<button class="btn green" onclick="saveAllMarks()" style="font-size:.8rem;">&#128190; Save Marks</button>'
+    +saveBtn
     +'</div>';
 
-  wrap.innerHTML = banner + infoBar + '<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
-    +'<div style="margin-top:.9rem;display:flex;justify-content:flex-end;">'
-    +'<button class="btn green" onclick="saveAllMarks()">&#128190; Save All Marks</button>'
-    +'</div>'
-    +'<div id="mkSaveFlash" style="margin-top:.5rem;"></div>';
+  var tableHtml = '';
+
+  if(dualMode){
+    // ── DUAL-COLUMN MODE: EU + ET side by side ──
+    var termLblD = term&&(term.termLabel||term.name)||'Term';
+
+    // Per-component submission state
+    var euSA = getSubApproval(cid, euTid, sid, 'eu');
+    var etSA = getSubApproval(cid, etTid, sid, 'et');
+    var euSubmitted = !!(euSA&&euSA.submitted);
+    var etSubmitted = !!(etSA&&etSA.submitted);
+    // A column is editable only if not submitted AND not globally locked
+    var euEditable = !_readOnly && !euSubmitted;
+    var etEditable = !_readOnly && !etSubmitted;
+
+    // dual-mode banner
+    banner += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.9rem;padding:.7rem 1rem;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.25);border-radius:8px;">'
+      +'<div style="display:flex;align-items:center;gap:12px;">'
+      +'<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:var(--blue);"><span>📘</span>EU — '+termLblD+' <span style="font-size:.72rem;font-weight:400;color:var(--ink3);">out of '+maxMark+'</span></span>'
+      +'<span style="color:var(--bd);">|</span>'
+      +'<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:var(--gold);"><span>📗</span>ET — '+termLblD+' <span style="font-size:.72rem;font-weight:400;color:var(--ink3);">out of '+maxMark+'</span></span>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;">'
+      +(euEditable?'<button class="btn blue sm" onclick="saveDualMarks(\'eu\')" style="font-size:.78rem;">💾 Save EU</button>':'')
+      +(etEditable?'<button class="btn gold sm" onclick="saveDualMarks(\'et\')" style="font-size:.78rem;">💾 Save ET</button>':'')
+      +'</div>'
+      +'</div>';
+
+    var thead = '<tr>'
+      +'<th style="width:28px;">#</th>'
+      +'<th>Student</th>'
+      +'<th style="width:62px;text-align:center;">Code</th>'
+      +'<th style="text-align:center;color:'+(euSubmitted?'var(--green)':'var(--blue)')+';">📘 EU'+(euSubmitted?' ✅':'')+'</th>'
+      +'<th style="text-align:center;color:'+(etSubmitted?'var(--green)':'var(--gold)')+';">📗 ET'+(etSubmitted?' ✅':'')+'</th>'
+      +'<th style="text-align:center;">Grade</th>'
+      +'</tr>';
+
+    var rows = students.map(function(s,i){
+      var euKey = s.id+'_'+sid+'_'+euTid+'_'+euComp.id;
+      var etKey = s.id+'_'+sid+'_'+etTid+'_'+etComp.id;
+      var euVal = getTermMark(euKey); if(euVal===undefined) euVal='';
+      var etVal = getTermMark(etKey); if(etVal===undefined) etVal='';
+
+      function mkCounter(val, id){
+        var num = val!==''&&!isNaN(parseFloat(val)) ? parseFloat(val) : null;
+        var over = num!==null && num>maxMark;
+        return '<span id="cnt_'+id+'" style="font-size:.7rem;font-weight:700;margin-left:3px;color:'+(over?'var(--red)':'var(--ink3)')+';">'
+          +(num!==null?num:'—')+'/'+maxMark+'</span>';
+      }
+
+      function readOnlyCell(val){
+        return '<span style="font-size:.88rem;font-weight:600;color:var(--ink);">'+(val!==''?val:'—')+'</span>'
+          +'<span style="font-size:.7rem;color:var(--ink3);">/'+maxMark+'</span>';
+      }
+
+      var euInp, etInp;
+      if(!euEditable){
+        euInp = readOnlyCell(euVal);
+      } else if(isL){
+        euInp = '<select class="mksel" id="mkeu_'+s.id+'" onchange="prevDualMark(\''+s.id+'\',\''+sid+'\','+maxMark+')"><option value="">—</option>'
+          +['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(euVal===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>';
+      } else {
+        euInp = '<div style="display:flex;align-items:center;gap:3px;">'
+          +'<input class="mkin" type="number" id="mkeu_'+s.id+'" min="0" max="'+maxMark+'" step="0.5" value="'+euVal+'"'
+          +' style="width:62px;" oninput="_markPendingKey(\''+euKey+'\');_dualCounter(\'eu\',\''+s.id+'\','+maxMark+');prevDualMark(\''+s.id+'\',\''+sid+'\','+maxMark+')">'
+          +mkCounter(euVal,'eu_'+s.id)
+          +'</div>';
+      }
+
+      if(!etEditable){
+        etInp = readOnlyCell(etVal);
+      } else if(isL){
+        etInp = '<select class="mksel" id="mket_'+s.id+'" onchange="prevDualMark(\''+s.id+'\',\''+sid+'\','+maxMark+')"><option value="">—</option>'
+          +['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(etVal===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>';
+      } else {
+        etInp = '<div style="display:flex;align-items:center;gap:3px;">'
+          +'<input class="mkin" type="number" id="mket_'+s.id+'" min="0" max="'+maxMark+'" step="0.5" value="'+etVal+'"'
+          +' style="width:62px;" oninput="_markPendingKey(\''+etKey+'\');_dualCounter(\'et\',\''+s.id+'\','+maxMark+');prevDualMark(\''+s.id+'\',\''+sid+'\','+maxMark+')">'
+          +mkCounter(etVal,'et_'+s.id)
+          +'</div>';
+      }
+
+      // Combined grade from EU+ET if both present
+      var euN = euVal!==''&&!isNaN(parseFloat(euVal))?parseFloat(euVal):null;
+      var etN = etVal!==''&&!isNaN(parseFloat(etVal))?parseFloat(etVal):null;
+      var gradeVal = (euN!==null&&etN!==null) ? ((euN+etN)/(maxMark*2)*maxMark).toFixed(1)
+        : (euN!==null?euN.toFixed(1):etN!==null?etN.toFixed(1):'');
+      var gr = gradeVal!=='' ? calcGrade(gradeVal, sub) : '—';
+
+      return '<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td><strong>'+s.name+'</strong></td>'
+        +'<td style="text-align:center;font-size:.78rem;">'+s.sid+'</td>'
+        +'<td style="text-align:center;background:'+(euSubmitted?'rgba(62,207,142,.04)':'')+';">'+euInp+'</td>'
+        +'<td style="text-align:center;background:'+(etSubmitted?'rgba(62,207,142,.04)':'')+';">'+etInp+'</td>'
+        +'<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>'
+        +'</tr>';
+    }).join('');
+
+    tableHtml = '<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>';
+    // Bottom action bar — Save + Submit per column
+    var _isCtD = ME&&ME.classTeacher===cid;
+    // EU submitted details
+    var _euWho  = euSA&&euSA.submittedByName||'';
+    var _euWhen = euSA&&euSA.submittedAt ? new Date(euSA.submittedAt).toLocaleDateString('en-GB') : '';
+    var _etWho  = etSA&&etSA.submittedByName||'';
+    var _etWhen = etSA&&etSA.submittedAt ? new Date(etSA.submittedAt).toLocaleDateString('en-GB') : '';
+
+    function dualActionRow(comp, compTid, label, color, editable, submitted, who, when){
+      var row = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        +'<span style="font-size:.78rem;font-weight:600;color:'+color+';min-width:30px;">'+label+'</span>';
+      if(editable){
+        row += '<button class="btn" style="background:'+color+';color:#fff;font-size:.8rem;" onclick="saveDualMarks(\''+comp+'\')">💾 Save '+comp.toUpperCase()+'</button>'
+          +'<button class="btn green" style="font-size:.8rem;display:flex;align-items:center;gap:4px;"'
+          +' data-cid="'+cid+'" data-tid="'+compTid+'" data-sub="'+sid+'" data-comp="'+comp+'"'
+          +' onclick="submitSubMarks(this.dataset.cid,this.dataset.tid,this.dataset.sub,this.dataset.comp)">✅ Submit '+comp.toUpperCase()+'</button>';
+      } else if(submitted){
+        row += '<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(0,214,143,.1);border:1px solid rgba(0,214,143,.3);border-radius:8px;">'
+          +'<span>✅</span><span style="font-size:.78rem;font-weight:700;color:var(--green);">'+comp.toUpperCase()+' Submitted</span>'
+          +(who?'<span style="font-size:.67rem;color:var(--ink3);">'+esc(who)+(when?' · '+when:'')+'</span>':'')
+          +'</div>'
+          +(_isCtD||isAdmin()
+            ? '<button style="font-size:.72rem;padding:3px 9px;border-radius:7px;border:1px solid rgba(224,82,82,.4);background:rgba(224,82,82,.08);color:var(--red);cursor:pointer;"'
+              +' data-cid="'+cid+'" data-tid="'+compTid+'" data-sub="'+sid+'" data-comp="'+comp+'"'
+              +' onclick="unsubmitSubMarks(this.dataset.cid,this.dataset.tid,this.dataset.sub,this.dataset.comp)">🔓 Unlock '+comp.toUpperCase()+'</button>'
+            : '<span style="font-size:.7rem;color:var(--ink3);">Ask class teacher to unlock</span>');
+      } else {
+        row += '<span style="font-size:.78rem;color:var(--ink3);">'+comp.toUpperCase()+' locked by director/term</span>';
+      }
+      return row+'</div>';
+    }
+
+    tableHtml += '<div style="margin-top:.9rem;border-top:1px solid var(--bd);padding-top:.9rem;display:flex;flex-direction:column;gap:.6rem;">';
+    tableHtml += dualActionRow('eu', euTid, '📘 EU', 'var(--blue)',  euEditable, euSubmitted, _euWho, _euWhen);
+    tableHtml += dualActionRow('et', etTid, '📗 ET', 'var(--gold)',  etEditable, etSubmitted, _etWho, _etWhen);
+    tableHtml += '</div>';
+    tableHtml += '<div id="mkSaveFlash" style="margin-top:.5rem;"></div>';
+
+  } else {
+    // ── SINGLE-COLUMN MODE (unchanged logic, but respects _readOnly) ──
+    var thead = '<tr><th>#</th><th>Student</th><th>📋 Code</th>'
+      +'<th style="text-align:center;">Mark <span style="font-weight:400;color:var(--ink3);">/'+maxMark+'</span></th>'
+      +'<th style="text-align:center;">Grade</th>'
+      +'<th style="text-align:center;">Status</th>'
+      +'</tr>';
+
+    var rows = students.map(function(s,i){
+      var baseKey = selectedComp
+        ? s.id+'_'+sid+'_'+actualTid+'_'+selectedComp.id
+        : s.id+'_'+sid+'_'+actualTid;
+      var val = getTermMark(baseKey);
+      if(val===undefined) val='';
+      var gr  = val!=='' ? calcGrade((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : '—';
+      var ps  = val!=='' ? checkPass((parseFloat(val)/maxMark*parseFloat(sub.scale)).toFixed(1), sub) : null;
+
+      var inp;
+      if(_singleLocked){
+        inp = '<span style="font-size:.9rem;font-weight:700;color:var(--ink);">'+(val!==''?val:'—')+'</span>'
+          +'<span style="font-size:.72rem;color:var(--ink3);">/'+maxMark+'</span>';
+      } else if(isL){
+        inp = '<select class="mksel" id="mk_'+s.id+'" onchange="prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')"><option value="">—</option>'
+          +['A','B','C','D','F'].map(function(l){return'<option value="'+l+'"'+(val===l?' selected':'')+'>'+l+'</option>';}).join('')+'</select>';
+      } else {
+        var valN = val!==''&&!isNaN(parseFloat(val))?parseFloat(val):null;
+        var over = valN!==null&&valN>maxMark;
+        inp = '<div style="display:flex;align-items:center;gap:3px;">'
+          +'<input class="mkin" type="number" id="mk_'+s.id+'" min="0" max="'+maxMark+'" step="0.5" value="'+val+'"'
+          +' oninput="_markPendingKey(\''+baseKey+'\');sanitizeMarkInput(this,'+maxMark+');_singleCounter(\''+s.id+'\','+maxMark+');prevMarkSingle(\''+s.id+'\',\''+sid+'\','+maxMark+')">'
+          +'<span id="scnt_'+s.id+'" style="font-size:.7rem;font-weight:700;color:'+(over?'var(--red)':'var(--ink3)')+';">'
+          +(valN!==null?valN:'—')+'/'+maxMark+'</span>'
+          +'</div>';
+      }
+
+      return '<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td><strong>'+s.name+'</strong></td>'
+        +'<td>'+s.sid+'</td>'
+        +'<td style="text-align:center;">'+inp+'</td>'
+        +'<td style="text-align:center;" id="gr_'+s.id+'"><span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span></td>'
+        +'<td style="text-align:center;" id="ps_'+s.id+'">'+(val!==''?(ps?'<span class="pok">✓ Pass</span>':'<span class="pfail">✗ Fail</span>'):'—')+'</td>'
+        +'</tr>';
+    }).join('');
+
+    tableHtml = '<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>';
+    // Single-mode bottom action bar
+    var singleComp = (selectedComp&&selectedComp.name.toLowerCase().indexOf('midterm')>=0)?'eu':'et';
+    if(!euComp&&!etComp) singleComp='single';
+    var singleTid2 = actualTid;
+    tableHtml += '<div style="margin-top:.9rem;border-top:1px solid var(--bd);padding-top:.9rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">';
+    if(!_singleLocked){
+      tableHtml += '<button class="btn green" onclick="saveAllMarks()">💾 Save Marks</button>'
+        +'<button class="btn green" style="display:flex;align-items:center;gap:5px;"'
+        +' data-cid="'+cid+'" data-tid="'+singleTid2+'" data-sub="'+sid+'" data-comp="'+singleComp+'"'
+        +' onclick="submitSubMarks(this.dataset.cid,this.dataset.tid,this.dataset.sub,this.dataset.comp)">✅ Submit</button>';
+    } else if(_singleSubmitted){
+      var _ssSA = getSubApproval(cid, singleTid2, sid, singleComp);
+      var _ssWho = (_ssSA&&_ssSA.submittedByName)||'';
+      var _ssWhen = (_ssSA&&_ssSA.submittedAt) ? new Date(_ssSA.submittedAt).toLocaleDateString('en-GB') : '';
+      var _isCtS = ME&&ME.classTeacher===cid;
+      tableHtml += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        +'<div style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(0,214,143,.1);border:1px solid rgba(0,214,143,.3);border-radius:8px;">'
+        +'<span>✅</span><span style="font-size:.8rem;font-weight:700;color:var(--green);">Submitted</span>'
+        +(_ssWho?'<span style="font-size:.7rem;color:var(--ink3);">by '+esc(_ssWho)+(_ssWhen?' · '+_ssWhen:'')+'</span>':'')
+        +'</div>'
+        +(_isCtS||isAdmin()
+          ? '<button style="font-size:.74rem;padding:4px 12px;border-radius:8px;border:1px solid rgba(224,82,82,.4);background:rgba(224,82,82,.08);color:var(--red);cursor:pointer;"'
+            +' data-cid="'+cid+'" data-tid="'+singleTid2+'" data-sub="'+sid+'" data-comp="'+singleComp+'"'
+            +' onclick="unsubmitSubMarks(this.dataset.cid,this.dataset.tid,this.dataset.sub,this.dataset.comp)">🔓 Unlock</button>'
+          : '<span style="font-size:.72rem;color:var(--ink3);">Ask class teacher to unlock</span>')
+        +'</div>';
+    }
+    tableHtml += '</div>';
+    tableHtml += '<div id="mkSaveFlash" style="margin-top:.5rem;"></div>';
+  }
+
+  wrap.innerHTML = banner + infoBar + tableHtml;
 }
 
 // Calculate the total from component inputs (live, before save)
@@ -8074,6 +8478,131 @@ function calcCompTotal(stid, subid, tid, comps, liveOverrides){
     if(v!==''&&!isNaN(parseFloat(v))){ tot+=parseFloat(v); hasSome=true; }
   });
   return hasSome ? Math.round(tot*10)/10 : null;
+}
+
+// ── Live counter update for dual-mode inputs ──
+function _dualCounter(prefix, stid, maxMark){
+  var el = document.getElementById('mk'+prefix+'_'+stid);
+  var cnt = document.getElementById('cnt_'+prefix+'_'+stid);
+  if(!el||!cnt) return;
+  var v = parseFloat(el.value);
+  if(isNaN(v)||el.value===''){
+    cnt.textContent = '—/'+maxMark;
+    cnt.style.color = 'var(--ink3)';
+  } else {
+    cnt.textContent = v+'/'+maxMark;
+    cnt.style.color = v>maxMark ? 'var(--red)' : 'var(--ink3)';
+    if(v>maxMark){ el.style.borderColor='var(--red)'; } else { el.style.borderColor=''; }
+  }
+}
+
+// ── Live counter update for single-mode inputs ──
+function _singleCounter(stid, maxMark){
+  var el = document.getElementById('mk_'+stid);
+  var cnt = document.getElementById('scnt_'+stid);
+  if(!el||!cnt) return;
+  var v = parseFloat(el.value);
+  if(isNaN(v)||el.value===''){
+    cnt.textContent = '—/'+maxMark;
+    cnt.style.color = 'var(--ink3)';
+  } else {
+    cnt.textContent = v+'/'+maxMark;
+    cnt.style.color = v>maxMark ? 'var(--red)' : 'var(--ink3)';
+    if(v>maxMark){ el.style.borderColor='var(--red)'; } else { el.style.borderColor=''; }
+  }
+}
+
+// ── Live grade preview for dual-mode inputs ──
+function prevDualMark(stid, subid, maxMark){
+  var sub = DB.subjects.find(function(s){return s.id===subid;});
+  var euEl = document.getElementById('mkeu_'+stid);
+  var etEl = document.getElementById('mket_'+stid);
+  var euN = euEl&&euEl.value!==''&&!isNaN(parseFloat(euEl.value)) ? parseFloat(euEl.value) : null;
+  var etN = etEl&&etEl.value!==''&&!isNaN(parseFloat(etEl.value)) ? parseFloat(etEl.value) : null;
+  // Clamp over-max
+  if(euEl&&euN!==null&&euN>maxMark){euEl.style.borderColor='var(--red)';}else if(euEl){euEl.style.borderColor='';}
+  if(etEl&&etN!==null&&etN>maxMark){etEl.style.borderColor='var(--red)';}else if(etEl){etEl.style.borderColor='';}
+  var gradeVal = (euN!==null&&etN!==null) ? ((euN+etN)/(maxMark*2)*maxMark).toFixed(1)
+    : (euN!==null?euN.toFixed(1):etN!==null?etN.toFixed(1):'');
+  var gr = gradeVal!=='' ? calcGrade(gradeVal, sub) : '—';
+  var grEl = document.getElementById('gr_'+stid);
+  if(grEl) grEl.innerHTML='<span class="gb '+gr+'">'+(gr==='—'?'—':gr)+'</span>';
+}
+
+// ── Save only EU or ET column in dual mode ──
+function saveDualMarks(which){
+  var cid  = document.getElementById('mkCls').value;
+  var sid  = document.getElementById('mkSub').value;
+  var tid  = document.getElementById('mkTerm').value;
+  if(!cid||!sid||!tid){ alert('Select class, subject and term first.'); return; }
+
+  var compRaw = document.getElementById('mkComp').value;
+  var actualTid = tid;
+  if(compRaw && compRaw.indexOf('__')>=0){ actualTid = compRaw.split('__')[0]; }
+
+  // Lock checks (same as saveAllMarks)
+  if(!isAdmin()){
+    var tObj = DB.terms.find(function(x){return x.id===actualTid;});
+    if(tObj && tObj.marksLocked){ alert('🔒 This term is locked by the director.'); return; }
+    var appr = getApproval(cid, actualTid);
+    if(appr&&(appr.approved||appr.directorPrinted)){
+      alert(appr.directorPrinted?'⛔ Locked by director.':'⛔ Marks approved. Ask class teacher to unapprove.');
+      return;
+    }
+  }
+  var aTY = getActiveTermYear();
+  if(aTY&&aTY.locked){ alert('🔒 Academic year is closed.'); return; }
+
+  // Resolve which EU/ET component to save
+  var termLabel3 = '';
+  var termObj3 = DB.terms.find(function(t){return t.id===actualTid;})||DB.terms.find(function(t){return t.id===tid;});
+  termLabel3 = termObj3&&(termObj3.termLabel||termObj3.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim())||'';
+  var allSib3 = termLabel3
+    ? DB.terms.filter(function(t){var tl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||'';return tl===termLabel3&&t.active;})
+    : [termObj3];
+  var euC3=null,etC3=null,euT3=null,etT3=null;
+  allSib3.forEach(function(sib){
+    if(!sib||!sib.components) return;
+    sib.components.forEach(function(c){
+      var isEU=c.name.toLowerCase().indexOf('midterm')>=0;
+      if(isEU&&!euC3){euC3=c;euT3=sib.id;}
+      else if(!isEU&&!etC3){etC3=c;etT3=sib.id;}
+    });
+  });
+
+  var compToSave = which==='eu' ? euC3 : etC3;
+  var tidToSave  = which==='eu' ? euT3 : etT3;
+  var prefix     = which==='eu' ? 'mkeu' : 'mket';
+  if(!compToSave||!tidToSave){ alert('Period not found.'); return; }
+
+  var subObj3 = DB.subjects.find(function(x){return x.id===sid;});
+  var subMax3 = parseFloat((subObj3&&subObj3.scale)||100);
+  var students3 = yearStudents().filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var cnt3 = 0;
+  students3.forEach(function(s){
+    var el = document.getElementById(prefix+'_'+s.id);
+    if(el&&el.value!==''){
+      var v = Math.min(parseFloat(el.value), subMax3);
+      var key3 = s.id+'_'+sid+'_'+tidToSave+'_'+compToSave.id;
+      DB.marks[termMarkKey(key3)] = String(v);
+      cnt3++;
+    }
+  });
+
+  var lbl3 = (which==='eu'?'EU':'ET')+' — '+(termLabel3||tid);
+  addLog('Saved '+cnt3+' marks — '+lbl3);
+  _clearPendingKeys();
+  // Mark this component as "saved" (yellow state) if not already submitted
+  markSubSaved(cid, tidToSave, sid, which);
+  dbSave();
+  if(!isAdmin()&&typeof renderTeacherApprovalBtn==='function') renderTeacherApprovalBtn();
+  if(!isAdmin()&&typeof renderMkProgressDashboard==='function') renderMkProgressDashboard();
+  if(typeof renderClassTeacherSubjectOverview==='function') renderClassTeacherSubjectOverview();
+  var flashEl = document.getElementById('mkSaveFlash');
+  if(flashEl){
+    flashEl.innerHTML='<div class="al ok">✅ '+cnt3+' marks saved for <strong>'+lbl3+'</strong>!</div>';
+    setTimeout(function(){if(flashEl)flashEl.innerHTML='';},4000);
+  }
 }
 
 function prevMarkComp(stid, subid, tid){
@@ -8184,6 +8713,16 @@ function saveAllMarks(){
     return;
   }
 
+  // Block saving if this subject+component is already submitted
+  if(!isAdmin()){
+    var _isEUc = selectedComp && selectedComp.name.toLowerCase().indexOf('midterm')>=0;
+    var _saChk = getSubApproval(cid, actualTid, sid, selectedComp ? (_isEUc?'eu':'et') : 'single');
+    if(_saChk && _saChk.submitted){
+      alert('✅ These marks have been submitted. Ask the class teacher to unlock if corrections are needed.');
+      return;
+    }
+  }
+
   var cnt = 0;
 
   students.forEach(function(s){
@@ -8209,7 +8748,16 @@ function saveAllMarks(){
   }
   addLog('Saved '+cnt+' marks — '+(selectedComp?compSavedName:tid));
   _clearPendingKeys(); // realtime can now safely merge updates again
+  // Register saved state for subject overview
+  if(!isAdmin() && cnt>0){
+    var _saveComp = selectedComp ? (selectedComp.name.toLowerCase().indexOf('midterm')>=0?'eu':'et') : 'single';
+    markSubSaved(cid, actualTid, sid, _saveComp);
+  }
   dbSave();
+  // Refresh teacher progress dashboard live
+  if(!isAdmin() && typeof renderTeacherApprovalBtn==='function') renderTeacherApprovalBtn();
+  if(!isAdmin() && typeof renderMkProgressDashboard==='function') renderMkProgressDashboard();
+  if(!isAdmin() && typeof renderClassTeacherSubjectOverview==='function') renderClassTeacherSubjectOverview();
   var flashEl = document.getElementById('mkSaveFlash');
   if(flashEl){
     flashEl.innerHTML='<div class="al ok">&#9989; '+cnt+' marks saved'+(selectedComp?' for <strong>'+compSavedName+'</strong>':'')+'!</div>';
@@ -8445,6 +8993,7 @@ function setupReports(){
     // If class already selected, reload its students
     if(clsSel.value) rpLoadStudents();
     else renderApprovalStatus();
+    renderApprovalDashboard();
   } else {
     var up2=document.getElementById('rpUnlockPanel'); if(up2) up2.style.display='none';
     // Teacher panel — only their class teacher class
@@ -8456,9 +9005,15 @@ function setupReports(){
       document.getElementById('rpOut').innerHTML='<div class="empty"><div class="ei">🔒</div><p>You are not assigned as a class teacher of any class.</p></div>';
       syncTerms(); return;
     }
+    // Always reload from DB so director-added students are never missing
+    var _prevSt2 = document.getElementById('rpSt2').value;
     var list=yearStudents().filter(function(s){return s.classId===ct;}).sort(function(a,b){return a.name.localeCompare(b.name);});
     document.getElementById('rpSt2').innerHTML='<option value="">— Select Student —</option>'+
       list.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+    // Restore previous selection if student still exists
+    if(_prevSt2 && list.find(function(s){return s.id===_prevSt2;})){
+      document.getElementById('rpSt2').value = _prevSt2;
+    }
     syncTerms();
     // Auto-select first term if none selected
     var rpTerm2=document.getElementById('rpTerm2');
@@ -8483,7 +9038,7 @@ function rpLoadStudents(){
   genReport();
 }
 
-// ── APPROVAL SYSTEM ──
+
 // DB.approvals = { classId_termId: { teacherId, approved, progress, timestamp } }
 
 function getApproval(classId, termId){
@@ -8492,21 +9047,96 @@ function getApproval(classId, termId){
 }
 
 function calcProgress(classId, termId){
+  // Full class progress across ALL level subjects (used by director view)
+  // FIX: resolve sibling terms (EU/ET split) so marks stored under any sibling termId are counted
   var students=yearStudents().filter(function(s){return s.classId===classId;});
-  var subjects=DB.subjects;
+  var subjects=levelSubjects().filter(function(s){return s.scale!=='letter';});
   if(!students.length||!subjects.length) return 0;
-  var total=students.length*subjects.length;
+  var termObj=DB.terms.find(function(t){return t.id===termId;});
+  var termLabel2=termObj&&(termObj.termLabel||termObj.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim());
+  var siblings2=termLabel2
+    ? DB.terms.filter(function(t){
+        var tl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim();
+        return tl===termLabel2 && t.active;
+      })
+    : (termObj?[termObj]:[]);
+  if(!siblings2.length && termObj) siblings2=[termObj];
+  var slots2=[]; var hasEU2=false,hasET2=false;
+  siblings2.forEach(function(sib){
+    if(!sib||!sib.components||!sib.components.length) return;
+    sib.components.forEach(function(c){
+      var isEU=c.name.toLowerCase().indexOf('midterm')>=0;
+      if(isEU&&hasEU2) return;
+      if(!isEU&&hasET2) return;
+      slots2.push({tid:sib.id,cid:c.id});
+      if(isEU) hasEU2=true; else hasET2=true;
+    });
+  });
+  if(!slots2.length) slots2=[{tid:termId,cid:null}];
+  var total=students.length*subjects.length*slots2.length;
   var filled=0;
   students.forEach(function(st){
     subjects.forEach(function(sub){
-      // Check if any mark exists for this student+subject+term
-      var hasMarkTerm = Object.keys(DB.marks).some(function(k){
-        return k.startsWith(st.id+'_'+sub.id+'_'+termId);
+      slots2.forEach(function(slot){
+        var base=slot.cid
+          ? st.id+'_'+sub.id+'_'+slot.tid+'_'+slot.cid
+          : st.id+'_'+sub.id+'_'+slot.tid;
+        var v=getTermMark(base);
+        if(v!==undefined&&v!==''&&v!==null) filled++;
       });
-      if(hasMarkTerm) filled++;
     });
   });
   return total>0?Math.round((filled/total)*100):0;
+}
+
+// Progress for a specific teacher across a class — only their assigned subjects & components
+function calcTeacherProgress(teacherUser, classId, termId){
+  // FIX: resolve sibling EU/ET terms so marks stored under any sibling termId are counted
+  var students=yearStudents().filter(function(s){return s.classId===classId;});
+  if(!students.length) return {pct:0, filled:0, total:0};
+  var allLevelSubs=levelSubjects().filter(function(s){return s.scale!=='letter';});
+  var subIds=(teacherUser&&teacherUser.subjects&&teacherUser.subjects.length)?teacherUser.subjects:[];
+  var mySubs=subIds.length?allLevelSubs.filter(function(s){return subIds.indexOf(s.id)>=0;}):allLevelSubs.slice();
+  var universalSubs=allLevelSubs.filter(function(s){return !!s.universal;});
+  universalSubs.forEach(function(us){if(!mySubs.find(function(s){return s.id===us.id;})) mySubs.push(us);});
+  if(!mySubs.length) return {pct:0, filled:0, total:0};
+  // Resolve all sibling terms sharing the same label
+  var termObj=DB.terms.find(function(t){return t.id===termId;});
+  var termLabelT=termObj&&(termObj.termLabel||termObj.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim());
+  var siblingsT=termLabelT
+    ? DB.terms.filter(function(t){
+        var tl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim();
+        return tl===termLabelT && t.active;
+      })
+    : (termObj?[termObj]:[]);
+  if(!siblingsT.length && termObj) siblingsT=[termObj];
+  var slotsT=[]; var hasEUT=false,hasETT=false;
+  siblingsT.forEach(function(sib){
+    if(!sib||!sib.components||!sib.components.length) return;
+    sib.components.forEach(function(c){
+      var isEU=c.name.toLowerCase().indexOf('midterm')>=0;
+      if(isEU&&hasEUT) return;
+      if(!isEU&&hasETT) return;
+      slotsT.push({tid:sib.id,cid:c.id});
+      if(isEU) hasEUT=true; else hasETT=true;
+    });
+  });
+  if(!slotsT.length) slotsT=[{tid:termId,cid:null}];
+  var total=students.length*mySubs.length*slotsT.length;
+  var filled=0;
+  students.forEach(function(st){
+    mySubs.forEach(function(sub){
+      slotsT.forEach(function(slot){
+        var base=slot.cid
+          ? st.id+'_'+sub.id+'_'+slot.tid+'_'+slot.cid
+          : st.id+'_'+sub.id+'_'+slot.tid;
+        var v=getTermMark(base);
+        if(v!==undefined&&v!==''&&v!==null) filled++;
+      });
+    });
+  });
+  var pct=total>0?Math.round((filled/total)*100):0;
+  return {pct:pct, filled:filled, total:total, subjects:mySubs};
 }
 
 function renderApprovalStatus(){
@@ -8551,6 +9181,204 @@ function renderApprovalStatus(){
 }
 
 // Render all printed/locked combos so director can unlock without selecting dropdowns
+// ── APPROVAL DASHBOARD — shows all classes × active terms for director ──
+function renderApprovalDashboard(){
+  var el = document.getElementById('rpApprovalDashboardList');
+  if(!el || !isAdmin()) return;
+
+  var classes = levelClasses();
+  var terms   = activeTerms();
+
+  // Group terms by label (EU+ET siblings share the same label)
+  var seen = {}, groupedTerms = [];
+  terms.forEach(function(t){
+    var lbl = t.termLabel || t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim() || t.name;
+    if(!seen[lbl]){ seen[lbl]=true; groupedTerms.push({id:t.id, label:lbl}); }
+  });
+
+  if(!classes.length){
+    el.innerHTML='<div style="font-size:.8rem;color:var(--ink3);text-align:center;padding:.8rem;">No classes in this level yet.</div>';
+    return;
+  }
+  if(!groupedTerms.length){
+    el.innerHTML='<div style="font-size:.8rem;color:var(--ink3);text-align:center;padding:.8rem;">No active terms found. Add terms in the Terms page.</div>';
+    return;
+  }
+
+  var html='<div style="display:flex;flex-direction:column;gap:.6rem;">';
+
+  classes.forEach(function(cls){
+    var teacher = DB.users.find(function(u){ return u.classTeacher===cls.id && u.role==='teacher'; });
+    var studentCount = yearStudents().filter(function(s){ return s.classId===cls.id; }).length;
+
+    html += '<div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;overflow:hidden;">';
+
+    // Class header row
+    html += '<div style="display:flex;align-items:center;gap:10px;padding:.55rem .9rem;background:rgba(72,149,239,.08);border-bottom:1px solid var(--bd);">'
+      +'<span style="font-size:.88rem;">🏫</span>'
+      +'<strong style="font-size:.85rem;color:var(--ink);flex:1;">'+esc(cls.name)+'</strong>'
+      +'<span style="font-size:.7rem;color:var(--ink3);">'+studentCount+' student'+(studentCount!==1?'s':'')+'</span>'
+      +(teacher?'<span style="font-size:.7rem;color:var(--gold);margin-left:4px;">⭐ '+esc(teacher.name)+'</span>':'<span style="font-size:.7rem;color:var(--red);">⚠️ No teacher</span>')
+      +'</div>';
+
+    // Term rows
+    html += '<div style="padding:.45rem .7rem;display:flex;flex-direction:column;gap:.35rem;">';
+    groupedTerms.forEach(function(tg){
+      var approval   = getApproval(cls.id, tg.id);
+      var approved   = approval && approval.approved;
+      var dirPrinted = approval && approval.directorPrinted;
+      var progress   = calcProgress(cls.id, tg.id);
+
+      // Status badge
+      var badge, badgeColor, actionBtn='';
+      if(dirPrinted){
+        badge='🖨️ Printed & Locked';
+        badgeColor='var(--blue)';
+        actionBtn='<button class="btn sm ghost" style="font-size:.66rem;padding:2px 8px;" '
+          +'data-cid="'+cls.id+'" data-tid="'+tg.id+'" '
+          +'onclick="directorUnlockPrint(this.dataset.cid,this.dataset.tid)">🔓 Unlock</button>';
+      } else if(approved){
+        badge='✅ Approved';
+        badgeColor='var(--green)';
+        actionBtn='<button class="btn sm gold" style="font-size:.66rem;padding:2px 8px;font-weight:700;" '
+          +'data-cid="'+cls.id+'" data-tid="'+tg.id+'" data-clsname="'+esc(cls.name)+'" data-tname="'+esc(tg.label)+'" '
+          +'onclick="bulkPrintClass(this.dataset.cid,this.dataset.tid,this.dataset.clsname,this.dataset.tname)">🖨️ Print All</button>';
+      } else if(progress===100){
+        badge='⏳ Awaiting Approval';
+        badgeColor='var(--gold)';
+        actionBtn='<button class="btn sm green" style="font-size:.66rem;padding:2px 8px;" '
+          +'data-cid="'+cls.id+'" data-tid="'+tg.id+'" '
+          +'onclick="dirApproveAndRefresh(this.dataset.cid,this.dataset.tid)">✅ Approve</button>';
+      } else {
+        badge='📝 '+progress+'% filled';
+        badgeColor=progress>=50?'var(--gold)':'var(--red)';
+      }
+
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:.3rem .5rem;border-radius:6px;background:rgba(255,255,255,.02);">'
+        +'<span style="font-size:.72rem;color:var(--ink3);min-width:60px;font-weight:600;">'+esc(tg.label)+'</span>'
+        +'<div style="flex:1;height:5px;background:var(--bd);border-radius:3px;overflow:hidden;">'
+          +'<div style="width:'+progress+'%;height:100%;background:'+(dirPrinted?'var(--blue)':approved?'var(--green)':progress>=50?'var(--gold)':'var(--red)')+';border-radius:3px;transition:width .4s;"></div>'
+        +'</div>'
+        +'<span style="font-size:.68rem;font-weight:700;color:'+badgeColor+';white-space:nowrap;min-width:130px;text-align:right;">'+badge+'</span>'
+        +actionBtn
+        +'</div>';
+    });
+    html += '</div></div>';
+  });
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// Director approves from the dashboard (without selecting class in dropdown)
+function dirApproveAndRefresh(classId, termId){
+  approveReportsFor(classId, termId);
+  renderApprovalDashboard();
+  renderApprovalStatus();
+}
+
+// Bulk print all students of a class for a given term, then mark as directorPrinted
+function bulkPrintClass(classId, termId, clsName, termName){
+  var students = yearStudents().filter(function(s){ return s.classId===classId; })
+    .sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+  if(!students.length){
+    alert('No students found in '+clsName+'.');
+    return;
+  }
+
+  // Find the matching term option value in the rpTerm dropdown (termId may be the grouped first sibling)
+  // We'll use the stored termId directly with the first available component
+  var termObj = DB.terms.find(function(t){ return t.id===termId; });
+  if(!termObj){
+    // Try sibling terms with the same label
+    var tLabel = '';
+    DB.terms.forEach(function(t){
+      var tk = t.termLabel || t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim() || t.name;
+      if(tk===termName) tLabel=tk;
+    });
+    termObj = DB.terms.find(function(t){
+      var tk = t.termLabel || t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim() || t.name;
+      return tk===tLabel;
+    });
+  }
+  if(!termObj){ alert('Term not found. Please select the term in the dropdown above and use Print.'); return; }
+
+  // Build termRaw value (same format as rpTerm dropdown) — pick first ET comp for full-term report
+  var comps = termObj.components && termObj.components.length ? termObj.components : null;
+  var etComp = comps ? (comps.find(function(c){ return c.name.toLowerCase().indexOf('exam')>=0; }) || comps[comps.length-1]) : null;
+  var termRaw = termObj.id + (etComp ? '|' + etComp.id : '');
+
+  // Collect all report card HTML by temporarily switching student selection
+  var originalSt  = document.getElementById('rpSt').value;
+  var originalCls = document.getElementById('rpCls').value;
+
+  // Set class + term in dropdowns so genReport picks up the right context
+  document.getElementById('rpCls').value = classId;
+  document.getElementById('rpTerm').value = (function(){
+    // Find the matching option value in rpTerm
+    var sel = document.getElementById('rpTerm');
+    for(var i=0;i<sel.options.length;i++){
+      var tp = parseTermPeriod(sel.options[i].value);
+      if(tp.termId===termObj.id) return sel.options[i].value;
+    }
+    return termRaw;
+  })();
+
+  rpLoadStudents();
+
+  var allHtml = '';
+  students.forEach(function(st, idx){
+    document.getElementById('rpSt').value = st.id;
+    genReport();
+    var rpOut = document.getElementById('rpOut');
+    if(rpOut && rpOut.innerHTML && !rpOut.querySelector('.empty')){
+      var card = rpOut.innerHTML;
+      // Add page break between cards
+      if(idx < students.length-1){
+        card += '<div style="page-break-after:always;height:0;"></div>';
+      }
+      allHtml += card;
+    }
+  });
+
+  // Restore original selection
+  document.getElementById('rpCls').value = originalCls;
+  document.getElementById('rpSt').value = originalSt;
+  rpLoadStudents();
+
+  if(!allHtml){
+    alert('Could not generate report cards. Make sure marks are entered for all students.');
+    return;
+  }
+
+  // Mark as directorPrinted
+  if(!DB.approvals) DB.approvals={};
+  var entry = DB.approvals[classId+'_'+termObj.id] || {};
+  if(!entry.directorPrinted){
+    entry.directorPrinted    = true;
+    entry.directorPrintedAt  = new Date().toISOString();
+    entry.approved           = true;
+    DB.approvals[classId+'_'+termObj.id] = entry;
+    addLog('🖨️ Director bulk-printed report cards — '+clsName+' / '+termName+' — LOCKED');
+    dbSave();
+  }
+
+  // Refresh approval UI
+  renderApprovalDashboard();
+  renderApprovalStatus();
+
+  // Open print window with all cards
+  var printStyles = '<style>@media print{'
+    +'body{margin:0;padding:0;}'
+    +'@page{margin:8mm;}'
+    +'div[style*="page-break-after"]{display:block!important;}'
+    +'table{page-break-inside:auto;}'
+    +'tr{page-break-inside:avoid;}'
+    +'}</style>';
+  _openPrintWindow(printStyles + _resolveCssVars(allHtml), false, 'Report Cards — '+clsName+' — '+termName);
+}
+
 function renderUnlockPanel(){
   if(!isAdmin()) return;
   var panel = document.getElementById('rpUnlockPanel');
@@ -8571,15 +9399,17 @@ function renderUnlockPanel(){
   }
 
   // Resolve class & term names from the key (format: classId_termId)
+  // BUG #4 FIX: use longest-matching class ID to avoid prefix collisions (e.g. cls_1 vs cls_10)
   var items = rawKeys.map(function(rawKey){
     var ap = DB.approvals[rawKey];
     var foundCls = null, foundTerm = null;
+    var bestMatchLen = -1;
     for(var ci = 0; ci < DB.classes.length; ci++){
       var cls = DB.classes[ci];
-      if(rawKey.indexOf(cls.id + '_') === 0){
+      if(rawKey.indexOf(cls.id + '_') === 0 && cls.id.length > bestMatchLen){
         var suffix = rawKey.slice(cls.id.length + 1);
         var term = DB.terms.find(function(t){ return t.id === suffix; });
-        if(term){ foundCls = cls; foundTerm = term; break; }
+        if(term){ foundCls = cls; foundTerm = term; bestMatchLen = cls.id.length; }
       }
     }
     return {
@@ -8653,15 +9483,17 @@ async function rpScanAndShow(){
   }
 
   // Resolve names
+  // BUG #4 FIX: use longest-matching class ID to avoid prefix collisions (e.g. cls_1 vs cls_10)
   var items = rawKeys.map(function(rawKey){
     var ap = DB.approvals[rawKey];
     var foundCls = null, foundTerm = null;
+    var bestMatchLen = -1;
     for(var ci = 0; ci < DB.classes.length; ci++){
       var cls = DB.classes[ci];
-      if(rawKey.indexOf(cls.id + '_') === 0){
+      if(rawKey.indexOf(cls.id + '_') === 0 && cls.id.length > bestMatchLen){
         var suffix = rawKey.slice(cls.id.length + 1);
         var term = DB.terms.find(function(t){ return t.id === suffix; });
-        if(term){ foundCls = cls; foundTerm = term; break; }
+        if(term){ foundCls = cls; foundTerm = term; bestMatchLen = cls.id.length; }
       }
     }
     return {
@@ -8727,6 +9559,8 @@ function rpDoUnlock(idx){
   dbSave();
   renderUnlockPanel();
   renderApprovalStatus();
+  // BUG #2 FIX: also refresh the approval dashboard so it no longer shows this term as locked
+  if(typeof renderApprovalDashboard==='function') renderApprovalDashboard();
   genReport();
 }
 
@@ -8744,49 +9578,166 @@ function directorUnlockPrint(classId, termId, rawKey, clsNameHint, termNameHint)
   DB.approvals[rawKey] = entry;
   addLog('Unlocked: ' + (clsNameHint||rawKey));
   dbSave(); renderUnlockPanel(); renderApprovalStatus(); genReport();
+  if(typeof renderApprovalDashboard==='function') renderApprovalDashboard();
 }
 
 function renderTeacherApprovalBtn(){
   var el=document.getElementById('rpTeacherApproval');
   if(!el||isAdmin()) return;
-  var ct=ME&&ME.classTeacher;
-  if(!ct){ el.innerHTML=''; return; }
+
+  var ct=ME&&ME.classTeacher; // class teacher's own class
   var termRaw=(document.getElementById('rpTerm2')||{}).value||'';
   var tp=parseTermPeriod(termRaw);
-  var tid=tp.termId;
-  if(!tid){ el.innerHTML=''; return; }
-  var progress=calcProgress(ct,tid);
-  var approval=getApproval(ct,tid);
-  var approved=approval&&approval.approved;
-  var color=approved?'#1a7a4a':progress<100?'#8a1a1a':'#7a5a00';
-  var bgColor=approved?'rgba(62,207,142,.12)':progress<100?'rgba(224,82,82,.1)':'rgba(240,180,41,.12)';
-  var borderColor=approved?'rgba(62,207,142,.3)':progress<100?'rgba(224,82,82,.25)':'rgba(240,180,41,.3)';
-  el.innerHTML='<div style="display:flex;align-items:center;gap:12px;padding:.8rem 1rem;background:'+bgColor+';border:1px solid '+borderColor+';border-radius:8px;margin-top:.5rem;">'
-    +'<div style="flex:1;">'
-    +'<div style="font-size:.82rem;font-weight:600;color:var(--ink);">Marks Completion: <strong style="color:'+color+';">'+progress+'%</strong></div>'
-    +'<div style="width:100%;height:6px;background:var(--bd);border-radius:3px;margin-top:5px;overflow:hidden;">'
-    +'<div style="width:'+progress+'%;height:100%;background:'+color+';border-radius:3px;transition:width .3s;"></div>'
-    +'</div>'
-    +'<div style="font-size:.7rem;color:var(--ink3);margin-top:3px;">'+(approved?'Director can now print report cards':'Complete all marks then approve for the director to print')+'</div>'
-    +'</div>'
-    +(progress===100&&!approved?'<button class="btn green" onclick="approveReports()" style="font-size:.82rem;">✅ Approve for Printing</button>':'')
-    +(approved?'<div style="font-size:.82rem;font-weight:700;color:var(--green);">✅ APPROVED</div>':'')
-    +'</div>';
+  var selectedTid=tp.termId;
+
+  // Collect all classes this teacher is involved with
+  var u=DB.users.find(function(x){return x.id===(ME&&ME.id);});
+  var teacherClsIds=myClasses().map(function(c){return c.id;});
+  if(ct && teacherClsIds.indexOf(ct)<0) teacherClsIds.push(ct);
+
+  var activeTermsList=activeTerms();
+  // Group terms
+  var seenTermLabels={};
+  var groupedTermsList=[];
+  activeTermsList.forEach(function(t){
+    var lbl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||t.name;
+    if(!seenTermLabels[lbl]){seenTermLabels[lbl]=true;groupedTermsList.push({id:t.id,label:lbl,term:t});}
+  });
+
+  if(!teacherClsIds.length||!groupedTermsList.length){el.innerHTML='';return;}
+
+  var html='<div style="margin-top:.7rem;">';
+
+  // ── Section title ──
+  html+='<div style="font-size:.78rem;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem;">📊 Marks Recording Progress</div>';
+
+  teacherClsIds.forEach(function(cid){
+    var cls=DB.classes.find(function(c){return c.id===cid;});
+    if(!cls) return;
+    var isMyClass=(ct===cid); // am I the class teacher of this class?
+
+    html+='<div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;margin-bottom:.8rem;overflow:hidden;">';
+    html+='<div style="padding:.55rem .9rem;background:var(--s3);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:.5rem;">'
+      +'<span style="font-size:.9rem;">🏫</span>'
+      +'<span style="font-size:.83rem;font-weight:700;color:var(--ink);">'+esc(cls.name)+'</span>'
+      +(isMyClass?'<span style="font-size:.65rem;background:rgba(240,180,41,.15);color:var(--gold);border-radius:10px;padding:1px 8px;margin-left:3px;">Your Class</span>':'')
+      +'</div>';
+
+    html+='<div style="padding:.6rem .9rem;">';
+
+    groupedTermsList.forEach(function(tg){
+      var prog=calcTeacherProgress(u, cid, tg.id);
+      var approval=getApproval(cid, tg.id);
+      var approved=approval&&approval.approved;
+      var dirPrinted=approval&&approval.directorPrinted;
+      var pct=prog.pct;
+
+      var barColor=dirPrinted?'#4895ef':approved?'#00d68f':pct===100?'#f6c90e':pct>=50?'#ff8800':'#ff4d6d';
+      var statusLabel=dirPrinted?'🔒 Printed':approved?'✅ Approved':pct+'%';
+      var statusColor=dirPrinted?'var(--blue)':approved?'var(--green)':pct===100?'var(--gold)':pct>=50?'var(--orange)':'var(--red)';
+
+      html+='<div style="margin-bottom:.55rem;">';
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">'
+        +'<span style="font-size:.75rem;color:var(--ink2);">'+esc(tg.label)+'</span>'
+        +'<span style="font-size:.73rem;font-weight:700;color:'+statusColor+';">'+statusLabel+'</span>'
+        +'</div>';
+      // Progress bar
+      html+='<div style="width:100%;height:7px;background:var(--bd);border-radius:4px;overflow:hidden;margin-bottom:4px;">'
+        +'<div style="width:'+pct+'%;height:100%;background:'+barColor+';border-radius:4px;transition:width .4s;"></div>'
+        +'</div>';
+      // Sub-detail: filled/total cells
+      html+='<div style="font-size:.65rem;color:var(--ink3);">'+prog.filled+' / '+prog.total+' marks recorded</div>';
+
+      // ── Per-subject submission status (class teacher sees their own class) ──
+      if(isMyClass){
+        var levelSubs2 = levelSubjects().filter(function(s){return s.scale!=='letter';});
+        var euT2=null,etT2=null,euC2=null,etC2=null;
+        var allSib4=DB.terms.filter(function(t){
+          var tl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||'';
+          return tl===tg.label&&t.active;
+        });
+        allSib4.forEach(function(sib){
+          if(!sib||!sib.components) return;
+          sib.components.forEach(function(c){
+            var isEU=c.name.toLowerCase().indexOf('midterm')>=0;
+            if(isEU&&!euC2){euC2=c;euT2=sib.id;} else if(!isEU&&!etC2){etC2=c;etT2=sib.id;}
+          });
+        });
+        var hasDualS=!!(euC2&&etC2);
+        if(levelSubs2.length){
+          html+='<div style="margin-top:6px;border-top:1px solid var(--bd);padding-top:5px;">';
+          levelSubs2.forEach(function(sub){
+            if(hasDualS){
+              var saEU=getSubApproval(cid,euT2,sub.id,'eu');
+              var saET=getSubApproval(cid,etT2,sub.id,'et');
+              var euSubmit=!!(saEU&&saEU.submitted), etSubmit=!!(saET&&saET.submitted);
+              var students4=yearStudents().filter(function(st){return st.classId===cid;});
+              var euHas=students4.some(function(st){var v=getTermMark(st.id+'_'+sub.id+'_'+euT2+(euC2?'_'+euC2.id:''));return v!==undefined&&v!=='';});
+              var etHas=students4.some(function(st){var v=getTermMark(st.id+'_'+sub.id+'_'+etT2+(etC2?'_'+etC2.id:''));return v!==undefined&&v!=='';});
+              html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+                +'<span style="font-size:.7rem;color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(sub.name)+'</span>'
+                +'<span style="font-size:.72rem;" title="EU">'+(euSubmit?'✅':euHas?'🟡':'🔴')+' EU</span>'
+                +'<span style="font-size:.72rem;" title="ET">'+(etSubmit?'✅':etHas?'🟡':'🔴')+' ET</span>'
+                +'</div>';
+            } else {
+              var sa1=getSubApproval(cid,tg.id,sub.id,'single')||getSubApproval(cid,euT2||tg.id,sub.id,'eu')||getSubApproval(cid,etT2||tg.id,sub.id,'et');
+              var submitted1=!!(sa1&&sa1.submitted);
+              var students4b=yearStudents().filter(function(st){return st.classId===cid;});
+              var hasMarks1=students4b.some(function(st){var v=getTermMark(st.id+'_'+sub.id+'_'+tg.id);return v!==undefined&&v!=='';});
+              html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+                +'<span style="font-size:.7rem;color:var(--ink2);flex:1;">'+esc(sub.name)+'</span>'
+                +'<span style="font-size:.72rem;">'+(submitted1?'✅':hasMarks1?'🟡':'🔴')+'</span>'
+                +'</div>';
+            }
+          });
+          html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:3px;font-size:.62rem;color:var(--ink3);">'
+            +'<span>✅ Submitted</span><span>🟡 Saved</span><span>🔴 Empty</span>'
+            +'</div>';
+          html+='</div>';
+        }
+      }
+
+      // Approve / Unapprove buttons — only class teacher, only for their own class
+      if(isMyClass){
+        if(!approved&&!dirPrinted){
+          if(pct===100){
+            html+='<button class="btn green sm" style="margin-top:5px;font-size:.77rem;" '
+              +'data-cid="'+cid+'" data-tid="'+tg.id+'" '
+              +'onclick="approveReportsFor(this.dataset.cid,this.dataset.tid)">✅ Approve for Printing</button>';
+          } else {
+            html+='<div style="font-size:.67rem;color:var(--ink3);margin-top:3px;">⚠️ Complete all marks (100%) to unlock approval</div>';
+          }
+        } else if(approved&&!dirPrinted){
+          html+='<button class="btn red sm" style="margin-top:5px;font-size:.77rem;" '
+            +'data-cid="'+cid+'" data-tid="'+tg.id+'" '
+            +'onclick="unapproveReports(this.dataset.cid,this.dataset.tid)">🔓 Unapprove (allow editing)</button>';
+        } else if(dirPrinted){
+          html+='<div style="font-size:.67rem;color:var(--blue);margin-top:3px;">🖨️ Director has printed — ask director to unlock</div>';
+        }
+      }
+
+      html+='</div>'; // end term row
+    });
+
+    html+='</div></div>'; // end class card
+  });
+
+  html+='</div>';
+  el.innerHTML=html;
 }
 
-function approveReports(){
-  var ct=ME&&ME.classTeacher;
-  if(!ct) return;
-  var termRaw=(document.getElementById('rpTerm2')||{}).value||'';
-  var tp=parseTermPeriod(termRaw);
-  var tid=tp.termId;
-  if(!tid){ alert('Select a term first.'); return; }
+// Approve for a specific class+term (used by new dashboard buttons)
+function approveReportsFor(classId, termId){
+  var cls=DB.classes.find(function(c){return c.id===classId;});
+  if(!confirm('Approve marks for '+(cls?cls.name:classId)+'?\n\nOnce approved, NO teacher can edit marks until you unapprove.')) return;
   if(!DB.approvals) DB.approvals={};
-  DB.approvals[ct+'_'+tid]={teacherId:ME.id,teacherName:ME.name,approved:true,timestamp:new Date().toISOString()};
-  addLog('✅ '+ME.name+' approved reports for printing');
+  DB.approvals[classId+'_'+termId]={teacherId:ME.id,teacherName:ME.name,approved:true,timestamp:new Date().toISOString()};
+  addLog('✅ '+ME.name+' approved marks for '+(cls?cls.name:classId));
   dbSave();
   renderTeacherApprovalBtn();
+  loadMkTable();
   renderDash();
+  if(typeof renderApprovalDashboard==='function') renderApprovalDashboard();
 }
 
 function unapproveReports(classId, termId){
@@ -8798,16 +9749,364 @@ function unapproveReports(classId, termId){
   renderTeacherApprovalBtn();
   renderDash();
   loadMkTable(); // refresh marks table to show inputs again
+  if(typeof renderApprovalDashboard==='function') renderApprovalDashboard();
 }
+
 // ══════════════════════════════════════════
-// REMARKS / CONDUCT — save & load per student+term
+// PER-SUBJECT SUBMISSION (subApprovals)
+// Key: classId_termId_subjectId_eu|et
 // ══════════════════════════════════════════
+function _subApprovalKey(classId, termId, subjectId, comp){
+  // comp = 'eu' | 'et' | 'single'
+  return classId+'_'+termId+'_'+subjectId+'_'+(comp||'single');
+}
+
+function getSubApproval(classId, termId, subjectId, comp){
+  if(!DB.subApprovals) DB.subApprovals={};
+  return DB.subApprovals[_subApprovalKey(classId,termId,subjectId,comp)]||null;
+}
+
+function submitSubMarks(classId, termId, subjectId, comp){
+  // comp = 'eu' | 'et' | 'single'
+  if(!DB.subApprovals) DB.subApprovals={};
+  var key = _subApprovalKey(classId,termId,subjectId,comp);
+  DB.subApprovals[key] = {
+    submitted: true,
+    submittedBy: ME&&ME.id,
+    submittedByName: ME&&ME.name,
+    submittedAt: new Date().toISOString()
+  };
+  var sub = DB.subjects.find(function(s){return s.id===subjectId;});
+  addLog('✅ '+(ME&&ME.name)+' submitted '+(comp.toUpperCase())+' marks for '+(sub?sub.name:subjectId));
+  dbSave();
+  loadMkTable();
+  renderMkProgressDashboard();
+  renderClassTeacherSubjectOverview();
+}
+
+function unsubmitSubMarks(classId, termId, subjectId, comp){
+  if(!DB.subApprovals) DB.subApprovals={};
+  var key = _subApprovalKey(classId,termId,subjectId,comp);
+  var entry = DB.subApprovals[key]||{};
+  entry.submitted = false;
+  entry.unsubmittedBy = ME&&ME.id;
+  entry.unsubmittedAt = new Date().toISOString();
+  DB.subApprovals[key] = entry;
+  var sub = DB.subjects.find(function(s){return s.id===subjectId;});
+  addLog('🔓 '+(ME&&ME.name)+' unlocked '+(comp.toUpperCase())+' marks for '+(sub?sub.name:subjectId));
+  dbSave();
+  loadMkTable();
+  renderMkProgressDashboard();
+  renderClassTeacherSubjectOverview();
+}
+
+// Mark a period as "saved" (non-submitted) when teacher saves without submitting
+function markSubSaved(classId, termId, subjectId, comp){
+  if(!DB.subApprovals) DB.subApprovals={};
+  var key = _subApprovalKey(classId,termId,subjectId,comp);
+  var existing = DB.subApprovals[key]||{};
+  if(existing.submitted) return; // don't downgrade submitted → saved
+  existing.savedBy = ME&&ME.id;
+  existing.savedByName = ME&&ME.name;
+  existing.savedAt = new Date().toISOString();
+  existing.submitted = existing.submitted||false;
+  DB.subApprovals[key] = existing;
+  // no dbSave here — caller (saveDualMarks/saveAllMarks) already calls dbSave
+}
+
+// ── Class teacher subject overview — per subject EU/ET status grid ──
+function renderClassTeacherSubjectOverview(){
+  var el = document.getElementById('mkSubjectOverview');
+  if(!el) return;
+  var ct = ME&&ME.classTeacher;
+  if(!ct){ el.style.display='none'; return; }
+
+  var cid = ct;
+  var cls = DB.classes.find(function(c){return c.id===cid;});
+  if(!cls){ el.style.display='none'; return; }
+
+  // Collect active term groups
+  var activeTermsList = activeTerms();
+  var seenTL={}, termGroups=[];
+  activeTermsList.forEach(function(t){
+    var lbl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||t.name;
+    if(!seenTL[lbl]){ seenTL[lbl]=true; termGroups.push({id:t.id,label:lbl,term:t}); }
+  });
+
+  // Collect all subjects at this level
+  var subs = levelSubjects();
+  if(!subs.length||!termGroups.length){ el.style.display='none'; return; }
+
+  var html = '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:.9rem 1rem;margin-bottom:.9rem;">'
+    +'<div style="font-size:.78rem;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.7rem;">📋 Subject Submission Status — '+esc(cls.name)+'</div>';
+
+  termGroups.forEach(function(tg){
+    // Resolve EU/ET components for this term group
+    var termLabel3=tg.label;
+    var allSib3=termLabel3
+      ? DB.terms.filter(function(t){var tl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||'';return tl===termLabel3&&t.active;})
+      : [tg.term];
+    var euC=null,etC=null,euT=null,etT=null;
+    allSib3.forEach(function(sib){
+      if(!sib||!sib.components) return;
+      sib.components.forEach(function(c){
+        var isEU=c.name.toLowerCase().indexOf('midterm')>=0;
+        if(isEU&&!euC){euC=c;euT=sib.id;}
+        else if(!isEU&&!etC){etC=c;etT=sib.id;}
+      });
+    });
+    var hasBoth = !!(euC&&etC);
+
+    html += '<div style="margin-bottom:.75rem;">'
+      +'<div style="font-size:.74rem;font-weight:700;color:var(--ink3);margin-bottom:.45rem;text-transform:uppercase;letter-spacing:.05em;">'+esc(tg.label)+'</div>'
+      +'<div style="overflow-x:auto;">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:.76rem;">'
+      +'<thead><tr>'
+      +'<th style="text-align:left;padding:4px 8px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--bd);">Subject</th>'
+      +(hasBoth
+        ? '<th style="text-align:center;padding:4px 6px;color:var(--blue);font-weight:600;border-bottom:1px solid var(--bd);">📘 EU</th>'
+          +'<th style="text-align:center;padding:4px 6px;color:var(--gold);font-weight:600;border-bottom:1px solid var(--bd);">📗 ET</th>'
+        : '<th style="text-align:center;padding:4px 6px;font-weight:600;border-bottom:1px solid var(--bd);">Status</th>')
+      +'</tr></thead><tbody>';
+
+    subs.forEach(function(sub){
+      html += '<tr>';
+      html += '<td style="padding:5px 8px;font-weight:500;color:var(--ink);">'+esc(sub.name)+'</td>';
+
+      function cellHtml(comp, compId, compTid){
+        var sa = getSubApproval(cid, compTid||tg.id, sub.id, comp);
+        var submitted = sa&&sa.submitted;
+        var saved = sa&&sa.savedAt&&!submitted;
+        // Check if any marks exist for this comp
+        var students3 = yearStudents().filter(function(s){return s.classId===cid;});
+        var hasMarks = false;
+        if(compId&&compTid){
+          hasMarks = students3.some(function(s){
+            var v=getTermMark(s.id+'_'+sub.id+'_'+compTid+'_'+compId);
+            return v!==undefined&&v!=='';
+          });
+        } else {
+          hasMarks = students3.some(function(s){
+            var v=getTermMark(s.id+'_'+sub.id+'_'+tg.id);
+            return v!==undefined&&v!=='';
+          });
+        }
+
+        var dot, dotStyle, label;
+        if(submitted){
+          dot='✅'; dotStyle='color:var(--green);';
+          label='<span style="font-size:.68rem;color:var(--green);font-weight:600;">Submitted</span>';
+        } else if(saved||hasMarks){
+          dot='🟡'; dotStyle='';
+          label='<span style="font-size:.68rem;color:var(--gold);font-weight:600;">Saved</span>';
+        } else {
+          dot='🔴'; dotStyle='';
+          label='<span style="font-size:.68rem;color:var(--red);font-weight:500;">Empty</span>';
+        }
+
+        // Unlock button — only show if submitted (so class teacher can unlock it)
+        var unlockBtn = submitted
+          ? '<button onclick="unsubmitSubMarks(\''+cid+'\',\''+(compTid||tg.id)+'\',\''+sub.id+'\',\''+comp+'\')" '
+            +'style="font-size:.62rem;padding:1px 6px;border-radius:6px;border:1px solid rgba(224,82,82,.4);background:rgba(224,82,82,.08);color:var(--red);cursor:pointer;margin-left:4px;" '
+            +'title="Unlock for re-editing">🔓</button>'
+          : '';
+
+        return '<td style="text-align:center;padding:4px 6px;white-space:nowrap;">'
+          +'<span style="'+dotStyle+'font-size:.82rem;">'+dot+'</span> '
+          +label
+          +unlockBtn
+          +'</td>';
+      }
+
+      if(hasBoth){
+        html += cellHtml('eu', euC&&euC.id, euT);
+        html += cellHtml('et', etC&&etC.id, etT);
+      } else {
+        html += cellHtml('single', euC?(euC.id):null, euT||tg.id);
+      }
+
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+  });
+
+  html += '</div>';
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
 function _remarkKey(stid, termRaw){
   // key = "rc_remark_STUDENTID_TERMRAW"
   return 'rc_'+stid+'_'+(termRaw||'').replace(/[^a-zA-Z0-9_\-]/g,'_');
 }
 var _lastRemarkStid = null;
 var _lastRemarkTerm = null;
+
+// ── REMARKS WIZARD ──
+var _rwStudents = [];  // ordered list of students for current wizard session
+var _rwIndex    = 0;   // current student index
+var _rwTermRaw  = '';  // term raw value
+
+function openRemarksWizard(){
+  var ct = ME && ME.classTeacher;
+  if(!ct){ alert('You are not assigned as a class teacher.'); return; }
+  var termRaw = (document.getElementById('rpTerm2')||{}).value||'';
+  if(!termRaw){ alert('Select a term first.'); return; }
+  _rwTermRaw = termRaw;
+  _rwStudents = yearStudents().filter(function(s){return s.classId===ct;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  if(!_rwStudents.length){ alert('No students in your class.'); return; }
+  _rwIndex = 0;
+  // Start from current selected student if one is selected
+  var curSt = (document.getElementById('rpSt2')||{}).value||'';
+  if(curSt){
+    var idx = _rwStudents.findIndex(function(s){return s.id===curSt;});
+    if(idx>=0) _rwIndex = idx;
+  }
+  document.getElementById('remarksWizardOverlay').style.display = 'block';
+  _renderWizardStep();
+}
+
+function closeRemarksWizard(){
+  document.getElementById('remarksWizardOverlay').style.display = 'none';
+  genReport(); // refresh preview
+}
+
+function _renderWizardStep(){
+  var s = _rwStudents[_rwIndex];
+  if(!s) return;
+  var tp = parseTermPeriod(_rwTermRaw);
+  var termId = tp.termId;
+  var termObj = DB.terms.find(function(t){return t.id===termId;});
+  var termLabel = termObj && (termObj.termLabel||termObj.name) || _rwTermRaw;
+
+  // Load existing remarks for this student
+  var key = _remarkKey(s.id, _rwTermRaw);
+  var data = (DB.remarks && DB.remarks[key]) || {};
+
+  // Build student overall % for this term
+  var subs = levelSubjects().filter(function(s){return s.scale!=='letter';});
+  // Resolve EU/ET components for this term
+  var tp2 = parseTermPeriod(_rwTermRaw);
+  var allSibW = DB.terms.filter(function(t){
+    var tl=t.termLabel||t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||'';
+    var selTl=(termObj&&(termObj.termLabel||termObj.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()))||'';
+    return tl===selTl&&t.active;
+  });
+  var euCW=null,etCW=null,euTW=null,etTW=null;
+  allSibW.forEach(function(sib){
+    if(!sib||!sib.components) return;
+    sib.components.forEach(function(c){
+      var isEU=c.name.toLowerCase().indexOf('midterm')>=0;
+      if(isEU&&!euCW){euCW=c;euTW=sib.id;} else if(!isEU&&!etCW){etCW=c;etTW=sib.id;}
+    });
+  });
+  var hasDualW=!!(euCW&&etCW);
+  var totalMarks=0, filledMarks=0, sumPct=0, countPct=0;
+  subs.forEach(function(sub){
+    if(hasDualW){
+      var euV=getTermMark(s.id+'_'+sub.id+'_'+euTW+'_'+euCW.id);
+      var etV=getTermMark(s.id+'_'+sub.id+'_'+etTW+'_'+etCW.id);
+      totalMarks+=2;
+      if(euV!==undefined&&euV!==''){filledMarks++;sumPct+=parseFloat(euV)/parseFloat(sub.scale)*100;countPct++;}
+      if(etV!==undefined&&etV!==''){filledMarks++;sumPct+=parseFloat(etV)/parseFloat(sub.scale)*100;countPct++;}
+    } else {
+      var v=getTermMark(s.id+'_'+sub.id+'_'+termId);
+      totalMarks++;
+      if(v!==undefined&&v!==''){filledMarks++;sumPct+=parseFloat(v)/parseFloat(sub.scale)*100;countPct++;}
+    }
+  });
+  var avgPct = countPct>0 ? Math.round(sumPct/countPct) : null;
+  var fillPct = totalMarks>0 ? Math.round(filledMarks/totalMarks*100) : 0;
+  var pctColor = avgPct===null?'var(--ink3)':avgPct>=80?'var(--green)':avgPct>=60?'var(--gold)':avgPct>=50?'var(--orange)':'var(--red)';
+
+  var marksRows = '<div style="display:flex;align-items:center;gap:12px;padding:.6rem .8rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;">'
+    +'<div style="flex:1;">'
+    +'<div style="font-size:.7rem;color:var(--ink3);margin-bottom:3px;">'+filledMarks+' / '+totalMarks+' marks recorded ('+fillPct+'%)</div>'
+    +'<div style="height:6px;background:var(--bd);border-radius:3px;overflow:hidden;">'
+    +'<div style="width:'+fillPct+'%;height:100%;background:var(--blue);border-radius:3px;"></div>'
+    +'</div>'
+    +'</div>'
+    +(avgPct!==null
+      ? '<div style="text-align:center;min-width:48px;">'
+        +'<div style="font-size:1.3rem;font-weight:800;color:'+pctColor+';">'+avgPct+'%</div>'
+        +'<div style="font-size:.62rem;color:var(--ink3);">average</div>'
+        +'</div>'
+      : '<div style="font-size:.78rem;color:var(--ink3);">No marks yet</div>')
+    +'</div>';
+
+  var total = _rwStudents.length;
+  var pBar = Math.round((_rwIndex/(total))*100);
+
+  var html = ''
+    // Progress
+    +'<div style="margin-bottom:.9rem;">'
+    +'<div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink3);margin-bottom:3px;">'
+    +'<span>Student '+(_rwIndex+1)+' of '+total+'</span>'
+    +'<span style="font-weight:700;color:var(--gold);">'+esc(termLabel)+'</span>'
+    +'</div>'
+    +'<div style="height:5px;background:var(--bd);border-radius:3px;overflow:hidden;">'
+    +'<div style="width:'+pBar+'%;height:100%;background:var(--gold);border-radius:3px;transition:width .3s;"></div>'
+    +'</div>'
+    +'</div>'
+    // Student name
+    +'<div style="display:flex;align-items:center;gap:10px;padding:.65rem .9rem;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.25);border-radius:8px;margin-bottom:.9rem;">'
+    +'<span style="font-size:1.3rem;">🎓</span>'
+    +'<div><div style="font-size:1rem;font-weight:700;color:var(--ink);">'+esc(s.name)+'</div>'
+    +'<div style="font-size:.72rem;color:var(--ink3);">Code: '+esc(s.sid||'—')+'</div></div>'
+    +'</div>'
+    // Marks summary
+    +'<div style="margin-bottom:.9rem;"><div style="font-size:.7rem;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;">📊 Term Performance</div>'+marksRows+'</div>'
+    // Remark fields
+    +'<div style="display:flex;flex-direction:column;gap:.7rem;margin-bottom:1rem;">'
+    +'<div class="fg"><label style="font-size:.75rem;">💬 Class Teacher Remarks</label>'
+    +'<input type="text" id="rw_remark" placeholder="e.g. Excellent effort this term…" value="'+esc(data.remark||'')+'" style="width:100%;" oninput=""></div>'
+    +'<div class="fg"><label style="font-size:.75rem;">📋 Discipline Note</label>'
+    +'<input type="text" id="rw_discipline" placeholder="e.g. Good conduct, respectful…" value="'+esc(data.discipline||'')+'" style="width:100%;" oninput=""></div>'
+    +'<div class="fg"><label style="font-size:.75rem;">🎖️ Conduct Score <span style="font-weight:400;color:var(--ink3);">(e.g. 39/40)</span></label>'
+    +'<input type="text" id="rw_conduct" placeholder="e.g. 39/40" value="'+esc(data.conduct||'')+'" style="width:100%;" oninput=""></div>'
+    +'</div>'
+    // Navigation
+    +'<div style="display:flex;gap:8px;justify-content:space-between;">'
+    +(_rwIndex>0
+      ? '<button class="btn ghost" onclick="_rwSaveAndNav(-1)" style="flex:1;">← Back</button>'
+      : '<div style="flex:1;"></div>')
+    +(_rwIndex < total-1
+      ? '<button class="btn gold" onclick="_rwSaveAndNav(1)" style="flex:2;font-size:.9rem;">Save &amp; Next →</button>'
+      : '<button class="btn green" onclick="_rwSaveAndNav(0)" style="flex:2;font-size:.9rem;">✅ Save &amp; Done</button>')
+    +'</div>';
+
+  document.getElementById('remarksWizardContent').innerHTML = html;
+}
+
+function _rwSaveAndNav(dir){
+  // Save current student's remarks
+  var s = _rwStudents[_rwIndex];
+  if(s){
+    var key = _remarkKey(s.id, _rwTermRaw);
+    if(!DB.remarks) DB.remarks={};
+    DB.remarks[key] = {
+      remark:     (document.getElementById('rw_remark')||{}).value||'',
+      discipline: (document.getElementById('rw_discipline')||{}).value||'',
+      conduct:    (document.getElementById('rw_conduct')||{}).value||''
+    };
+    dbSave();
+    // Also sync hidden inputs so genReport picks up changes
+    var rEl=document.getElementById('rpRemark'), dEl=document.getElementById('rpDiscipline'), cEl=document.getElementById('rpConduct');
+    if(rEl) rEl.value = DB.remarks[key].remark;
+    if(dEl) dEl.value = DB.remarks[key].discipline;
+    if(cEl) cEl.value = DB.remarks[key].conduct;
+  }
+  if(dir === 0){
+    // Done — close wizard, select this student in main view
+    closeRemarksWizard();
+    var rpSt2 = document.getElementById('rpSt2');
+    if(rpSt2 && s) rpSt2.value = s.id;
+    genReport();
+    return;
+  }
+  _rwIndex = Math.max(0, Math.min(_rwStudents.length-1, _rwIndex+dir));
+  _renderWizardStep();
+}
 
 function saveRemarkFields(){
   var stid = isAdmin()
@@ -9004,8 +10303,10 @@ function genReport(){
     (isOnLastTerm && !isMidterm)
   );
 
-  // isFinalTerm = on last term AND viewing exam period (not midterm)
-  var isFinalTerm = (isLastTermByLabel || isLastTermByIndex) && selectedPeriodIsExam && !isMidterm;
+  // isFinalTerm = MUST be Term 3 AND viewing exam period (ET), not midterm
+  // Stars (★) and promotion/repeat verdict only appear on Term 3 ET report card
+  var isTermThree = /3/.test(selTermLabel);
+  var isFinalTerm = isTermThree && selectedPeriodIsExam && !isMidterm;
 
   // ── Active subjects ──
   if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
@@ -9102,23 +10403,29 @@ function genReport(){
   }
 
   // ── Per-term class position ──
+  // BUG #3+#7 FIX: Only students with at least one mark count toward position/denominator.
+  // New students added after unlock have no marks and are excluded until marks are entered.
+  // Ties are allowed — two students with equal % share the same position.
   function calcTermPosition(termId,onlyEU_){
     var scores=classmates.map(function(s){
-      var tot2=0,max2=0;
+      var tot2=0,max2=0,hasMark=false;
       activeSubjects.forEach(function(sub){
         if(sub.scale==='letter') return;
         var termObj=allActive.find(function(t){return t.id===termId;});
         if(!termObj) return;
         var tm=getTermMarks(s.id,sub.id,termObj,onlyEU_||false);
-        if(tm.tot!==null){tot2+=tm.tot; max2+=tm.totMax;}
+        if(tm.tot!==null){tot2+=tm.tot; max2+=tm.totMax; hasMark=true;}
         else {max2+=tm.totMax;}
       });
-      return{id:s.id,pct:max2>0?(tot2/max2)*100:null};
+      return{id:s.id,pct:hasMark&&max2>0?(tot2/max2)*100:null};
     });
+    // Only students with at least one mark participate in positioning
+    var scoredStudents = scores.filter(function(s){return s.pct!==null;});
     var me=scores.find(function(s){return s.id===stid;});
-    if(!me||me.pct===null) return{pos:null,total:classmates.length};
-    var pos=scores.filter(function(s){return s.pct!==null&&s.pct>me.pct;}).length+1;
-    return{pos:pos,total:classmates.length};
+    if(!me||me.pct===null) return{pos:null,total:scoredStudents.length};
+    // Count how many scored students have strictly better %
+    var pos=scoredStudents.filter(function(s){return s.pct>me.pct;}).length+1;
+    return{pos:pos,total:scoredStudents.length};
   }
 
   if(!DB.settings.reportSubjects) DB.settings.reportSubjects={};
@@ -9163,8 +10470,15 @@ function genReport(){
 
   // ── HEADER: logo + school name + title centered, contact info below ──
   +'<div style="text-align:center;padding-bottom:'+(isFinalTerm?'.6rem':'1.2rem')+';margin-bottom:'+(isFinalTerm?'.6rem':'1.2rem')+';border-bottom:3px double #c8b020;">'
+  +'<div style="font-size:.62rem;font-weight:700;color:#1a237e;letter-spacing:.1em;text-transform:uppercase;line-height:1.7;margin-bottom:4px;">'
+  +'REPUBLIC OF RWANDA<br>'
+  +'EASTERN PROVINCE<br>'
+  +'NGOMA DISTRICT<br>'
+  +'ZAZA SECTOR'
+  +'</div>'
   +logoHtml
   +'<div style="font-size:'+(isFinalTerm?'1rem':'1.15rem')+';font-weight:800;color:#1a237e;letter-spacing:.02em;font-family:\'Playfair Display\',Georgia,serif;line-height:1.3;margin-bottom:3px;">'+school+'</div>'
+  +'<div style="font-size:.68rem;font-weight:700;color:#1a237e;margin-bottom:4px;letter-spacing:.04em;">SCHOOL: '+(school||'............................................................')+'</div>'
   +(DB.settings.schoolMotto?'<div style="font-size:.68rem;color:#b8920a;font-style:italic;margin-bottom:4px;letter-spacing:.03em;">"'+DB.settings.schoolMotto+'"</div>':'<div style="font-size:.65rem;color:#e05252;font-style:italic;margin-bottom:4px;">[Motto not set — tap ⚙️ Settings to add]</div>')
   +(DB.settings.schoolAddress||DB.settings.schoolPhone||DB.settings.schoolEmail
     ?'<div style="font-size:.65rem;color:#555;margin-bottom:6px;">'
@@ -9496,25 +10810,42 @@ function genReport(){
     var posStr=pos.pos!==null?(pos.pos+posSuffix+' / '+pos.total):'—';
     html+='<td colspan="'+termColSpan+'" style="'+tdS+'border-left:2px solid #5c6bc0;font-weight:700;color:#1565c0;">'+posStr+'</td>';
   });
-  // Overall position
+  // Overall position — BUG #3+#7 FIX: only count classmates who have at least one mark
   var myScore=grandPct||0;
-  var betterCount=0;
-  classmates.forEach(function(cm){
-    if(cm.id===stid) return;
-    var cmTot=0,cmMax=0;
+  var scoredClassmates=classmates.filter(function(cm){
+    if(cm.id===stid) return false;
+    var cmTot=0,cmMax=0,cmHas=false;
     sortedSubjects.forEach(function(sub){
       if(sub.scale==='letter') return;
       termsToShow.forEach(function(t){
         var tm=getTermMarks(cm.id,sub.id,t,isMidterm);
-        if(tm.tot!==null) cmTot+=tm.tot;
-        cmMax+=tm.totMax;
+        if(tm.tot!==null){cmTot+=tm.tot;cmMax+=tm.totMax;cmHas=true;}
+        else{cmMax+=tm.totMax;}
       });
     });
-    if(cmMax>0&&(cmTot/cmMax)*100>myScore) betterCount++;
+    // include this classmate only if they have marks
+    return cmHas && cmMax>0;
   });
-  var position=betterCount+1;
+  var betterCount=0;
+  if(grandPct!==null){
+    scoredClassmates.forEach(function(cm){
+      var cmTot=0,cmMax=0;
+      sortedSubjects.forEach(function(sub){
+        if(sub.scale==='letter') return;
+        termsToShow.forEach(function(t){
+          var tm=getTermMarks(cm.id,sub.id,t,isMidterm);
+          if(tm.tot!==null){cmTot+=tm.tot;} cmMax+=tm.totMax;
+        });
+      });
+      if(cmMax>0&&(cmTot/cmMax)*100>myScore) betterCount++;
+    });
+  }
+  // denominator = scored classmates + self (if self has marks)
+  var scoredTotal = (grandPct!==null ? 1 : 0) + scoredClassmates.length;
+  var position = grandPct!==null ? betterCount+1 : null;
   var suffix=position===1?'st':position===2?'nd':position===3?'rd':'th';
-  html+='<td colspan="4" style="'+tdS+'border-left:2px solid #5c6bc0;font-weight:700;color:#1565c0;">'+position+suffix+' / '+classmates.length+'</td>';
+  var overallPosStr = position!==null ? (position+suffix+' / '+scoredTotal) : '—';
+  html+='<td colspan="4" style="'+tdS+'border-left:2px solid #5c6bc0;font-weight:700;color:#1565c0;">'+overallPosStr+'</td>';
   html+='</tr>';
 
   // ── COMMENT ROW ──
@@ -9623,10 +10954,30 @@ function genReport(){
       :'')
     +'</div>';
 
+  // ── ABBREVIATIONS KEY ──
+  html+='<div style="margin-bottom:'+(isFinalTerm?'.5rem':'1rem')+';padding:'+(isFinalTerm?'4px 10px':'6px 12px')+';background:#eef2ff;border:1px solid #c5cae9;border-radius:6px;font-size:.65rem;color:#333;">'
+    +'<strong style="color:#1a237e;">Abbreviations: </strong>'
+    +'<span><strong>EU</strong> = End of Unit &nbsp;|&nbsp;</span>'
+    +'<span><strong>ET</strong> = End of Term &nbsp;|&nbsp;</span>'
+    +'<span><strong>TOT</strong> = Total &nbsp;|&nbsp;</span>'
+    +'<span><strong>MAX</strong> = Maximum &nbsp;|&nbsp;</span>'
+    +'<span><strong>%</strong> = Percentage &nbsp;|&nbsp;</span>'
+    +'<span><strong>GR</strong> = Grade</span>'
+    +'</div>';
+
   // ── SIGNATURES ──
+  var _dirName = (DB.settings && DB.settings.directorName) || (DB.users && DB.users.find(function(u){return u.role==='director'||u.role==='admin';})||{}).name || '';
+  var _teacherObj = cls ? (DB.users && DB.users.find(function(u){return u.classTeacher===cls.id&&u.role==='teacher';})) : null;
+  var _teacherName = _teacherObj ? _teacherObj.name : '';
   html+='<div style="display:flex;justify-content:space-between;margin-top:'+(isFinalTerm?'.6rem':'1.3rem')+';padding-top:'+(isFinalTerm?'.5rem':'.9rem')+';border-top:1px solid #ddd4b8;">'
-    +'<div style="text-align:center;"><div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div><div style="font-size:.7rem;color:#1a237e;">Class Teacher\'s Signature</div></div>'
-    +'<div style="text-align:center;"><div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div><div style="font-size:.7rem;color:#1a237e;">School Director\'s Signature</div></div>'
+    +'<div style="text-align:center;">'
+    +'<div style="font-size:.68rem;font-weight:700;color:#1a237e;min-height:1.2rem;margin-bottom:2px;">'+(_teacherName?_teacherName:'&nbsp;')+'</div>'
+    +'<div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div>'
+    +'<div style="font-size:.7rem;color:#1a237e;">Class Teacher\'s Signature</div></div>'
+    +'<div style="text-align:center;">'
+    +'<div style="font-size:.68rem;font-weight:700;color:#1a237e;min-height:1.2rem;margin-bottom:2px;">'+(_dirName?_dirName:'&nbsp;')+'</div>'
+    +'<div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div>'
+    +'<div style="font-size:.7rem;color:#1a237e;">School Director\'s Signature</div></div>'
     +'</div>';
 
   html+='</div><div style="height:8px;background:linear-gradient(90deg,#1a237e,#283593,#1565c0,#0d47a1);"></div></div>';
@@ -11535,7 +12886,7 @@ function switchLevel(level){
       dashboard:renderDash, teachers:renderTeachers, classes:renderClasses,
       students:setupStudents, marks:setupMarks, reports:setupReports,
       analytics:setupAnalytics, proclamation:setupProcl, overview:renderOverview,
-      messages:msgSetup
+      messages:msgSetup, perfoverview:setupPerfOverview
     };
     if(fns[pid]) fns[pid]();
   }
@@ -11723,7 +13074,7 @@ function switchTermYear(){
 // ── Director: manage term years ──
 
 function lockTermYear(yearId){
-  if(!confirm('Close this academic year?\n\nThis will permanently lock ALL term marks for this year. Teachers will not be able to edit marks anymore.\n\nThis cannot be undone.')) return;
+  if(!confirm('Close this academic year?\n\nThis will lock ALL term marks for this year. Teachers will not be able to edit marks anymore.\n\nThe Director can re-open it from this same screen if needed.')) return;
   var yr = DB.termYears.find(function(y){return y.id===yearId;});
   if(!yr) return;
   yr.locked = true;
@@ -11733,6 +13084,20 @@ function lockTermYear(yearId){
   renderTermYearsList();
   syncTermYearBanner();
   flash('tyal','ok','🔒 Year "'+yr.label+'" is now closed and read-only.');
+}
+
+// BUG #6 FIX: Directors can re-open a closed academic year
+function unlockTermYear(yearId){
+  var yr = DB.termYears.find(function(y){return y.id===yearId;});
+  if(!yr) return;
+  if(!confirm('Re-open this academic year?\n\n🔓 Year: "'+yr.label+'"\n\nTeachers will be able to edit marks again.\nYou can close it again at any time.')) return;
+  yr.locked = false;
+  yr.lockedAt = null;
+  addLog('🔓 Re-opened term year: '+yr.label);
+  dbSave();
+  renderTermYearsList();
+  syncTermYearBanner();
+  flash('tyal','ok','🔓 Year "'+yr.label+'" is now open for editing.');
 }
 
 function deleteTermYear(yearId){
@@ -11800,7 +13165,11 @@ function renderTermYearsList(){
           +'</div>'
         +'</div>'
         +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
-          +(!locked?'<button class="btn sm gold" onclick="lockTermYear(\''+yr.id+'\')">🔒 Close Year</button>':'<span style="font-size:.7rem;font-weight:700;color:var(--red);padding:3px 10px;background:rgba(224,82,82,.1);border-radius:10px;">🔒 CLOSED</span>')
+          +(!locked
+            ? '<button class="btn sm gold" onclick="lockTermYear(\''+yr.id+'\')">🔒 Close Year</button>'
+            : '<button class="btn sm ghost" onclick="unlockTermYear(\''+yr.id+'\')" style="font-size:.68rem;color:var(--red);border-color:rgba(224,82,82,.4);" title="Re-open this year for editing">🔓 Re-open</button>'
+              +'<span style="font-size:.7rem;font-weight:700;color:var(--red);padding:3px 10px;background:rgba(224,82,82,.1);border-radius:10px;">🔒 CLOSED</span>'
+          )
           +'<button class="btn sm ghost" onclick="editTermYear(\''+yr.id+'\')" title="Rename year">✏️</button>'
           +'<button class="btn sm red" onclick="deleteTermYear(\''+yr.id+'\')">🗑️</button>'
         +'</div>'
@@ -12835,6 +14204,7 @@ async function initApp(){
             if(_lsData.settings) DB.settings=Object.assign(DB.settings,_lsData.settings);
             if(Array.isArray(_lsData.terms)&&_lsData.terms.length) DB.terms=_lsData.terms;
             if(_lsData.approvals) DB.approvals=_lsData.approvals;
+            if(_lsData.subApprovals) DB.subApprovals=_lsData.subApprovals;
             if(_lsData.attendance) DB.attendance=_lsData.attendance;
             if(_lsData.remarks)   DB.remarks=_lsData.remarks;
             if(Array.isArray(_lsData.quizYears)) DB.quizYears=_lsData.quizYears;
@@ -12890,13 +14260,16 @@ async function initApp(){
   if(!_sessionRestored){
     // No valid session — freshen superDB from Supabase now (user hasn't typed yet)
     document.getElementById('loadBar').style.width='70%';
-    await superLoad();
+    try{ await superLoad(); }catch(e){ console.warn('[SCORIX] superLoad failed on init', e); }
     applyBranding();
     // Pre-warm user index so login is instant
-    setTimeout(function(){ userIndexLoad(); rebuildUserIndex(); }, 200);
+    setTimeout(function(){ try{ userIndexLoad(); rebuildUserIndex(); }catch(e){} }, 200);
     document.getElementById('loadBar').style.width='100%';
     applySchool();
-    overlay.remove();
+    // Always remove overlay and show landing — never leave a blank screen
+    try{ overlay.remove(); }catch(e){}
+    var _lOverlay = document.getElementById('loadOverlay');
+    if(_lOverlay) _lOverlay.remove();
     document.getElementById('landingWrap').style.display='block';
     setTimeout(function(){ startSunriseAnimation('landing-typing'); }, 500);
   }
@@ -13446,6 +14819,7 @@ function openDirSettings(){
   setDsVal('ds_phone',   s.schoolPhone||'');
   setDsVal('ds_address', s.schoolAddress||'');
   setDsVal('ds_level',   s.schoolLevel||'PRIMARY');
+  setDsVal('ds_directorName', s.directorName||'');
   var imgEl=document.getElementById('ds_logoImg');
   var ph=document.getElementById('ds_logoPlaceholder');
   var rmBtn=document.getElementById('ds_logoRemoveBtn');
@@ -13491,6 +14865,7 @@ function dsSaveAll(){
   DB.settings.schoolPhone   = (document.getElementById('ds_phone').value||'').trim();
   DB.settings.schoolAddress = (document.getElementById('ds_address').value||'').trim();
   DB.settings.schoolLevel   = (document.getElementById('ds_level').value||'PRIMARY');
+  DB.settings.directorName  = (document.getElementById('ds_directorName').value||'').trim();
   dbSave(); applySchool(); syncTerms(); syncTermYearBanner();
   var dw=document.getElementById('dwelcome');
   if(dw&&ME) dw.textContent=(name?name+' — ':'')+L('welcomeBack')+', '+ME.name;
@@ -14349,7 +15724,7 @@ function applyAppLang(){
         terms:renderTerms, subjects:renderSubjects, students:setupStudents,
         marks:setupMarks, reports:setupReports,
         analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
-    messages:msgSetup,
+    messages:msgSetup, perfoverview:setupPerfOverview,
       };
       if(fns[pageId]) fns[pageId]();
     }
@@ -14359,6 +15734,638 @@ function applyAppLang(){
 function setText(id, text){
   var el = document.getElementById(id);
   if(el) el.textContent = text;
+}
+
+// ██████████████████████████████████████████████████████████████████
+// █  PERFORMANCE OVERVIEW
+// █  setupPerfOverview(), renderPerfOverview(), printPerfOverview()
+// ██████████████████████████████████████████████████████████████████
+
+function setupPerfOverview(){
+  // Set level selector to current level
+  var lvlSel = document.getElementById('povLevel');
+  if(lvlSel) lvlSel.value = CURRENT_LEVEL;
+
+  // Populate academic years
+  povPopulateYears();
+
+  // Populate terms for current level (full term only)
+  povPopulateTerms();
+}
+
+function povPopulateYears(){
+  var yrSel = document.getElementById('povYear');
+  if(!yrSel) return;
+  var cur = yrSel.value;
+  var years = DB.termYears || [];
+  yrSel.innerHTML = '<option value="">— All Years —</option>'
+    + years.map(function(y){
+        return '<option value="'+y.id+'">'+(y.label||y.id)+'</option>';
+      }).join('');
+  if(cur && yrSel.querySelector('option[value="'+cur+'"]')) yrSel.value = cur;
+  else if(CURRENT_TERM_YEAR_ID && yrSel.querySelector('option[value="'+CURRENT_TERM_YEAR_ID+'"]')) yrSel.value = CURRENT_TERM_YEAR_ID;
+}
+
+// Build term options — FULL TERM ONLY (EU+ET combined)
+function povPopulateTerms(){
+  var selLevel = (document.getElementById('povLevel')||{}).value || CURRENT_LEVEL;
+  var povTermEl = document.getElementById('povTerm');
+  if(!povTermEl) return;
+
+  // Get active terms for this level
+  var terms = DB.terms.filter(function(t){
+    return t.active && (!t.level || t.level===selLevel);
+  });
+
+  var academicYear = (DB.settings&&DB.settings.academicYear)||'';
+  var opts = '';
+  var seen = {};
+  var groups = {}; // gKey → array of term objects
+
+  // Group all sibling terms under the same label key
+  terms.forEach(function(t){
+    var gKey = t.termLabel || t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim() || t.name;
+    if(!groups[gKey]) groups[gKey] = [];
+    groups[gKey].push(t);
+  });
+
+  // Preserve ordering: first occurrence per group
+  var orderedKeys = [];
+  terms.forEach(function(t){
+    var gKey = t.termLabel || t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim() || t.name;
+    if(seen[gKey]) return;
+    seen[gKey] = true;
+    orderedKeys.push(gKey);
+  });
+
+  orderedKeys.forEach(function(gKey){
+    var grp = groups[gKey];
+    var displayLabel = (academicYear ? academicYear+' | ' : '') + gKey;
+
+    // Find which term/component holds EU (midterm) and ET (exam)
+    var euTermId='', euCompId='single', etTermId='', etCompId='single';
+
+    grp.forEach(function(t){
+      if(t.components && t.components.length >= 2){
+        // Single term with both components
+        var euC = t.components.find(function(c){ return c.name.toLowerCase().indexOf('midterm')>=0; }) || t.components[0];
+        var etC = t.components.find(function(c){ return c.name.toLowerCase().indexOf('exam')>=0; }) || t.components[1];
+        euTermId = t.id; euCompId = euC.id;
+        etTermId = t.id; etCompId = etC.id;
+      } else if(t.components && t.components.length === 1){
+        var c = t.components[0];
+        var cNameLow = c.name.toLowerCase();
+        var tNameLow = t.name.toLowerCase();
+        var isMid = cNameLow.indexOf('midterm')>=0 || tNameLow.indexOf('midterm')>=0 || tNameLow.indexOf('mid')>=0;
+        var isExam = cNameLow.indexOf('exam')>=0 || tNameLow.indexOf('exam')>=0;
+        if(isMid && !isExam){ euTermId = t.id; euCompId = c.id; }
+        else if(isExam)     { etTermId = t.id; etCompId = c.id; }
+        else if(!euTermId)  { euTermId = t.id; euCompId = c.id; }
+        else                { etTermId = t.id; etCompId = c.id; }
+      } else {
+        // No components
+        var tNameLow2 = t.name.toLowerCase();
+        if((tNameLow2.indexOf('mid')>=0) && !euTermId){ euTermId=t.id; euCompId='single'; }
+        else if(tNameLow2.indexOf('exam')>=0 && !etTermId){ etTermId=t.id; etCompId='single'; }
+        else if(!euTermId){ euTermId=t.id; euCompId='single'; }
+        else if(!etTermId){ etTermId=t.id; etCompId='single'; }
+      }
+    });
+
+    if(!euTermId) euTermId = (grp[0]||{}).id||'';
+    if(!etTermId) etTermId = euTermId; // same term, only EU
+
+    // value format: euTermId__euCompId__etTermId__etCompId
+    opts += '<option value="'+euTermId+'__'+euCompId+'__'+etTermId+'__'+etCompId+'">'+displayLabel+'</option>';
+  });
+
+  if(!opts) opts = '<option value="">No active terms</option>';
+  povTermEl.innerHTML = opts;
+}
+
+function povOnLevelChange(){
+  povPopulateTerms();
+}
+
+function povOnYearChange(){
+  // nothing extra needed
+}
+
+function _povGetCompMark(stid, subId, termId, compId, siblingIds){
+  // Try all sibling termIds — mirrors report card getCompMark() logic exactly
+  for(var si=0; si<siblingIds.length; si++){
+    var tid2 = siblingIds[si];
+    // 1. Try with component suffix (primary format: YEAR::stId_subId_termId_compId)
+    if(compId && compId!=='single'){
+      var kComp = stid+'_'+subId+'_'+tid2+'_'+compId;
+      var vComp = getTermMark(kComp);
+      if(vComp!==undefined && vComp!=='') return parseFloat(vComp);
+    }
+    // 2. Try without component suffix (legacy / no-component terms: YEAR::stId_subId_termId)
+    var kBase = stid+'_'+subId+'_'+tid2;
+    var vBase = getTermMark(kBase);
+    if(vBase!==undefined && vBase!=='') return parseFloat(vBase);
+    // 3. Try all components of this term (handles cases where compId in dropdown doesn't match stored compId)
+    var termObj2 = DB.terms.find(function(t){ return t.id===tid2; });
+    if(termObj2 && termObj2.components && termObj2.components.length){
+      for(var ci=0; ci<termObj2.components.length; ci++){
+        var kAlt = stid+'_'+subId+'_'+tid2+'_'+termObj2.components[ci].id;
+        var vAlt = getTermMark(kAlt);
+        if(vAlt!==undefined && vAlt!=='') return parseFloat(vAlt);
+      }
+    }
+  }
+  return null;
+}
+
+function _povBuildSiblingIds(termId){
+  var termObj = DB.terms.find(function(t){ return t.id===termId; });
+  var tLabel = termObj && (termObj.termLabel || termObj.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim());
+  var ids = [termId];
+  if(tLabel){
+    DB.terms.forEach(function(t){
+      var tk = t.termLabel || t.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim();
+      if(tk===tLabel && t.id!==termId) ids.push(t.id);
+    });
+  }
+  return ids;
+}
+
+function renderPerfOverview(){
+  var out = document.getElementById('povOut');
+  if(!out) return;
+  try{
+    _renderPerfOverviewInner(out);
+  } catch(e){
+    console.error('[SCORIX] renderPerfOverview error:', e);
+    out.innerHTML='<div class="al warn">⚠️ Error generating overview: '+e.message+'<br><small style="opacity:.6;">Check console for details.</small></div>';
+  }
+}
+
+function _renderPerfOverviewInner(out){
+  var selLevel = (document.getElementById('povLevel')||{}).value || CURRENT_LEVEL;
+  var termRaw  = (document.getElementById('povTerm')||{}).value || '';
+  var selYear  = (document.getElementById('povYear')||{}).value || '';
+  var refTotalInput = 0; // always use auto average
+
+  // Save/restore year context for getTermMark()
+  var savedYearId = CURRENT_TERM_YEAR_ID;
+  if(selYear) CURRENT_TERM_YEAR_ID = selYear;
+
+  if(!termRaw){
+    out.innerHTML='<div class="empty"><div class="ei">📊</div><p>Please select a term first.</p></div>';
+    CURRENT_TERM_YEAR_ID = savedYearId;
+    return;
+  }
+
+  // Parse: new format "euTermId__euCompId__etTermId__etCompId"
+  //        old format "termId__euCompId__etCompId" (3 parts, legacy)
+  var parts = termRaw.split('__');
+  var euTermId, euCompId, etTermId, etCompId;
+  if(parts.length >= 4){
+    // New format: euTermId__euCompId__etTermId__etCompId
+    euTermId  = parts[0];
+    euCompId  = parts[1]||'single';
+    etTermId  = parts[2]||parts[0]; // fallback to same term
+    etCompId  = parts[3]||'single';
+  } else {
+    // Legacy 3-part format: termId__euCompId__etCompId
+    euTermId  = parts[0];
+    euCompId  = parts[1]||'single';
+    etTermId  = parts[0]; // same term for both
+    etCompId  = parts[2]||'single';
+  }
+  var termId = euTermId; // primary termId used for display/labels
+
+  var termObj = DB.terms.find(function(t){ return t.id===termId; });
+  if(!termObj){
+    // Search by component
+    for(var ti=0;ti<DB.terms.length;ti++){
+      if(DB.terms[ti].components && DB.terms[ti].components.find(function(c){ return c.id===euCompId||c.id===etCompId; })){
+        termObj=DB.terms[ti]; break;
+      }
+    }
+  }
+
+  var termLabel = termObj
+    ? (termObj.termLabel||termObj.name.replace(/.*\|\s*/,'').replace(/\b(Midterm|Exam)\b.*/i,'').trim()||termObj.name)
+    : termId;
+  var academicYear = (DB.settings&&DB.settings.academicYear)||'';
+  var schoolName   = (DB.settings&&DB.settings.schoolName)||'';
+  var promotionMark = (function(){
+    var ls = DB.settings.levelSettings && DB.settings.levelSettings[selLevel];
+    return ls ? ls.promotionMark : (DB.settings.promotionMark||50);
+  })();
+
+  // Build sibling ID lists SEPARATELY for EU and ET (critical for split term objects)
+  var euSibIds = _povBuildSiblingIds(euTermId);
+  var etSibIds = _povBuildSiblingIds(etTermId);
+  // Keep a combined sibIds for backward compat references
+  var sibIds = euSibIds;
+
+  // Resolve component IDs — use what came from the dropdown (already correct)
+  var _resolvedEuId = euCompId;
+  var _resolvedEtId = etCompId;
+
+  // hasFullTerm: true when we have both EU (midterm) and ET (exam) components distinct
+  var hasFullTerm = (_resolvedEuId && _resolvedEuId!=='single') && (_resolvedEtId && _resolvedEtId!=='single') && (_resolvedEuId !== _resolvedEtId);
+
+  // Helper: always return EU+ET combined total (matches report card totals)
+  function getStudentSubjectMark(stid, sub){
+    var scale = parseFloat(sub.scale||100);
+    var eu = null, et = null;
+
+    // Always attempt EU lookup — even when compId is 'single', _povGetCompMark
+    // will fall back to the bare key (stId_subId_termId) which covers legacy marks
+    eu = _povGetCompMark(stid, sub.id, euTermId, _resolvedEuId, euSibIds);
+
+    // Only attempt ET lookup when we actually have a distinct ET component
+    if(_resolvedEtId && _resolvedEtId !== _resolvedEuId){
+      et = _povGetCompMark(stid, sub.id, etTermId, _resolvedEtId, etSibIds);
+    }
+
+    // maxTotal: scale*2 only for full-term (EU+ET), scale*1 for midterm-only
+    var hasET = et !== null || (hasFullTerm && _resolvedEtId && _resolvedEtId!=='single' && _resolvedEtId!==_resolvedEuId);
+    var maxTotal = hasFullTerm ? scale * 2 : scale;
+
+    var total = null;
+    if(eu!==null || et!==null) total = (eu||0) + (et||0);
+    return {eu:eu, et:et, total:total, max:maxTotal};
+  }
+  // Get classes + subjects for this level
+  var classes = DB.classes.filter(function(c){ return !c.level || c.level===selLevel; });
+  classes.sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+  var subjects = DB.subjects.filter(function(s){
+    return (s.scale!=='letter') && (!s.level || s.level===selLevel || s.universal);
+  });
+  subjects.sort(function(a,b){ return parseFloat(b.scale||100)-parseFloat(a.scale||100); });
+
+  if(!classes.length){
+    out.innerHTML='<div class="empty"><div class="ei">🏫</div><p>No classes are assigned to the <strong>'+selLevel+'</strong> level yet.</p><p style="font-size:.8rem;color:var(--ink3);margin-top:.4rem;">Go to <strong>Classes</strong> and set the level for each class.</p></div>';
+    CURRENT_TERM_YEAR_ID = savedYearId;
+    return;
+  }
+  if(!subjects.length){
+    out.innerHTML='<div class="empty"><div class="ei">📚</div><p>No subjects are assigned to the <strong>'+selLevel+'</strong> level yet.</p><p style="font-size:.8rem;color:var(--ink3);margin-top:.4rem;">Go to <strong>Subjects</strong> and set the level for each subject.</p></div>';
+    CURRENT_TERM_YEAR_ID = savedYearId;
+    return;
+  }
+
+  // Auto-compute subject maxes -- scale*2 for full term (EU+ET), scale*1 for midterm-only
+  var autoGrandMax = subjects.reduce(function(s,sub){
+    var scale = parseFloat(sub.scale||100);
+    return s + (hasFullTerm ? scale * 2 : scale);
+  },0);
+
+  // If director supplied a reference total, use it for % calc; otherwise use auto
+  var refDenominator = refTotalInput > 0 ? refTotalInput : autoGrandMax;
+
+  // ── Colors per class ──
+  var classColors = [
+    {hdr:'#1a237e',hdr2:'#283593',row1:'#e8eaf6',row2:'#f5f5ff',avg:'#fff8e1',border:'#3949ab'},
+    {hdr:'#1b5e20',hdr2:'#2e7d32',row1:'#e8f5e9',row2:'#f1fff4',avg:'#fff8e1',border:'#388e3c'},
+    {hdr:'#4a148c',hdr2:'#6a1b9a',row1:'#f3e5f5',row2:'#fdf4ff',avg:'#fff8e1',border:'#7b1fa2'},
+    {hdr:'#b71c1c',hdr2:'#c62828',row1:'#ffebee',row2:'#fff5f5',avg:'#fff8e1',border:'#c62828'},
+    {hdr:'#004d40',hdr2:'#00695c',row1:'#e0f2f1',row2:'#f0fffd',avg:'#fff8e1',border:'#00796b'},
+    {hdr:'#e65100',hdr2:'#ef6c00',row1:'#fff3e0',row2:'#fffaf0',avg:'#fff8e1',border:'#f57c00'},
+  ];
+
+  var allClassData = [];
+  var levelAllStudents = [];
+
+  classes.forEach(function(cls, clsIdx){
+    var color = classColors[clsIdx % classColors.length];
+
+    // Get students in class, filtered by year
+    var students = DB.students.filter(function(s){
+      if(selYear && s.termYearId && s.termYearId!==selYear) return false;
+      // Note: students with no termYearId are kept — they are legacy/unscoped
+      return s.classId===cls.id;
+    });
+    students.sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+    // Build per-student data
+    var studentData = students.map(function(st){
+      var subMarks = {};
+      var grandTotal = 0, hasAnyMark = false;
+      subjects.forEach(function(sub){
+        var m = getStudentSubjectMark(st.id, sub);
+        subMarks[sub.id] = m;
+        if(m.total!==null){ grandTotal += m.total; hasAnyMark = true; }
+      });
+      return {st:st, subMarks:subMarks, grandTotal:hasAnyMark?grandTotal:null, grandMax:autoGrandMax};
+    });
+
+    // Rank by grand total (alphabetical within class, ties share same rank)
+    var scored = studentData.filter(function(d){ return d.grandTotal!==null; });
+    scored.sort(function(a,b){
+      if(b.grandTotal!==a.grandTotal) return b.grandTotal-a.grandTotal;
+      return a.st.name.localeCompare(b.st.name);
+    });
+    var posMap = {};
+    var lastTotal = null, lastPos = 0;
+    scored.forEach(function(d,i){
+      if(d.grandTotal!==lastTotal){ lastPos=i+1; lastTotal=d.grandTotal; }
+      posMap[d.st.id] = lastPos;
+    });
+
+    // Class subject averages
+    var classSubAvg = {};
+    subjects.forEach(function(sub){
+      var vals = studentData.map(function(d){ return d.subMarks[sub.id].total; }).filter(function(v){ return v!==null; });
+      classSubAvg[sub.id] = vals.length ? vals.reduce(function(a,b){return a+b;},0)/vals.length : null;
+    });
+    var classWithMark = studentData.filter(function(d){ return d.grandTotal!==null; });
+    var classGrandAvg = classWithMark.length ? classWithMark.reduce(function(s,d){return s+d.grandTotal;},0)/classWithMark.length : null;
+
+    allClassData.push({cls:cls, color:color, students:studentData, posMap:posMap, classSubAvg:classSubAvg, classGrandAvg:classGrandAvg});
+    studentData.forEach(function(d){ levelAllStudents.push(d); });
+  });
+
+  // ── Subject column headers: always show EU+ET combined max ──
+  // e.g. Math scale=90 → Math/180 (EU 90 + ET 90); English scale=80 → English/160
+
+  if(!levelAllStudents.length){
+    out.innerHTML='<div class="empty"><div class="ei">👨‍🎓</div><p>No students found for <strong>'+selLevel+'</strong>'+(selYear?' in the selected year':'')+'.</p><p style="font-size:.8rem;color:var(--ink3);margin-top:.4rem;">Make sure students are enrolled in classes for this level.</p></div>';
+    CURRENT_TERM_YEAR_ID = savedYearId;
+    return;
+  }
+  var subjectHeaders = subjects.map(function(sub){
+    var scale = parseFloat(sub.scale||100);
+    return {sub:sub, colMax: hasFullTerm ? scale * 2 : scale}; // EU+ET for full term, EU only for midterm
+  });
+
+  var logoSrc = localStorage.getItem('scorix_logo')||'';
+  var refNote = refTotalInput>0
+    ? ' <span style="font-size:.65rem;color:var(--orange);font-weight:600;">(Ref: '+refTotalInput+')</span>'
+    : '';
+
+  // ══════════════════════════════════════════════
+  // BUILD HTML
+  // ══════════════════════════════════════════════
+  var html = '<div id="povPrintDoc" style="font-family:Outfit,Arial,sans-serif;color:#1a1d2e;background:#f5f7fc;padding:1rem;">';
+
+  // Document header
+  html += '<div style="text-align:center;background:linear-gradient(135deg,#1a237e,#283593,#1565c0);color:#fff;border-radius:12px;padding:1.6rem 1.4rem 1.2rem;margin-bottom:1.4rem;box-shadow:0 6px 24px rgba(26,35,126,.35);">'
+    +(logoSrc?'<div style="margin-bottom:.6rem;"><img src="'+logoSrc+'" style="height:60px;width:60px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.5);"></div>':'')
+    +(schoolName?'<div style="font-size:1.1rem;font-weight:800;letter-spacing:.05em;margin-bottom:.3rem;">'+esc(schoolName)+'</div>':'')
+    +(DB.settings.schoolMotto?'<div style="font-size:.72rem;opacity:.75;font-style:italic;margin-bottom:.5rem;">"'+esc(DB.settings.schoolMotto)+'"</div>':'')
+    +'<div style="font-size:.62rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;opacity:.7;margin-bottom:.5rem;">Performance Overview Report</div>'
+    +'<div style="font-size:1.3rem;font-weight:800;">'
+      +esc(termLabel)+(academicYear?' &nbsp;·&nbsp; '+esc(academicYear):'')
+    +'</div>'
+    +'<div style="margin-top:.5rem;display:inline-flex;gap:.6rem;flex-wrap:wrap;justify-content:center;">'
+    +'<span style="background:rgba(255,255,255,.18);border-radius:20px;padding:3px 14px;font-size:.72rem;font-weight:700;">🏫 '+selLevel+'</span>'
+    +'<span style="background:rgba(255,255,255,.18);border-radius:20px;padding:3px 14px;font-size:.72rem;font-weight:700;">📚 '+classes.length+' Classes</span>'
+    +'<span style="background:rgba(255,255,255,.18);border-radius:20px;padding:3px 14px;font-size:.72rem;font-weight:700;">📖 '+subjects.length+' Subjects</span>'
+    +(refTotalInput>0?'<span style="background:rgba(246,201,14,.25);border-radius:20px;padding:3px 14px;font-size:.72rem;font-weight:700;color:#fff8c0;">📌 Ref Total: '+refTotalInput+'</span>':'')
+    +'</div>'
+    +'</div>';
+
+  // ── PER-CLASS TABLES ──
+  allClassData.forEach(function(cd){
+    var cls=cd.cls, color=cd.color;
+    var classAvgPct = (cd.classGrandAvg!==null && refDenominator>0) ? (cd.classGrandAvg/refDenominator*100) : null;
+
+    // ── Director approval badge ──
+    var approval = getApproval(cls.id, termId);
+    var approved = approval && approval.approved;
+    var progress = calcProgress(cls.id, termId);
+    var approvalBadge;
+    if(approved){
+      approvalBadge = '<span style="background:rgba(0,220,150,.28);color:#00b87a;border:1px solid rgba(0,220,150,.5);border-radius:20px;padding:3px 11px;font-size:.68rem;font-weight:800;white-space:nowrap;letter-spacing:.03em;">✅ Approved</span>';
+    } else if(progress===100){
+      approvalBadge = '<span style="background:rgba(246,201,14,.22);color:#c49a00;border:1px solid rgba(246,201,14,.45);border-radius:20px;padding:3px 11px;font-size:.68rem;font-weight:800;white-space:nowrap;">⏳ Pending Approval</span>';
+    } else {
+      approvalBadge = '<span style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 11px;font-size:.68rem;font-weight:700;white-space:nowrap;">📝 '+progress+'% filled</span>';
+    }
+
+    html += '<div style="background:#fff;border:2px solid '+color.border+';border-radius:12px;margin-bottom:1.8rem;overflow:hidden;box-shadow:0 3px 16px rgba(0,0,0,.08);">';
+
+    // Class title bar — includes approval badge
+    html += '<div style="background:linear-gradient(135deg,'+color.hdr+','+color.hdr2+');color:#fff;padding:.8rem 1.1rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;">'
+      +'<div style="font-size:1.05rem;font-weight:800;letter-spacing:.04em;flex:1;min-width:0;">🏫 '+esc(cls.name)+'</div>'
+      +approvalBadge
+      +'<div style="font-size:.72rem;opacity:.8;white-space:nowrap;">'+cd.students.length+' students &nbsp;·&nbsp; '+esc(selLevel)+'</div>'
+      +'</div>';
+
+    // Stats bar — show Class Avg as % only (same style as report cards), not raw score/denominator
+    var classAvgDisplay = classAvgPct!==null ? classAvgPct.toFixed(1)+'%' : '—';
+    var classAvgColor   = classAvgPct===null ? color.hdr : (classAvgPct>=promotionMark ? '#1b5e20' : '#b71c1c');
+    html += '<div style="background:'+color.row1+';padding:.5rem 1.1rem;display:flex;gap:1.5rem;flex-wrap:wrap;border-bottom:1px solid '+color.border+'44;font-size:.75rem;font-weight:600;">'
+      +'<span style="color:'+color.hdr+';">Class Avg: <strong style="font-size:.85rem;color:'+classAvgColor+';">'+classAvgDisplay+'</strong></span>'
+      +'<span style="color:'+color.hdr+';">Pass Mark: '+promotionMark+'%</span>'
+      +(refTotalInput>0?'<span style="color:#e65100;">📌 Ref Total: '+refTotalInput+'</span>':'')
+      +'</div>';
+
+    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.78rem;">';
+
+    // Table header — if full term: show EU / ET / TOT per subject; else just total
+    html += '<thead>';
+    if(hasFullTerm){
+      // Row 1: subject group headers
+      html += '<tr style="background:'+color.hdr+';color:#fff;">'
+        +'<th rowspan="2" style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.2);">#</th>'
+        +'<th rowspan="2" style="padding:8px 10px;text-align:left;font-size:.62rem;font-weight:700;letter-spacing:.06em;min-width:130px;border-right:1px solid rgba(255,255,255,.2);">STUDENT</th>';
+      subjectHeaders.forEach(function(sh){
+        html += '<th colspan="3" style="padding:6px 5px;text-align:center;font-size:.6rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.2);border-left:1px solid rgba(255,255,255,.15);">'+esc(sh.sub.name)+'<br><span style="opacity:.7;font-weight:400;font-size:.55rem;">/'+sh.colMax+'</span></th>';
+      });
+      html += '<th rowspan="2" style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;border-left:2px solid rgba(255,255,255,.3);border-right:1px solid rgba(255,255,255,.2);">TOTAL<br><span style="opacity:.7;font-weight:400;font-size:.58rem;">/'+autoGrandMax+'</span></th>'
+        +(refTotalInput>0?'<th rowspan="2" style="padding:8px 5px;text-align:center;font-size:.6rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15);">%<br><span style="opacity:.7;font-weight:400;font-size:.55rem;">/'+refTotalInput+'</span></th>':'')
+        +'<th rowspan="2" style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;'+(refTotalInput<=0?'border-left:2px solid rgba(255,255,255,.3);':'')+'">AVG%</th>'
+        +'<th rowspan="2" style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;border-left:2px solid rgba(255,255,255,.3);">POS</th>'
+        +'</tr>';
+      // Row 2: EU / ET / TOT sub-headers
+      html += '<tr style="background:'+color.hdr2+';color:#e8eaf6;">';
+      subjectHeaders.forEach(function(){
+        html += '<th style="padding:4px 4px;text-align:center;font-size:.55rem;font-weight:600;border-left:1px solid rgba(255,255,255,.15);">EU</th>'
+          +'<th style="padding:4px 4px;text-align:center;font-size:.55rem;font-weight:600;">ET</th>'
+          +'<th style="padding:4px 4px;text-align:center;font-size:.55rem;font-weight:600;border-right:1px solid rgba(255,255,255,.15);">TOT</th>';
+      });
+      html += '</tr>';
+    } else {
+      html += '<tr style="background:'+color.hdr+';color:#fff;">'
+        +'<th style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.2);">#</th>'
+        +'<th style="padding:8px 10px;text-align:left;font-size:.62rem;font-weight:700;letter-spacing:.06em;min-width:130px;border-right:1px solid rgba(255,255,255,.2);">STUDENT</th>';
+      subjectHeaders.forEach(function(sh){
+        html += '<th style="padding:8px 5px;text-align:center;font-size:.6rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15);">'+esc(sh.sub.name)+'<br><span style="opacity:.7;font-weight:400;font-size:.58rem;">/'+sh.colMax+'</span></th>';
+      });
+      html += '<th style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;border-left:2px solid rgba(255,255,255,.3);border-right:1px solid rgba(255,255,255,.2);">TOTAL<br><span style="opacity:.7;font-weight:400;font-size:.58rem;">/'+autoGrandMax+'</span></th>'
+        +(refTotalInput>0?'<th style="padding:8px 5px;text-align:center;font-size:.6rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15);">%<br><span style="opacity:.7;font-weight:400;font-size:.55rem;">/'+refTotalInput+'</span></th>':'')
+        +'<th style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;'+(refTotalInput<=0?'border-left:2px solid rgba(255,255,255,.3);':'')+'">AVG%</th>'
+        +'<th style="padding:8px 8px;text-align:center;font-size:.62rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;border-left:2px solid rgba(255,255,255,.3);">POS</th>'
+        +'</tr>';
+    }
+    html += '</thead><tbody>';
+
+    cd.students.forEach(function(d, idx){
+      var rowBg = idx%2===0 ? color.row1 : color.row2;
+      var pos = cd.posMap[d.st.id] || null;
+      var pct = (d.grandTotal!==null && refDenominator>0) ? (d.grandTotal/refDenominator*100) : null;
+      var passOk = pct!==null && pct>=promotionMark;
+      var pctCol = pct===null?'#aaa':(passOk?'#1b5e20':'#b71c1c');
+
+      html += '<tr style="background:'+rowBg+';">'
+        +'<td style="padding:7px 8px;text-align:center;font-weight:700;color:'+color.hdr+';border-right:1px solid '+color.border+'22;font-size:.72rem;">'+(idx+1)+'</td>'
+        +'<td style="padding:7px 10px;border-right:1px solid '+color.border+'22;"><div style="font-weight:600;font-size:.82rem;">'+esc(d.st.name)+'</div><div style="font-size:.62rem;color:#888;font-family:monospace;">'+esc(d.st.sid)+'</div></td>';
+
+      subjectHeaders.forEach(function(sh){
+        var m = d.subMarks[sh.sub.id];
+        var pct2 = (m.total!==null && sh.colMax>0) ? (m.total/sh.colMax*100) : null;
+        var col = pct2===null?'#bbb':pct2>=80?'#1b5e20':pct2>=60?'#1565c0':pct2>=40?'#e65100':'#b71c1c';
+        if(hasFullTerm){
+          var euCol = m.eu!==null ? '#1565c0' : '#ccc';
+          var etCol = m.et!==null ? '#6a1b9a' : '#ccc';
+          html += '<td style="padding:5px 4px;text-align:center;font-weight:600;color:'+euCol+';border-left:1px solid '+color.border+'22;font-size:.75rem;">'+(m.eu!==null?m.eu:'<span style="color:#ddd;">—</span>')+'</td>'
+            +'<td style="padding:5px 4px;text-align:center;font-weight:600;color:'+etCol+';font-size:.75rem;">'+(m.et!==null?m.et:'<span style="color:#ddd;">—</span>')+'</td>'
+            +'<td style="padding:5px 4px;text-align:center;font-weight:800;color:'+col+';border-right:1px solid '+color.border+'22;font-size:.78rem;">'+(m.total!==null?m.total:'<span style="color:#ccc;font-weight:400;">—</span>')+'</td>';
+        } else {
+          html += '<td style="padding:7px 5px;text-align:center;font-weight:700;color:'+col+';border-right:1px solid '+color.border+'22;">'
+            +(m.total!==null ? m.total.toFixed(m.total%1===0?0:1) : '<span style="color:#ccc;font-weight:400;">—</span>')
+            +'</td>';
+        }
+      });
+
+      // Total
+      html += '<td style="padding:7px 8px;text-align:center;font-weight:800;font-size:.92rem;color:'+pctCol+';border-left:2px solid '+color.border+'44;border-right:1px solid '+color.border+'22;">'+(d.grandTotal!==null?d.grandTotal.toFixed(d.grandTotal%1===0?0:1):'—')+'</td>';
+      // % over ref (only when ref is set)
+      if(refTotalInput>0){
+        var pctRef = (d.grandTotal!==null && refTotalInput>0) ? (d.grandTotal/refTotalInput*100) : null;
+        html += '<td style="padding:7px 5px;text-align:center;font-weight:700;color:'+(pctRef!==null?(pctRef>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+';border-right:1px solid '+color.border+'22;">'+(pctRef!==null?pctRef.toFixed(1)+'%':'—')+'</td>';
+      }
+      // Avg% over auto max
+      var autoAvgPct = (d.grandTotal!==null && autoGrandMax>0) ? (d.grandTotal/autoGrandMax*100) : null;
+      html += '<td style="padding:7px 8px;text-align:center;font-weight:700;font-size:.8rem;color:'+(autoAvgPct!==null?(autoAvgPct>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+'">'+(autoAvgPct!==null?autoAvgPct.toFixed(1)+'%':'—')+'</td>';
+      // Position
+      html += '<td style="padding:7px 8px;text-align:center;border-left:2px solid '+color.border+'44;">'
+        +(pos!==null?'<div style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:800;font-size:.75rem;background:'+(pos===1?'#f6c90e':pos===2?'#b0bec5':pos===3?'#cd7f32':color.hdr+'22')+';color:'+(pos<=3?'#1a1200':'#1a1d2e')+';">'+pos+'</div>':'<span style="color:#ccc;">—</span>')
+        +'</td></tr>';
+    });
+
+    // Class average row
+    html += '<tr style="background:'+color.avg+';border-top:2px solid '+color.border+';">'
+      +'<td colspan="2" style="padding:8px 10px;font-weight:800;font-size:.8rem;color:'+color.hdr+';letter-spacing:.04em;">📊 CLASS AVERAGE</td>';
+    subjectHeaders.forEach(function(sh){
+      var avg = cd.classSubAvg[sh.sub.id];
+      var pct2 = (avg!==null && sh.colMax>0) ? (avg/sh.colMax*100) : null;
+      var col = pct2===null?'#aaa':pct2>=80?'#1b5e20':pct2>=60?'#1565c0':pct2>=40?'#e65100':'#b71c1c';
+      if(hasFullTerm){
+        html += '<td colspan="3" style="padding:8px 5px;text-align:center;font-weight:800;color:'+col+';font-size:.82rem;border-left:1px solid '+color.border+'22;">'+(avg!==null?avg.toFixed(1):'—')+'</td>';
+      } else {
+        html += '<td style="padding:8px 5px;text-align:center;font-weight:800;color:'+col+';font-size:.82rem;">'+(avg!==null?avg.toFixed(1):'—')+'</td>';
+      }
+    });
+    html += '<td style="padding:8px 8px;text-align:center;font-weight:800;font-size:.9rem;color:'+color.hdr+';border-left:2px solid '+color.border+'44;">'+(cd.classGrandAvg!==null?cd.classGrandAvg.toFixed(1):'—')+'</td>';
+    if(refTotalInput>0){
+      var refAvgPct = (cd.classGrandAvg!==null && refTotalInput>0) ? (cd.classGrandAvg/refTotalInput*100) : null;
+      html += '<td style="padding:8px 5px;text-align:center;font-weight:800;color:'+(refAvgPct!==null?(refAvgPct>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+';font-size:.85rem;">'+(refAvgPct!==null?refAvgPct.toFixed(1)+'%':'—')+'</td>';
+    }
+    html += '<td style="padding:8px 8px;text-align:center;font-weight:800;color:'+(classAvgPct!==null?(classAvgPct>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+';font-size:.85rem;">'+(classAvgPct!==null?classAvgPct.toFixed(1)+'%':'—')+'</td>'
+      +'<td style="border-left:2px solid '+color.border+'44;"></td>'
+      +'</tr>';
+
+    html += '</tbody></table></div></div>';
+  });
+
+  // ── LEVEL SUMMARY ──
+  html += '<div style="background:#fff;border:2px solid #1a237e;border-radius:12px;margin-bottom:1.4rem;overflow:hidden;box-shadow:0 4px 20px rgba(26,35,126,.18);">';
+  html += '<div style="background:linear-gradient(135deg,#0d0d2b,#1a237e);color:#fff;padding:.9rem 1.1rem;">'
+    +'<div style="font-size:1.1rem;font-weight:800;">🎓 Overall Level Performance — '+esc(selLevel)+'</div>'
+    +'<div style="font-size:.72rem;opacity:.75;margin-top:3px;">'+esc(termLabel)+(academicYear?' · '+esc(academicYear):'')+' · Pass mark: '+promotionMark+'%'+(refTotalInput>0?' · Ref total: '+refTotalInput:'')+'</div>'
+    +'</div>';
+  html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.8rem;">';
+  html += '<thead><tr style="background:#1a237e;color:#fff;">'
+    +'<th style="padding:8px 10px;text-align:left;font-size:.63rem;font-weight:700;letter-spacing:.06em;">CLASS</th>'
+    +'<th style="padding:8px 8px;text-align:center;font-size:.63rem;font-weight:700;">STUDENTS</th>';
+  subjectHeaders.forEach(function(sh){
+    html += '<th style="padding:8px 5px;text-align:center;font-size:.6rem;font-weight:700;white-space:nowrap;">'+esc(sh.sub.name)+'<br><span style="opacity:.6;font-weight:400;">avg</span></th>';
+  });
+  html += '<th style="padding:8px 8px;text-align:center;font-size:.63rem;font-weight:700;">CLASS AVG<br><span style="opacity:.6;font-weight:400;font-size:.58rem;">/'+autoGrandMax+'</span></th>'
+    +(refTotalInput>0?'<th style="padding:8px 5px;text-align:center;font-size:.6rem;font-weight:700;">%<br><span style="opacity:.6;font-weight:400;font-size:.55rem;">/'+refTotalInput+'</span></th>':'')
+    +'<th style="padding:8px 8px;text-align:center;font-size:.63rem;font-weight:700;">AVG%</th>'
+    +'</tr></thead><tbody>';
+
+  allClassData.forEach(function(cd, ci){
+    var bg = ci%2===0?'#f0f2ff':'#fff';
+    var avgPct = (cd.classGrandAvg!==null && refDenominator>0) ? (cd.classGrandAvg/refDenominator*100) : null;
+    var autoAvgPct2 = (cd.classGrandAvg!==null && autoGrandMax>0) ? (cd.classGrandAvg/autoGrandMax*100) : null;
+    html += '<tr style="background:'+bg+';border-bottom:1px solid #e0e4f0;">'
+      +'<td style="padding:8px 10px;font-weight:700;color:#1a237e;font-size:.85rem;">'+esc(cd.cls.name)+'</td>'
+      +'<td style="padding:8px 8px;text-align:center;color:#444;">'+cd.students.length+'</td>';
+    subjectHeaders.forEach(function(sh){
+      var avg = cd.classSubAvg[sh.sub.id];
+      var pct2 = (avg!==null && sh.colMax>0) ? (avg/sh.colMax*100) : null;
+      var col = pct2===null?'#bbb':pct2>=80?'#1b5e20':pct2>=60?'#1565c0':pct2>=40?'#e65100':'#b71c1c';
+      html += '<td style="padding:8px 5px;text-align:center;font-weight:700;color:'+col+';">'+(avg!==null?avg.toFixed(1):'—')+'</td>';
+    });
+    html += '<td style="padding:8px 8px;text-align:center;font-weight:800;color:#1a237e;border-left:2px solid #c5cae9;">'+(cd.classGrandAvg!==null?cd.classGrandAvg.toFixed(1):'—')+'</td>';
+    if(refTotalInput>0){
+      var refPct2 = (cd.classGrandAvg!==null&&refTotalInput>0) ? (cd.classGrandAvg/refTotalInput*100) : null;
+      html += '<td style="padding:8px 5px;text-align:center;font-weight:700;color:'+(refPct2!==null?(refPct2>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+'">'+(refPct2!==null?refPct2.toFixed(1)+'%':'—')+'</td>';
+    }
+    html += '<td style="padding:8px 8px;text-align:center;font-weight:700;color:'+(autoAvgPct2!==null?(autoAvgPct2>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+'">'+(autoAvgPct2!==null?autoAvgPct2.toFixed(1)+'%':'—')+'</td></tr>';
+  });
+
+  // Level average row
+  var withMark = levelAllStudents.filter(function(d){ return d.grandTotal!==null; });
+  var levelAvg = withMark.length ? withMark.reduce(function(s,d){return s+d.grandTotal;},0)/withMark.length : null;
+  var levelAvgPct = (levelAvg!==null && refDenominator>0) ? (levelAvg/refDenominator*100) : null;
+  var levelAutoAvgPct = (levelAvg!==null && autoGrandMax>0) ? (levelAvg/autoGrandMax*100) : null;
+
+  html += '<tr style="background:#e8eaf6;border-top:3px double #3949ab;">'
+    +'<td style="padding:9px 10px;font-weight:800;color:#1a237e;font-size:.85rem;letter-spacing:.04em;">🏫 LEVEL AVERAGE</td>'
+    +'<td style="padding:9px 8px;text-align:center;font-weight:700;color:#1a237e;">'+levelAllStudents.length+'</td>';
+  subjectHeaders.forEach(function(sh){
+    var vals = allClassData.map(function(cd){ return cd.classSubAvg[sh.sub.id]; }).filter(function(v){return v!==null;});
+    var lvlSubAvg = vals.length ? vals.reduce(function(a,b){return a+b;},0)/vals.length : null;
+    var pct2 = (lvlSubAvg!==null && sh.colMax>0) ? (lvlSubAvg/sh.colMax*100) : null;
+    var col = pct2===null?'#bbb':pct2>=80?'#1b5e20':pct2>=60?'#1565c0':pct2>=40?'#e65100':'#b71c1c';
+    html += '<td style="padding:9px 5px;text-align:center;font-weight:800;color:'+col+';font-size:.88rem;">'+(lvlSubAvg!==null?lvlSubAvg.toFixed(1):'—')+'</td>';
+  });
+  html += '<td style="padding:9px 8px;text-align:center;font-weight:800;font-size:.92rem;color:#1a237e;border-left:2px solid #3949ab;">'+(levelAvg!==null?levelAvg.toFixed(1):'—')+'</td>';
+  if(refTotalInput>0){
+    html += '<td style="padding:9px 8px;text-align:center;font-weight:800;color:'+(levelAvgPct!==null?(levelAvgPct>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+'">'+(levelAvgPct!==null?levelAvgPct.toFixed(1)+'%':'—')+'</td>';
+  }
+  html += '<td style="padding:9px 8px;text-align:center;font-weight:800;color:'+(levelAutoAvgPct!==null?(levelAutoAvgPct>=promotionMark?'#1b5e20':'#b71c1c'):'#aaa')+'">'+(levelAutoAvgPct!==null?levelAutoAvgPct.toFixed(1)+'%':'—')+'</td></tr>';
+
+  html += '</tbody></table></div></div>';
+
+  html += '<div style="text-align:center;font-size:.65rem;color:#888;margin-top:.5rem;">Generated by SCORIX &nbsp;·&nbsp; '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>';
+  html += '</div>'; // end povPrintDoc
+
+  out.innerHTML = html;
+  CURRENT_TERM_YEAR_ID = savedYearId;
+} // end _renderPerfOverviewInner
+
+
+function printPerfOverview(){
+  var src = document.getElementById('povPrintDoc');
+  if(!src || !src.innerHTML.trim()){
+    alert('Generate the overview first before printing.');
+    return;
+  }
+  var termRaw = (document.getElementById('povTerm')||{}).value||'';
+  var lvl = (document.getElementById('povLevel')||{}).value||CURRENT_LEVEL;
+  var titleEl = document.querySelector('#povPrintDoc div[style*="Performance Overview Report"]');
+  var pTitle = 'Performance Overview — '+lvl;
+
+  var printStyles = '<style>'
+    +'*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'
+    +'body{font-family:Outfit,Arial,sans-serif;background:#f5f7fc;color:#1a1d2e;padding:6mm;}'
+    +'@page{size:A3 landscape;margin:5mm;}'
+    +'table{border-collapse:collapse;width:100%;font-size:.74rem;}'
+    +'th,td{border:1px solid #dde3f5;padding:5px 7px;}'
+    +'@media print{'
+    +'  body{padding:0;}'
+    +'  .no-print{display:none!important;}'
+    +'  table{page-break-inside:auto;}'
+    +'  tr{page-break-inside:avoid;page-break-after:auto;}'
+    +'  div[style*="margin-bottom:1.8rem"]{page-break-inside:avoid;}'
+    +'}'
+    +'</style>';
+
+  _openPrintWindow(printStyles + _resolveCssVars(src.outerHTML), false, pTitle);
 }
 
 // Apply language on page load
@@ -14371,15 +16378,70 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 // Hide login until data is ready — wait for DOM to be fully loaded
-if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', function(){
-    document.getElementById('loginWrap').style.display = 'none';
-    initApp();
-  });
-} else {
+function _safeInitApp(){
   document.getElementById('loginWrap').style.display = 'none';
-  initApp();
+  initApp().catch(function(e){
+    console.error('[SCORIX] initApp crashed', e);
+    // Last-resort: remove any loading overlay and show landing page
+    var _lo = document.getElementById('loadOverlay');
+    if(_lo) _lo.remove();
+    var _lw = document.getElementById('landingWrap');
+    if(_lw) _lw.style.display = 'block';
+  });
 }
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', _safeInitApp);
+} else {
+  _safeInitApp();
+}
+
+// ── SECURITY FIX #4: Idle session timeout — 2 hours of inactivity auto-logs out ──
+// Protects against forgotten sessions on shared school computers.
+(function(){
+  var IDLE_MS  = 2 * 60 * 60 * 1000; // 2 hours
+  var WARN_MS  = 60 * 1000;           // warn 1 minute before logout
+  var _it = null, _wt = null, _banner = null;
+
+  function _removeBanner(){ if(_banner){ _banner.parentNode && _banner.parentNode.removeChild(_banner); _banner=null; } }
+
+  function _reset(){
+    clearTimeout(_it); clearTimeout(_wt);
+    _removeBanner();
+    if(!window.ME || !window.ME.id) return;
+
+    _wt = setTimeout(function(){
+      if(!window.ME || !window.ME.id) return;
+      // Build banner purely via DOM — no innerHTML quote hell
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:99999;background:#1d2640;border:1px solid rgba(246,201,14,.5);border-radius:12px;padding:.75rem 1.4rem;display:flex;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,.5);max-width:420px;width:90%;';
+      var icon = document.createElement('span');
+      icon.textContent = '⏰';
+      icon.style.fontSize = '1.3rem';
+      var msg = document.createElement('div');
+      msg.style.cssText = 'flex:1;font-size:.84rem;color:#f0f3ff;';
+      msg.innerHTML = '<strong>Still there?</strong> You will be signed out in 1 minute due to inactivity.';
+      var btn = document.createElement('button');
+      btn.textContent = 'Stay signed in';
+      btn.style.cssText = 'background:#f6c90e;color:#1a1200;border:none;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer;font-size:.82rem;white-space:nowrap;';
+      btn.addEventListener('click', function(){ _removeBanner(); _reset(); });
+      wrap.appendChild(icon); wrap.appendChild(msg); wrap.appendChild(btn);
+      document.body.appendChild(wrap);
+      _banner = wrap;
+    }, IDLE_MS - WARN_MS);
+
+    _it = setTimeout(function(){
+      if(!window.ME || !window.ME.id) return;
+      _removeBanner();
+      alert('⏰ You have been signed out due to 2 hours of inactivity.\n\nThis protects your school data on shared devices.');
+      if(typeof doLogout === 'function') doLogout();
+    }, IDLE_MS);
+  }
+
+  ['mousemove','keydown','mousedown','touchstart','scroll','click'].forEach(function(ev){
+    document.addEventListener(ev, _reset, {passive:true});
+  });
+  _reset();
+})();
 
 // ── MOBILE KEYBOARD: scroll active chat input into view when keyboard opens ──
 // Uses visualViewport API (supported on all modern mobile browsers)
@@ -14465,6 +16527,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <div class="ds-section-title">🏫 School Identity</div>
       <div style="display:flex;flex-direction:column;gap:.75rem;">
         <div class="fg"><label>School Name</label><input type="text" id="ds_name" placeholder="e.g. St. Mary's Academy"></div>
+        <div class="fg"><label>Director's Full Name</label><input type="text" id="ds_directorName" placeholder="e.g. Jean Pierre Habimana"></div>
         <div class="fg"><label>Motto / Tagline</label><input type="text" id="ds_motto" placeholder="e.g. Excellence in Education"></div>
         <div class="fg"><label>Academic Year</label><input type="text" id="ds_acadYear" placeholder="e.g. 2025-2026"></div>
         <div class="fg"><label>School Code / Reference</label><input type="text" id="ds_code" placeholder="e.g. SCH-001"></div>
