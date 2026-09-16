@@ -1574,6 +1574,33 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div class="pw-wrap"><input type="password" id="p-pass-login" placeholder="Your password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-login',this)">👁</button></div>
       </div>
       <button class="lbtn" onclick="doParentLogin()" style="margin-top:1rem;">Sign In →</button>
+      <div style="text-align:center;margin-top:.7rem;">
+        <a href="javascript:void(0)" onclick="openParentForgotPw()" style="font-size:.78rem;color:var(--blue);text-decoration:none;">Forgot password?</a>
+      </div>
+    </div>
+
+    <!-- FORGOT PASSWORD TAB -->
+    <div id="parent-forgot-tab" style="display:none;">
+      <div style="padding:8px 12px;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.2);border-radius:8px;font-size:.76rem;color:var(--blue);margin-bottom:.9rem;line-height:1.6;">
+        🔑 Enter your email and your child's <strong>Student Academic Code</strong> to verify it's you, then set a new password.
+      </div>
+      <div class="lerr" id="parent-frerr" style="display:none;">❌ Error</div>
+      <div id="parent-frok" style="display:none;padding:8px 12px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:8px;font-size:.82rem;color:var(--green);margin-bottom:.7rem;"></div>
+      <div class="lf">
+        <label>School</label>
+        <select id="p-school-forgot" style="width:100%;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;"></select>
+      </div>
+      <div class="lf" style="margin-top:.6rem;"><label>Email Address</label><input type="email" id="p-email-forgot" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="lf" style="margin-top:.6rem;"><label>Student Academic Code <span style="color:var(--ink3);font-weight:400;">(from report card)</span></label>
+        <input type="text" id="p-code-forgot" placeholder="e.g. ST001" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="lf" style="margin-top:.6rem;"><label>New Password</label>
+        <div class="pw-wrap"><input type="password" id="p-pass-forgot" placeholder="New password (min 6 characters)"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-forgot',this)">👁</button></div>
+      </div>
+      <button class="lbtn" onclick="doParentForgotPw()" style="margin-top:1rem;">Reset Password →</button>
+      <div style="text-align:center;margin-top:.7rem;">
+        <a href="javascript:void(0)" onclick="closeParentForgotPw()" style="font-size:.78rem;color:var(--ink3);text-decoration:none;">← Back to Sign In</a>
+      </div>
     </div>
 
     <!-- SIGNUP TAB -->
@@ -1840,7 +1867,6 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           <div id="dash-attendance"></div>
           <!-- APPROVAL STATUS — Teacher only -->
           <div id="dash-approval"></div>
-          <div class="card admin-only"><div class="ctitle" id="dact-title">Recent Activity</div><div id="dact"></div></div>
         </div>
 
         <!-- MORNING QUIZ DASHBOARD VIEW -->
@@ -4334,6 +4360,8 @@ function showPortalLogin(portal){
     if(sel){ sel.innerHTML = schoolOptions; }
     var selLogin = document.getElementById('p-school-login');
     if(selLogin){ selLogin.innerHTML = schoolOptions; }
+    var selForgot = document.getElementById('p-school-forgot');
+    if(selForgot){ selForgot.innerHTML = schoolOptions; }
     switchParentTab('login');
     return;
   }
@@ -4367,25 +4395,92 @@ function backToLanding(){
 }
 
 function switchParentTab(tab){
-  var loginTab = document.getElementById('parent-login-tab');
+  var loginTab  = document.getElementById('parent-login-tab');
   var signupTab = document.getElementById('parent-signup-tab');
+  var forgotTab = document.getElementById('parent-forgot-tab');
   var loginBtn  = document.getElementById('ptab-login');
   var signupBtn = document.getElementById('ptab-signup');
   if(tab === 'login'){
     if(loginTab)  loginTab.style.display  = '';
     if(signupTab) signupTab.style.display = 'none';
+    if(forgotTab) forgotTab.style.display = 'none';
     if(loginBtn)  { loginBtn.style.background='var(--s1)'; loginBtn.style.color='var(--ink)'; }
     if(signupBtn) { signupBtn.style.background='none'; signupBtn.style.color='var(--ink3)'; }
-  } else {
+  } else if(tab === 'signup'){
     if(loginTab)  loginTab.style.display  = 'none';
     if(signupTab) signupTab.style.display = '';
+    if(forgotTab) forgotTab.style.display = 'none';
     if(signupBtn) { signupBtn.style.background='var(--s1)'; signupBtn.style.color='var(--ink)'; }
     if(loginBtn)  { loginBtn.style.background='none'; loginBtn.style.color='var(--ink3)'; }
+  } else if(tab === 'forgot'){
+    if(loginTab)  loginTab.style.display  = 'none';
+    if(signupTab) signupTab.style.display = 'none';
+    if(forgotTab) forgotTab.style.display = '';
   }
   // Clear errors
   var le = document.getElementById('parent-lerr'); if(le) le.style.display='none';
   var se = document.getElementById('parent-serr'); if(se) se.style.display='none';
   var so = document.getElementById('parent-sok');  if(so) so.style.display='none';
+  var fe = document.getElementById('parent-frerr'); if(fe) fe.style.display='none';
+  var fo = document.getElementById('parent-frok');  if(fo) fo.style.display='none';
+}
+
+// ── Parent Forgot Password ──
+function openParentForgotPw(){
+  // Carry over the currently-selected login school, if any
+  var loginSchoolEl = document.getElementById('p-school-login');
+  var forgotSchoolEl = document.getElementById('p-school-forgot');
+  if(loginSchoolEl && forgotSchoolEl && loginSchoolEl.value) forgotSchoolEl.value = loginSchoolEl.value;
+  var loginEmailEl = document.getElementById('p-email-login');
+  var forgotEmailEl = document.getElementById('p-email-forgot');
+  if(loginEmailEl && forgotEmailEl && loginEmailEl.value) forgotEmailEl.value = loginEmailEl.value;
+  switchParentTab('forgot');
+}
+function closeParentForgotPw(){
+  switchParentTab('login');
+}
+async function doParentForgotPw(){
+  var schoolId = (document.getElementById('p-school-forgot').value||'').trim();
+  var email    = (document.getElementById('p-email-forgot').value||'').trim().toLowerCase();
+  var code     = (document.getElementById('p-code-forgot').value||'').trim().toUpperCase();
+  var newPass  = document.getElementById('p-pass-forgot').value;
+  var errEl = document.getElementById('parent-frerr');
+  var okEl  = document.getElementById('parent-frok');
+  function fErr(msg){ errEl.textContent='❌ '+msg; errEl.style.display='flex'; okEl.style.display='none'; }
+  function fOk(msg){  okEl.textContent='✅ '+msg;  okEl.style.display='block'; errEl.style.display='none'; }
+
+  if(!schoolId){ fErr('Please select your school.'); return; }
+  if(!email || !code || !newPass){ fErr('Please fill in all fields.'); return; }
+  if(newPass.length < 6){ fErr('New password must be at least 6 characters.'); return; }
+
+  var btn = document.querySelector('#parent-forgot-tab .lbtn');
+  if(btn){ btn.disabled=true; btn.textContent='Verifying…'; }
+  try{
+    await supabaseLoad(schoolId);
+    if(!DB.parents) DB.parents=[];
+    var parent = DB.parents.find(function(p){ return p.email===email; });
+    if(!parent){ fErr('No parent account found with that email at this school.'); return; }
+    if(!parent.studentCodes || parent.studentCodes.indexOf(code) < 0){
+      fErr('That student code does not match this account. Check the code on the report card.');
+      return;
+    }
+    var newHash = await sha256(newPass);
+    parent.password = newHash;
+    CURRENT_SCHOOL_ID = schoolId;
+    addLog('Parent self-reset password: '+email);
+    dbSave();
+    fOk('Password reset! You can now sign in with your new password.');
+    setTimeout(function(){
+      switchParentTab('login');
+      document.getElementById('p-email-login').value = email;
+      var selLogin = document.getElementById('p-school-login');
+      if(selLogin) selLogin.value = schoolId;
+    }, 1800);
+  }catch(e){
+    fErr('Something went wrong. Please try again.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Reset Password →'; }
+  }
 }
 
 // ── Parent Sign Up ──
@@ -4407,6 +4502,10 @@ async function doParentSignup(){
   await supabaseLoad(schoolId);
   var student = DB.students.find(function(s){ return s.sid.toUpperCase() === code; });
   if(!student){ pErr('Student code "'+code+'" not found in the selected school. Check the code on the report card.'); return; }
+
+  // Confirm identity before completing registration
+  var confirmed = confirm('👪 Is "'+student.name+'" really your child?\n\nClick OK to confirm and complete registration.');
+  if(!confirmed){ pErr('Registration cancelled. Please double-check the student code with the school if this is not your child.'); return; }
 
   // Check if email already registered
   if(!DB.parents) DB.parents = [];
@@ -5601,10 +5700,6 @@ function renderDash(){
     }
   }
 
-  var el = document.getElementById('dact');
-  var actTitle=document.getElementById('dact-title');
-  if(actTitle) actTitle.textContent=L('recentActivity');
-
   // Teacher approval widget on dashboard
   var da=document.getElementById('dash-approval');
   if(da){
@@ -5647,13 +5742,6 @@ function renderDash(){
     }
   }
 
-  if(!DB.activity.length){
-    el.innerHTML='<div class="empty"><div class="ei">📋</div><p>'+L('noActivity')+'</p></div>';
-  } else {
-    el.innerHTML = DB.activity.slice(-8).reverse().map(function(a){
-      return'<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);"><span style="font-family:monospace;font-size:.7rem;color:var(--ink3);white-space:nowrap;">'+a.time+'</span><span style="font-size:.84rem;">'+a.text+'</span></div>';
-    }).join('');
-  }
   // Restore mode switcher state
   dashSwitchMode(_dashMode||'term');
 }
@@ -7525,7 +7613,7 @@ function renderStudents(){
       +'<td><code style="font-size:.78rem;color:var(--blue);background:rgba(74,143,255,.1);padding:2px 7px;border-radius:4px;">'+esc(s.sid)+'</code></td>'
       +'<td><span style="font-size:.76rem;font-weight:600;color:var(--gold);background:rgba(240,180,41,.1);padding:2px 9px;border-radius:10px;">'+(c?esc(c.name):'—')+'</span></td>'
       +phoneCell
-      +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" data-sid="'+s.id+'" onclick="openEditStudent(this.dataset.sid)">✏️</button><button class="btn sm red" data-sid="'+s.id+'" onclick="delStudent(this.dataset.sid)">🗑️</button></div></td>'
+      +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" data-sid="'+s.id+'" onclick="openEditStudent(this.dataset.sid)">✏️</button><button class="btn sm ghost" data-sid="'+s.id+'" title="Remove registered parent" onclick="manageStudentParent(this.dataset.sid)">👪</button><button class="btn sm red" data-sid="'+s.id+'" onclick="delStudent(this.dataset.sid)">🗑️</button></div></td>'
       +'</tr>';
   });
   tb.innerHTML=html;
@@ -7647,6 +7735,52 @@ function addStudent(){
   document.getElementById('mstparent').value='';
   document.getElementById('mstpphone').value='';
 }
+// ── Director/Admin: view & remove a parent registered on a child ──
+function manageStudentParent(sid){
+  if(!isAdmin()){ alert('Only the director/admin can manage registered parents.'); return; }
+  var st = DB.students.find(function(x){ return x.id===sid; });
+  if(!st){ alert('Student not found.'); return; }
+  if(!DB.parents) DB.parents=[];
+  var matches = DB.parents.filter(function(p){
+    return p.studentCodes && p.studentCodes.indexOf(st.sid.toUpperCase())>=0;
+  });
+  if(!matches.length){ alert('No parent is registered for "'+st.name+'" yet.'); return; }
+
+  var listTxt = matches.map(function(p,i){ return (i+1)+'. '+p.email; }).join('\n');
+  var prompt1 = matches.length===1
+    ? 'Parent registered for "'+st.name+'":\n\n'+matches[0].email+'\n\nRemove this parent from this child?'
+    : 'Parents registered for "'+st.name+'":\n\n'+listTxt+'\n\nType the number of the parent to remove, or Cancel.';
+
+  var target = null;
+  if(matches.length===1){
+    if(!confirm(prompt1)) return;
+    target = matches[0];
+  } else {
+    var pick = prompt(prompt1);
+    if(pick===null) return;
+    var idx = parseInt(pick,10)-1;
+    if(isNaN(idx) || idx<0 || idx>=matches.length){ alert('Invalid selection.'); return; }
+    target = matches[idx];
+  }
+
+  var willDeleteAccount = target.studentCodes.length <= 1;
+  var msg = willDeleteAccount
+    ? 'This is the only child linked to '+target.email+'. Their parent account will be fully removed. Continue?'
+    : target.email+' will no longer have access to "'+st.name+'". Continue?';
+  if(!confirm(msg)) return;
+
+  target.studentCodes = target.studentCodes.filter(function(c){ return c !== st.sid.toUpperCase(); });
+  if(target.studentCodes.length === 0){
+    DB.parents = DB.parents.filter(function(p){ return p.id !== target.id; });
+    addLog('🗑️ Director removed parent account: '+target.email+' (was linked to '+st.name+')');
+  } else {
+    addLog('🗑️ Director unlinked parent '+target.email+' from student: '+st.name);
+  }
+  dbSave();
+  renderStudents();
+  alert('Parent removed from "'+st.name+'".');
+}
+
 function delStudent(id){
   if(!isAdmin()){alert("Only the director can delete students.");return;}
   var st=DB.students.find(function(x){return x.id===id;});
