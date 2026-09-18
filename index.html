@@ -1656,6 +1656,12 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
   <!-- Content -->
   <div style="max-width:900px;margin:0 auto;padding:1.4rem;">
     <div id="parent-portal-content"></div>
+    <!-- PERMANENT FOOTER CREDIT -->
+    <div class="noprint" style="text-align:center;margin-top:2rem;padding:.8rem;border-top:1px solid var(--bd);">
+      <span style="font-size:.72rem;color:var(--ink3);letter-spacing:.04em;">
+        Designed &amp; Developed by <strong style="color:var(--gold);">NGENZI Fabrice</strong> &nbsp;✦&nbsp; Powered by <strong style="color:var(--blue);">SCORIX</strong>
+      </span>
+    </div>
   </div>
 </div>
 
@@ -2138,6 +2144,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <div class="phsub">Morning quiz progress &amp; per-subject breakdown — no report cards for quizzes</div>
           </div>
           <div class="phact" style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn green" id="qpReleaseBtn" onclick="quizToggleRelease()" disabled style="opacity:.5;">📢 Release to Parents</button>
             <button class="btn ghost" onclick="printQuizProcl()">🖨️ Print</button>
             <button class="btn ghost" onclick="toggleQuizView()" id="qpViewToggleBtn">&#128202; Subject Breakdown</button>
           </div>
@@ -2145,6 +2152,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div class="al info noprint" style="margin-bottom:1rem;padding:9px 14px;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.22);border-radius:8px;font-size:.78rem;color:var(--blue);">
           ℹ️ <strong>Morning Quiz rankings do not generate report cards.</strong> These scores are for tracking weekly progress only and have no impact on official term results.
         </div>
+        <div id="qpReleaseStatus" class="noprint" style="display:none;margin-bottom:1rem;padding:9px 14px;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.28);border-radius:8px;font-size:.78rem;color:var(--green);line-height:1.5;"></div>
         <div class="card noprint" style="margin-bottom:1rem;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;flex-wrap:wrap;">
             <span style="font-size:.72rem;color:var(--ink3);font-weight:600;">📅 Academic Year:</span>
@@ -3712,8 +3720,16 @@ function _startParentRealtimeSubscription(){
       function(payload){
         if(payload.new && payload.new.data){
           var d = payload.new.data;
+          var relBefore = JSON.stringify(DB.quizReleases||[]);
           if(d.parentChats) DB.parentChats = d.parentChats;
           if(d.messages)    DB.messages    = d.messages;
+          if(Array.isArray(d.quizReleases)) DB.quizReleases = d.quizReleases;
+          if(d.marks && typeof d.marks==='object') DB.marks = d.marks;
+          quizPurgeExpired();
+          // Teacher just released (or withdrew) a week → refresh the results view live
+          if(relBefore !== JSON.stringify(DB.quizReleases||[]) && _parentView==='results'){
+            renderParentPortal(); parentUpdateBadge(); return;
+          }
           // Re-render parent chat sections
           var codes = PARENT_USER.studentCodes || [];
           codes.forEach(function(code){
@@ -3757,7 +3773,9 @@ function _applyRemoteData(d){
   if(Array.isArray(d.termYears))                   DB.termYears=d.termYears;
   if(Array.isArray(d.parents))                     DB.parents=d.parents;
   if(Array.isArray(d.messages))                    DB.messages=d.messages;
+  if(Array.isArray(d.quizReleases))                DB.quizReleases=d.quizReleases;
   if(d.parentChats&&typeof d.parentChats==='object') DB.parentChats=d.parentChats;
+  quizPurgeExpired();
   // Marks: merge carefully — don't overwrite unsaved local changes
   if(d.marks&&typeof d.marks==='object'){
     Object.keys(d.marks).forEach(function(k){
@@ -4069,6 +4087,7 @@ var DB = {
   termYears:[],   // [{id, label, locked, createdAt}] — each year uses its own marks via key prefix
   messages:[],    // [{id, from, fromName, subject, body, to:'all'|'teachers'|'parents', sentAt, readBy:[uid,...]}]
   parentChats:{}, // {studentId: [{id, senderRole:'teacher'|'parent', senderName, text, sentAt}]}
+  quizReleases:[],// [{id, classId, yearId, weekId, releasedBy, releasedByName, releasedAt, msgId}] — weeks a teacher opened to parents
   subApprovals:{}, // {clsId_termId_subId_eu|et: {submitted,submittedBy,submittedAt,savedBy,savedAt}}
   terms:[
     {id:'T1',name:'Term 1',type:'term',active:true,components:[
@@ -4155,7 +4174,9 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.termYears)) DB.termYears=d.termYears;
     if(Array.isArray(d.parents))   DB.parents=d.parents;
     if(Array.isArray(d.messages))  DB.messages=d.messages;
+    if(Array.isArray(d.quizReleases)) DB.quizReleases=d.quizReleases;
     if(d.parentChats && typeof d.parentChats==='object') DB.parentChats=d.parentChats;
+    quizPurgeExpired(); // auto-delete release notifications older than 7 days
 
     // ── MIGRATION 3: old quiz mark keys → new year-keyed format ──
     // Old: qz_studentId_subId_W1  (4 parts split by _)
@@ -4750,9 +4771,12 @@ function _buildParentAttendance(student, cls){
     +'</div>';
 }
 
+var _parentView = 'results'; // 'results' | 'inbox'
 function renderParentPortal(){
   var content = document.getElementById('parent-portal-content');
   if(!content) return;
+  _parentView = 'results';
+  quizPurgeExpired();
 
   var codes = PARENT_USER.studentCodes || [];
   if(!codes.length){
@@ -4798,6 +4822,8 @@ function renderParentPortal(){
         var yearHtml = '';
 
         yr.weeks.forEach(function(wk){
+          // Parents only see weeks the class teacher has released
+          if(!quizIsReleased(student.classId, yr.id, wk.id)) return;
           // Gather this student's marks for this week
           var subResults = quizSubs.map(function(sub){
             var key = 'qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
@@ -4812,10 +4838,9 @@ function renderParentPortal(){
           hasAnyQuizData = true;
 
           // Compute this student's total and average
-          var maxTotal = quizSubs.length * 20;
           var myTotal = 0; var myCnt = 0;
           subResults.forEach(function(c){ if(c.val!==null){myTotal+=c.val;myCnt++;} });
-          var myAvgPct = myCnt>0 ? (myTotal/maxTotal)*100 : null;
+          var myAvgPct = myCnt>0 ? (myTotal/(myCnt*20))*100 : null;
 
           // Compute class rank: compare against all classmates in same year/week
           var classStudents = cls ? DB.students.filter(function(s){return s.classId===cls.id;}) : [];
@@ -4884,7 +4909,7 @@ function renderParentPortal(){
       });
 
       if(!hasAnyQuizData){
-        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz marks recorded yet.</div>';
+        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz results have been released yet. You will get a message in your inbox when the teacher opens a week.</div>';
       }
     }
 
@@ -4938,9 +4963,23 @@ function showAddChildModal(){
 function parentInboxUnread(){
   if(!DB.messages || !PARENT_USER) return 0;
   return DB.messages.filter(function(m){
-    if(m.to !== 'parents' && m.to !== 'all') return false;
+    if(!parentCanSeeMsg(m)) return false;
     return !(m.readBy && m.readBy.indexOf('parent_'+PARENT_USER.id) >= 0);
   }).length;
+}
+
+// Parent sees: director broadcasts + class-targeted notices for their child's class; never expired ones
+function parentCanSeeMsg(m){
+  if(!m || (m.to !== 'parents' && m.to !== 'all')) return false;
+  if(m.expiresAt && new Date(m.expiresAt).getTime() <= Date.now()) return false;
+  if(m.classId){
+    var codes = (PARENT_USER && PARENT_USER.studentCodes) || [];
+    return codes.some(function(code){
+      var st = DB.students.find(function(s){ return s.sid && s.sid.toUpperCase()===code.toUpperCase(); });
+      return st && st.classId === m.classId;
+    });
+  }
+  return true;
 }
 
 function parentUpdateBadge(){
@@ -4955,8 +4994,10 @@ function parentShowInbox(){
   var content = document.getElementById('parent-portal-content');
   if(!content) return;
   if(!DB.messages) DB.messages = [];
+  _parentView = 'inbox';
+  quizPurgeExpired();
 
-  var msgs = DB.messages.filter(function(m){ return m.to === 'parents' || m.to === 'all'; });
+  var msgs = DB.messages.filter(parentCanSeeMsg);
   var uid  = 'parent_' + PARENT_USER.id;
 
   var html = '<div style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">'
@@ -4978,6 +5019,7 @@ function parentShowInbox(){
         + '</div>'
         + '<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.6rem;">From: ' + esc(m.fromName) + '</div>'
         + '<div style="font-size:.85rem;color:var(--ink);line-height:1.7;white-space:pre-wrap;">' + esc(m.body) + '</div>'
+        + (m.kind==='quizRelease' ? '<div style="margin-top:.7rem;"><button class="btn green sm" onclick="renderParentPortal()">🌅 View quiz results</button></div>' : '')
         + '</div>';
       // Mark as read
       if(!m.readBy) m.readBy = [];
@@ -5234,7 +5276,7 @@ function doLogout(){
   ME=null; PARENT_USER=null; CURRENT_SCHOOL_ID=null; _markMode='term'; CURRENT_LEVEL='PRIMARY';
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   _userIndexCache = null; // force fresh login lookup next time
-  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],parentChats:{},remarks:{},
+  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],quizReleases:[],parentChats:{},remarks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],quizYears:[],termYears:[],attendance:{},
     terms:[
@@ -8941,12 +8983,39 @@ function _parseImportText(text){
   var isHeader = firstCell === 'name' || firstCell === 'nom' || firstCell === 'student' || firstCell === '#';
   var data = isHeader ? lines.slice(1) : lines;
   return data.map(function(line){
-    // Handle quoted fields
-    var cols = [];
-    var re = sep === ',' ? /(".*?"|[^,]+)(?=,|$)/g : new RegExp('([^'+sep+']+)','g');
-    var parts = line.split(sep).map(function(x){ return x.trim().replace(/^["']|["']$/g,''); });
-    return parts;
+    return _splitCsvLine(line, sep);
   });
+}
+
+// Quote-aware field splitter: a separator inside a quoted field (e.g. "Okafor, Chidi")
+// is treated as part of the field instead of a column break. Handles "" as an escaped
+// quote inside a quoted field, per standard CSV rules.
+function _splitCsvLine(line, sep){
+  var out = [];
+  var cur = '';
+  var inQuotes = false;
+  for(var i=0; i<line.length; i++){
+    var ch = line[i];
+    if(inQuotes){
+      if(ch === '"'){
+        if(line[i+1] === '"'){ cur += '"'; i++; } // escaped quote
+        else { inQuotes = false; }
+      } else {
+        cur += ch;
+      }
+    } else {
+      if(ch === '"' && cur === ''){
+        inQuotes = true;
+      } else if(ch === sep){
+        out.push(cur.trim());
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+  }
+  out.push(cur.trim());
+  return out.map(function(x){ return x.replace(/^["']|["']$/g,''); });
 }
 
 // ── Core import logic — used by both old and new UI ──
@@ -11615,6 +11684,7 @@ function msgUnreadCount(){
 
 function msgCanSee(m){
   if(!ME) return false;
+  if(m.kind==='quizRelease') return false; // parent-only notification, managed from Quiz Rankings
   if(m.hiddenBy && m.hiddenBy.indexOf(ME.id) >= 0) return false;
   if(isAdmin()) return true;
   if(ME.role==='teacher') return m.to==='teachers'||m.to==='all';
@@ -11773,8 +11843,12 @@ async function _parentLiveSyncTick(){
   // Skip if realtime is healthy
   if(_parentRealtimeChannel && _parentRealtimeChannel.state === 'joined') return;
   try {
+    var relBefore = JSON.stringify(DB.quizReleases||[]);
     _invalidateReadCache(schoolDbKey(CURRENT_SCHOOL_ID));
     await supabaseLoad(CURRENT_SCHOOL_ID);
+    if(relBefore !== JSON.stringify(DB.quizReleases||[]) && _parentView==='results'){
+      renderParentPortal(); parentUpdateBadge(); return;
+    }
     var codes = PARENT_USER.studentCodes || [];
     codes.forEach(function(code){
       var student = DB.students.find(function(s){
@@ -13334,7 +13408,7 @@ function loadQuizTable(){
   if(!subjects.length){wrap.innerHTML='<div class="empty"><p>No subjects configured yet.</p></div>';return;}
   var thead='<tr><th>#</th><th>Student</th>';
   subjects.forEach(function(s){thead+='<th style="text-align:center;font-size:.72rem;">'+s.name+'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/20</div></th>';});
-  thead+='<th style="text-align:center;">Total /'+(subjects.length*20)+'</th><th style="text-align:center;">Avg%</th><th style="text-align:center;font-size:.65rem;">Parent</th></tr>';
+  thead+='<th style="text-align:center;">Total</th><th style="text-align:center;">Avg%</th><th style="text-align:center;font-size:.65rem;">Parent</th></tr>';
   var subIdList=subjects.map(function(s){return s.id;}).join(',');
   var rows=students.map(function(st,i){
     // Check if parent is registered for this student
@@ -13362,8 +13436,8 @@ function loadQuizTable(){
         row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="20" step="0.5" value="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
       }
     });
-    row+='<td style="text-align:center;font-weight:700;color:var(--gold);" id="qztot_'+st.id+'">'+(cnt>0?tot.toFixed(1):'—')+'</td>';
-    row+='<td style="text-align:center;font-size:.82rem;color:var(--blue);" id="qzavg_'+st.id+'">'+(cnt>0?((tot/(subjects.length*20))*100).toFixed(1)+'%':'—')+'</td>';
+    row+='<td style="text-align:center;font-weight:700;color:var(--gold);" id="qztot_'+st.id+'">'+(cnt>0?tot.toFixed(1)+'/'+(cnt*20):'—')+'</td>';
+    row+='<td style="text-align:center;font-size:.82rem;color:var(--blue);" id="qzavg_'+st.id+'">'+(cnt>0?((tot/(cnt*20))*100).toFixed(1)+'%':'—')+'</td>';
     // Parent chat cell
     var parReg2 = !!(DB.parents && DB.parents.find(function(p){
       return p.studentCodes && p.studentCodes.indexOf(st.sid.toUpperCase())>=0;
@@ -13408,10 +13482,10 @@ function previewQuizRow(stid,subIdsStr){
     }
     tot+=v; cnt++;
   });
-  var maxT=subIds.length*20;
+  var maxT=cnt*20;
   var te=document.getElementById('qztot_'+stid);
   var ae=document.getElementById('qzavg_'+stid);
-  if(te) te.textContent=cnt>0?tot.toFixed(1):'—';
+  if(te) te.textContent=cnt>0?tot.toFixed(1)+'/'+maxT:'—';
   if(ae) ae.textContent=cnt>0?((tot/maxT)*100).toFixed(1)+'%':'—';
 }
 
@@ -13490,6 +13564,7 @@ function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
   var out=document.getElementById('qpOut');
+  quizRelUpdateBtn();
   _quizView='rankings';
   var outDiv2=document.getElementById('qpOut'); if(outDiv2) outDiv2.style.display='';
   var bdDiv2=document.getElementById('qpBreakdown'); if(bdDiv2) bdDiv2.style.display='none';
@@ -13511,10 +13586,14 @@ function genQuizProcl(){
       var v=DB.marks[quizMarkKey(st.id,sub.id,week)];
       if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
     });
-    return Object.assign({},st,{quizTotal:cnt>0?tot:null,quizPct:cnt>0?(tot/maxTotal)*100:null});
+    return Object.assign({},st,{quizTotal:cnt>0?tot:null,quizCnt:cnt,quizPct:cnt>0?(tot/(cnt*20))*100:null});
   }).filter(function(s){return s.quizTotal!==null;}).sort(function(a,b){return b.quizPct-a.quizPct;});
   if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>No quiz marks recorded for '+weekLabel+' yet.</p></div>';return;}
-  function getRangeLabel(pct){for(var i=0;i<ranges.length;i++){if(pct>=ranges[i].min&&pct<=ranges[i].max)return ranges[i];}return{label:'—',color:'#888'};}
+  function getRangeLabel(pct){
+    var sorted=ranges.slice().sort(function(a,b){return b.min-a.min;});
+    for(var i=0;i<sorted.length;i++){ if(pct>=sorted[i].min) return sorted[i]; }
+    return{label:'—',color:'#888'};
+  }
 
   // ── Proclamation-style TABLE header ──
   var schoolName = (DB.settings&&DB.settings.schoolName)||'';
@@ -13541,7 +13620,7 @@ function genQuizProcl(){
   subjects.forEach(function(s){
     html+='<th style="padding:8px 6px;text-align:center;font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);white-space:nowrap;">'+esc(s.name)+'<br><span style="font-weight:400;color:var(--ink3);">/20</span></th>';
   });
-  html+='<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Total<br><span style="font-weight:400;color:var(--ink3);">/'+maxTotal+'</span></th>'
+  html+='<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Total</th>'
     +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Avg %</th>'
     +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Level</th>'
     +'</tr></thead><tbody>';
@@ -13562,7 +13641,7 @@ function genQuizProcl(){
       var col=pct===null?'var(--ink3)':pct>=80?'var(--green)':pct>=60?'var(--blue)':pct>=40?'var(--gold)':'var(--red)';
       html+='<td style="padding:9px 6px;text-align:center;font-weight:600;color:'+col+';">'+(val!==null?val.toFixed(1):'<span style="color:var(--ink3);">—</span>')+'</td>';
     });
-    html+='<td style="padding:9px 10px;text-align:center;font-size:1.05rem;font-weight:700;color:var(--gold);">'+s.quizTotal.toFixed(1)+'</td>'
+    html+='<td style="padding:9px 10px;text-align:center;font-size:1.05rem;font-weight:700;color:var(--gold);">'+s.quizTotal.toFixed(1)+'/'+(s.quizCnt*20)+'</td>'
       +'<td style="padding:9px 10px;text-align:center;font-weight:700;color:var(--blue);">'+s.quizPct.toFixed(1)+'%</td>'
       +'<td style="padding:9px 10px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:.68rem;font-weight:700;background:'+r.color+'22;color:'+r.color+';border:1px solid '+r.color+'44;">'+esc(r.label)+'</span></td>'
       +'</tr>';
@@ -13623,7 +13702,7 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
     thead += '<th style="text-align:center;font-size:.68rem;white-space:nowrap;">'+s.name
       +'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/20</div></th>';
   });
-  thead += '<th style="text-align:center;font-size:.68rem;">Total<br>/'+maxTotal+'</th>'
+  thead += '<th style="text-align:center;font-size:.68rem;">Total</th>'
     +'<th style="text-align:center;font-size:.68rem;">Avg%</th>'
     +'<th style="text-align:center;font-size:.68rem;">Rank</th>'
     +'<th style="text-align:center;font-size:.68rem;">Level</th>'
@@ -13640,7 +13719,7 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
       return '<td style="text-align:center;font-size:.84rem;font-weight:'+(val!==null?'600':'400')+';color:'+color+';">'
         +(val!==null?val.toFixed(1):'<span style=\'color:var(--ink3);\'>—</span>')+'</td>';
     }).join('');
-    var avg = cnt>0 ? ((tot/maxTotal)*100) : null;
+    var avg = cnt>0 ? ((tot/(cnt*20))*100) : null;
     var rank = rankMap[st.id];
     var rankStr = rank ? (rank===1?'&#129351;':rank===2?'&#129352;':rank===3?'&#129353;':'<strong>'+rank+'</strong>') : '—';
     var rangeObj = avg!==null ? (function(){ for(var i=0;i<ranges.length;i++){if(avg>=ranges[i].min&&avg<=ranges[i].max)return ranges[i];} return{label:'—',color:'#888'}; })() : {label:'—',color:'#888'};
@@ -13649,7 +13728,7 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
       +'<td style="text-align:center;font-size:.8rem;color:var(--ink3);">'+(i+1)+'</td>'
       +'<td><strong style="font-size:.88rem;">'+st.name+'</strong><div style="font-size:.68rem;color:var(--ink3);">'+st.sid+'</div></td>'
       +cells
-      +'<td style="text-align:center;font-weight:700;color:var(--gold);">'+(cnt>0?tot.toFixed(1):'—')+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:var(--gold);">'+(cnt>0?tot.toFixed(1)+'/'+(cnt*20):'—')+'</td>'
       +'<td style="text-align:center;font-weight:700;color:var(--blue);">'+(avg!==null?avg.toFixed(1)+'%':'—')+'</td>'
       +'<td style="text-align:center;font-size:.95rem;">'+rankStr+'</td>'
       +'<td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;background:'+rangeObj.color+'22;color:'+rangeObj.color+';border:1px solid '+rangeObj.color+'44;">'+rangeObj.label+'</span></td>'
@@ -14345,6 +14424,7 @@ async function initApp(){
             if(Array.isArray(_lsData.termYears)) DB.termYears=_lsData.termYears;
             if(Array.isArray(_lsData.parents))   DB.parents=_lsData.parents;
             if(Array.isArray(_lsData.messages))  DB.messages=_lsData.messages;
+            if(Array.isArray(_lsData.quizReleases)) DB.quizReleases=_lsData.quizReleases;
             if(_lsData.parentChats) DB.parentChats=_lsData.parentChats;
           }catch(e){}
         }
@@ -14490,8 +14570,8 @@ function saveQuizRanges(){
   var rows=document.querySelectorAll('.quiz-range-row');
   rows.forEach(function(row){
     var label=row.querySelector('.qr-label').value.trim();
-    var min=parseInt(row.querySelector('.qr-min').value);
-    var max=parseInt(row.querySelector('.qr-max').value);
+    var min=parseFloat(row.querySelector('.qr-min').value);
+    var max=parseFloat(row.querySelector('.qr-max').value);
     var color=row.querySelector('.qr-color').value;
     if(label&&!isNaN(min)&&!isNaN(max)){
       ranges.push({label:label,min:min,max:max,color:color});
@@ -14509,9 +14589,9 @@ function renderQuizRangeEditor(){
   el.innerHTML=ranges.map(function(r,i){
     return'<div class="quiz-range-row" style="display:flex;gap:.6rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">'
       +'<input class="qr-label" type="text" value="'+r.label+'" placeholder="Label" style="flex:1;min-width:100px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
-      +'<input class="qr-min" type="number" value="'+r.min+'" min="0" max="100" placeholder="Min%" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
+      +'<input class="qr-min" type="number" value="'+r.min+'" min="0" max="100" step="0.1" placeholder="Min%" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
       +'<span style="font-size:.8rem;color:var(--ink3);">to</span>'
-      +'<input class="qr-max" type="number" value="'+r.max+'" min="0" max="100" placeholder="Max%" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
+      +'<input class="qr-max" type="number" value="'+r.max+'" min="0" max="100" step="0.1" placeholder="Max%" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
       +'<input class="qr-color" type="color" value="'+r.color+'" style="width:36px;height:36px;padding:2px;border:1px solid var(--bd);border-radius:6px;cursor:pointer;background:var(--s2);">'
       +'<button onclick="this.closest(\'.quiz-range-row\').remove()" style="background:none;border:1px solid var(--bd);color:var(--red);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.8rem;">✕</button>'
       +'</div>';
@@ -14525,13 +14605,12 @@ function addQuizRangeRow(){
   div.className='quiz-range-row';
   div.style.cssText='display:flex;gap:.6rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;';
   div.innerHTML='<input class="qr-label" type="text" value="New Range" placeholder="Label" style="flex:1;min-width:100px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
-    +'<input class="qr-min" type="number" value="0" min="0" max="100" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
+    +'<input class="qr-min" type="number" value="0" min="0" max="100" step="0.1" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
     +'<span style="font-size:.8rem;color:var(--ink3);">to</span>'
-    +'<input class="qr-max" type="number" value="100" min="0" max="100" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
+    +'<input class="qr-max" type="number" value="100" min="0" max="100" step="0.1" style="width:70px;padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--ink);font-size:.84rem;">'
     +'<input class="qr-color" type="color" value="#4a8fff" style="width:36px;height:36px;padding:2px;border:1px solid var(--bd);border-radius:6px;cursor:pointer;background:var(--s2);">'
     +'<button onclick="this.closest(\'.quiz-range-row\').remove()" style="background:none;border:1px solid var(--bd);color:var(--red);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.8rem;">✕</button>';
-  var btn=el.querySelector('button:last-child');
-  el.insertBefore(div,btn);
+  el.insertBefore(div,el.lastElementChild);
 }
 
 // ═══════════════════════════════════════
@@ -14872,6 +14951,149 @@ function printProcl(){
     +'</style>';
   _openPrintWindow(printStyles + _resolveCssVars(src.innerHTML), false, proclTitle);
 }
+// ██████████████████████████████████████████████████████████████████
+// █  §27b  QUIZ RELEASE TO PARENTS
+// █  Teacher opens a week's marks to parents from Quiz Rankings.
+// █  A notification message is sent to that class's parents and is
+// █  deleted automatically after QUIZ_RELEASE_MSG_DAYS days.
+// ██████████████████████████████████████████████████████████████████
+var QUIZ_RELEASE_MSG_DAYS = 7;
+
+function quizReleaseFind(classId, yearId, weekId){
+  return (DB.quizReleases||[]).find(function(r){
+    return r.classId===classId && r.yearId===yearId && r.weekId===weekId;
+  }) || null;
+}
+function quizIsReleased(classId, yearId, weekId){
+  return !!quizReleaseFind(classId, yearId, weekId);
+}
+
+// Removes messages whose expiresAt has passed. Returns true if anything was deleted.
+function quizPurgeExpired(){
+  if(!DB.messages || !DB.messages.length) return false;
+  var now = Date.now();
+  var keep = DB.messages.filter(function(m){
+    return !(m.expiresAt && new Date(m.expiresAt).getTime() <= now);
+  });
+  if(keep.length === DB.messages.length) return false;
+  DB.messages = keep;
+  (DB.quizReleases||[]).forEach(function(r){
+    if(r.msgId && !keep.some(function(m){ return m.id===r.msgId; })) r.msgId = null;
+  });
+  return true;
+}
+
+// Runs every minute: deletes expired notices, saves (staff) and refreshes badges/inbox
+setInterval(function(){
+  if(!quizPurgeExpired()) return;
+  if(PARENT_USER){
+    parentUpdateBadge();
+    if(_parentView==='inbox') parentShowInbox();
+  } else if(ME){
+    dbSave();
+    msgUpdateBadge();
+    var pg = document.getElementById('p-quizprocl');
+    if(pg && pg.classList.contains('on')) quizRelUpdateBtn();
+  }
+}, 60000);
+
+function quizRelUpdateBtn(){
+  var btn = document.getElementById('qpReleaseBtn');
+  var st  = document.getElementById('qpReleaseStatus');
+  if(!btn) return;
+  var cid  = (document.getElementById('qpCls')||{}).value;
+  var wk   = (document.getElementById('qpWeek')||{}).value;
+  var yr   = getActiveQuizYear();
+  if(!cid || !wk || !yr){
+    btn.disabled = true; btn.style.opacity = '.5';
+    btn.className = 'btn green'; btn.innerHTML = '📢 Release to Parents';
+    if(st) st.style.display = 'none';
+    return;
+  }
+  quizPurgeExpired();
+  var rel = quizReleaseFind(cid, yr.id, wk);
+  btn.disabled = false; btn.style.opacity = '1';
+  if(rel){
+    btn.className = 'btn red'; btn.innerHTML = '🔒 Withdraw from Parents';
+    if(st){
+      var wkObj = yr.weeks.find(function(w){ return w.id===wk; });
+      var msg = rel.msgId ? (DB.messages||[]).find(function(m){ return m.id===rel.msgId; }) : null;
+      st.innerHTML = '✅ <strong>'+esc(wkObj?wkObj.label:wk)+'</strong> marks are visible to parents (released '
+        + new Date(rel.releasedAt).toLocaleDateString()+').'
+        + (msg && msg.expiresAt
+            ? ' The notification message will be deleted automatically on <strong>'+new Date(msg.expiresAt).toLocaleDateString()+'</strong>.'
+            : ' The notification message has been deleted automatically.');
+      st.style.display = 'block';
+    }
+  } else {
+    btn.className = 'btn green'; btn.innerHTML = '📢 Release to Parents';
+    if(st) st.style.display = 'none';
+  }
+}
+
+function quizToggleRelease(){
+  var cid = document.getElementById('qpCls').value;
+  var wk  = document.getElementById('qpWeek').value;
+  var yr  = getActiveQuizYear();
+  if(!cid || !wk || !yr){ alert('Select a class and a week first.'); return; }
+  var cls    = DB.classes.find(function(c){ return c.id===cid; });
+  var wkObj  = yr.weeks.find(function(w){ return w.id===wk; });
+  var wkLbl  = wkObj ? wkObj.label : wk;
+  var clsName= cls ? cls.name : '';
+  if(!DB.quizReleases) DB.quizReleases = [];
+  if(!DB.messages)     DB.messages = [];
+
+  var existing = quizReleaseFind(cid, yr.id, wk);
+
+  // ── Withdraw ──
+  if(existing){
+    if(!confirm('Withdraw '+wkLbl+' marks from parents of '+clsName+'?\n\nParents will no longer see this week.')) return;
+    DB.quizReleases = DB.quizReleases.filter(function(r){ return r!==existing; });
+    if(existing.msgId) DB.messages = DB.messages.filter(function(m){ return m.id!==existing.msgId; });
+    addLog('🔒 Withdrew quiz '+wkLbl+' from parents ('+clsName+')');
+    dbSave();
+    quizRelUpdateBtn();
+    return;
+  }
+
+  // ── Release ── (need at least one recorded mark)
+  var subjects = levelSubjects().filter(function(s){ return s.scale!=='letter' && !s.universal; });
+  var hasMarks = yearStudents().filter(function(s){ return s.classId===cid; }).some(function(st){
+    return subjects.some(function(sub){
+      var v = DB.marks[quizMarkKey(st.id, sub.id, wk)];
+      return v!==undefined && v!=='' && !isNaN(parseFloat(v));
+    });
+  });
+  if(!hasMarks){ alert('No quiz marks are recorded for '+wkLbl+' yet.'); return; }
+
+  if(!confirm('Allow parents of '+clsName+' to see the '+wkLbl+' quiz marks?\n\n'
+    +'They will receive a notification message, deleted automatically after '+QUIZ_RELEASE_MSG_DAYS+' days.')) return;
+
+  var now = new Date();
+  var exp = new Date(now.getTime() + QUIZ_RELEASE_MSG_DAYS*86400000);
+  var stamp = Date.now();
+  var msgId = 'MSG'+stamp;
+  DB.messages.unshift({
+    id: msgId, kind: 'quizRelease',
+    from: ME.id, fromName: ME.name || 'Teacher',
+    subject: '🌅 '+wkLbl+' quiz results are ready',
+    body: 'The Morning Quiz marks for '+wkLbl+' ('+clsName+', '+yr.label+') are now available.\n'
+        + 'Open your child\'s quiz results to see their position, marks per subject and average.\n\n'
+        + 'This message will be deleted automatically on '+exp.toLocaleDateString()+'.',
+    to: 'parents', classId: cid,
+    sentAt: now.toISOString(), expiresAt: exp.toISOString(),
+    readBy: [ME.id]
+  });
+  DB.quizReleases.push({
+    id: 'QR'+stamp, classId: cid, yearId: yr.id, weekId: wk,
+    releasedBy: ME.id, releasedByName: ME.name || '',
+    releasedAt: now.toISOString(), msgId: msgId
+  });
+  addLog('📢 Released quiz '+wkLbl+' to parents ('+clsName+')');
+  dbSave();
+  quizRelUpdateBtn();
+}
+
 function printQuizProcl(){
   var out = document.getElementById('qpOut');
   var bd  = document.getElementById('qpBreakdown');
@@ -14883,16 +15105,24 @@ function printQuizProcl(){
     return;
   }
   // Inject extra print-friendly table styles before resolving vars
+  // Compressed to keep the whole proclamation list (banner + 20-30 rows) on a single A4 page.
   var printStyles = '<style>'
-    +'table{border-collapse:collapse;width:100%;font-size:.8rem;}'
-    +'th,td{border:1px solid #c0c8e0;padding:6px 8px;}'
+    +'@page{size:A4 portrait;margin:4mm!important;}'
+    +'body{zoom:.72;}'
+    +'table{border-collapse:collapse;width:100%;font-size:.66rem;}'
+    +'th,td{border:1px solid #c0c8e0;padding:3px 5px!important;}'
     +'thead tr{background:#e8ecf7!important;}'
     +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
-    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.8rem;}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;font-weight:700;font-size:.62rem;}'
     +'.r1{background:#f6c90e;color:#1a1200;}'
     +'.r2{background:#b0bec5;color:#1a1200;}'
     +'.r3{background:#cd7f32;color:#fff;}'
     +'.rn{background:#e8ecf7;color:#2a2f4e;}'
+    +'#qpProclTable td div{font-size:.68rem!important;}'
+    +'#qpProclTable td div div, #qpProclTable td div span{font-size:.6rem!important;}'
+    +'#qpProclTable > div:first-child{padding:.5rem .6rem!important;margin-bottom:.4rem!important;}'
+    +'#qpProclTable > div:first-child div{margin-top:.2rem!important;margin-bottom:.2rem!important;}'
+    +'.ctitle{margin-bottom:.3rem!important;font-size:.8rem!important;}'
     +'</style>';
   _openPrintWindow(printStyles + _resolveCssVars(content));
 }
