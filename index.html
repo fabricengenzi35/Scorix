@@ -2144,7 +2144,6 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <div class="phsub">Morning quiz progress &amp; per-subject breakdown — no report cards for quizzes</div>
           </div>
           <div class="phact" style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="btn green" id="qpReleaseBtn" onclick="quizToggleRelease()" disabled style="opacity:.5;">📢 Release to Parents</button>
             <button class="btn ghost" onclick="printQuizProcl()">🖨️ Print</button>
             <button class="btn ghost" onclick="toggleQuizView()" id="qpViewToggleBtn">&#128202; Subject Breakdown</button>
           </div>
@@ -2152,7 +2151,6 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div class="al info noprint" style="margin-bottom:1rem;padding:9px 14px;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.22);border-radius:8px;font-size:.78rem;color:var(--blue);">
           ℹ️ <strong>Morning Quiz rankings do not generate report cards.</strong> These scores are for tracking weekly progress only and have no impact on official term results.
         </div>
-        <div id="qpReleaseStatus" class="noprint" style="display:none;margin-bottom:1rem;padding:9px 14px;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.28);border-radius:8px;font-size:.78rem;color:var(--green);line-height:1.5;"></div>
         <div class="card noprint" style="margin-bottom:1rem;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;flex-wrap:wrap;">
             <span style="font-size:.72rem;color:var(--ink3);font-weight:600;">📅 Academic Year:</span>
@@ -3720,16 +3718,8 @@ function _startParentRealtimeSubscription(){
       function(payload){
         if(payload.new && payload.new.data){
           var d = payload.new.data;
-          var relBefore = JSON.stringify(DB.quizReleases||[]);
           if(d.parentChats) DB.parentChats = d.parentChats;
           if(d.messages)    DB.messages    = d.messages;
-          if(Array.isArray(d.quizReleases)) DB.quizReleases = d.quizReleases;
-          if(d.marks && typeof d.marks==='object') DB.marks = d.marks;
-          quizPurgeExpired();
-          // Teacher just released (or withdrew) a week → refresh the results view live
-          if(relBefore !== JSON.stringify(DB.quizReleases||[]) && _parentView==='results'){
-            renderParentPortal(); parentUpdateBadge(); return;
-          }
           // Re-render parent chat sections
           var codes = PARENT_USER.studentCodes || [];
           codes.forEach(function(code){
@@ -3773,9 +3763,7 @@ function _applyRemoteData(d){
   if(Array.isArray(d.termYears))                   DB.termYears=d.termYears;
   if(Array.isArray(d.parents))                     DB.parents=d.parents;
   if(Array.isArray(d.messages))                    DB.messages=d.messages;
-  if(Array.isArray(d.quizReleases))                DB.quizReleases=d.quizReleases;
   if(d.parentChats&&typeof d.parentChats==='object') DB.parentChats=d.parentChats;
-  quizPurgeExpired();
   // Marks: merge carefully — don't overwrite unsaved local changes
   if(d.marks&&typeof d.marks==='object'){
     Object.keys(d.marks).forEach(function(k){
@@ -4087,7 +4075,6 @@ var DB = {
   termYears:[],   // [{id, label, locked, createdAt}] — each year uses its own marks via key prefix
   messages:[],    // [{id, from, fromName, subject, body, to:'all'|'teachers'|'parents', sentAt, readBy:[uid,...]}]
   parentChats:{}, // {studentId: [{id, senderRole:'teacher'|'parent', senderName, text, sentAt}]}
-  quizReleases:[],// [{id, classId, yearId, weekId, releasedBy, releasedByName, releasedAt, msgId}] — weeks a teacher opened to parents
   subApprovals:{}, // {clsId_termId_subId_eu|et: {submitted,submittedBy,submittedAt,savedBy,savedAt}}
   terms:[
     {id:'T1',name:'Term 1',type:'term',active:true,components:[
@@ -4174,9 +4161,7 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.termYears)) DB.termYears=d.termYears;
     if(Array.isArray(d.parents))   DB.parents=d.parents;
     if(Array.isArray(d.messages))  DB.messages=d.messages;
-    if(Array.isArray(d.quizReleases)) DB.quizReleases=d.quizReleases;
     if(d.parentChats && typeof d.parentChats==='object') DB.parentChats=d.parentChats;
-    quizPurgeExpired(); // auto-delete release notifications older than 7 days
 
     // ── MIGRATION 3: old quiz mark keys → new year-keyed format ──
     // Old: qz_studentId_subId_W1  (4 parts split by _)
@@ -4771,12 +4756,9 @@ function _buildParentAttendance(student, cls){
     +'</div>';
 }
 
-var _parentView = 'results'; // 'results' | 'inbox'
 function renderParentPortal(){
   var content = document.getElementById('parent-portal-content');
   if(!content) return;
-  _parentView = 'results';
-  quizPurgeExpired();
 
   var codes = PARENT_USER.studentCodes || [];
   if(!codes.length){
@@ -4822,8 +4804,6 @@ function renderParentPortal(){
         var yearHtml = '';
 
         yr.weeks.forEach(function(wk){
-          // Parents only see weeks the class teacher has released
-          if(!quizIsReleased(student.classId, yr.id, wk.id)) return;
           // Gather this student's marks for this week
           var subResults = quizSubs.map(function(sub){
             var key = 'qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
@@ -4909,7 +4889,7 @@ function renderParentPortal(){
       });
 
       if(!hasAnyQuizData){
-        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz results have been released yet. You will get a message in your inbox when the teacher opens a week.</div>';
+        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz marks recorded yet.</div>';
       }
     }
 
@@ -4963,23 +4943,9 @@ function showAddChildModal(){
 function parentInboxUnread(){
   if(!DB.messages || !PARENT_USER) return 0;
   return DB.messages.filter(function(m){
-    if(!parentCanSeeMsg(m)) return false;
+    if(m.to !== 'parents' && m.to !== 'all') return false;
     return !(m.readBy && m.readBy.indexOf('parent_'+PARENT_USER.id) >= 0);
   }).length;
-}
-
-// Parent sees: director broadcasts + class-targeted notices for their child's class; never expired ones
-function parentCanSeeMsg(m){
-  if(!m || (m.to !== 'parents' && m.to !== 'all')) return false;
-  if(m.expiresAt && new Date(m.expiresAt).getTime() <= Date.now()) return false;
-  if(m.classId){
-    var codes = (PARENT_USER && PARENT_USER.studentCodes) || [];
-    return codes.some(function(code){
-      var st = DB.students.find(function(s){ return s.sid && s.sid.toUpperCase()===code.toUpperCase(); });
-      return st && st.classId === m.classId;
-    });
-  }
-  return true;
 }
 
 function parentUpdateBadge(){
@@ -4994,10 +4960,8 @@ function parentShowInbox(){
   var content = document.getElementById('parent-portal-content');
   if(!content) return;
   if(!DB.messages) DB.messages = [];
-  _parentView = 'inbox';
-  quizPurgeExpired();
 
-  var msgs = DB.messages.filter(parentCanSeeMsg);
+  var msgs = DB.messages.filter(function(m){ return m.to === 'parents' || m.to === 'all'; });
   var uid  = 'parent_' + PARENT_USER.id;
 
   var html = '<div style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">'
@@ -5019,7 +4983,6 @@ function parentShowInbox(){
         + '</div>'
         + '<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.6rem;">From: ' + esc(m.fromName) + '</div>'
         + '<div style="font-size:.85rem;color:var(--ink);line-height:1.7;white-space:pre-wrap;">' + esc(m.body) + '</div>'
-        + (m.kind==='quizRelease' ? '<div style="margin-top:.7rem;"><button class="btn green sm" onclick="renderParentPortal()">🌅 View quiz results</button></div>' : '')
         + '</div>';
       // Mark as read
       if(!m.readBy) m.readBy = [];
@@ -5276,7 +5239,7 @@ function doLogout(){
   ME=null; PARENT_USER=null; CURRENT_SCHOOL_ID=null; _markMode='term'; CURRENT_LEVEL='PRIMARY';
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   _userIndexCache = null; // force fresh login lookup next time
-  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],quizReleases:[],parentChats:{},remarks:{},
+  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],parentChats:{},remarks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],quizYears:[],termYears:[],attendance:{},
     terms:[
@@ -11684,7 +11647,6 @@ function msgUnreadCount(){
 
 function msgCanSee(m){
   if(!ME) return false;
-  if(m.kind==='quizRelease') return false; // parent-only notification, managed from Quiz Rankings
   if(m.hiddenBy && m.hiddenBy.indexOf(ME.id) >= 0) return false;
   if(isAdmin()) return true;
   if(ME.role==='teacher') return m.to==='teachers'||m.to==='all';
@@ -11843,12 +11805,8 @@ async function _parentLiveSyncTick(){
   // Skip if realtime is healthy
   if(_parentRealtimeChannel && _parentRealtimeChannel.state === 'joined') return;
   try {
-    var relBefore = JSON.stringify(DB.quizReleases||[]);
     _invalidateReadCache(schoolDbKey(CURRENT_SCHOOL_ID));
     await supabaseLoad(CURRENT_SCHOOL_ID);
-    if(relBefore !== JSON.stringify(DB.quizReleases||[]) && _parentView==='results'){
-      renderParentPortal(); parentUpdateBadge(); return;
-    }
     var codes = PARENT_USER.studentCodes || [];
     codes.forEach(function(code){
       var student = DB.students.find(function(s){
@@ -13433,7 +13391,7 @@ function loadQuizTable(){
       if(locked){
         row+='<td style="text-align:center;font-weight:600;color:var(--ink2);">'+(val!==''?parseFloat(val).toFixed(1):'—')+'</td>';
       } else {
-        row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="20" step="0.5" value="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
+        row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="20" step="0.5" value="'+val+'" data-orig="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
       }
     });
     row+='<td style="text-align:center;font-weight:700;color:var(--gold);" id="qztot_'+st.id+'">'+(cnt>0?tot.toFixed(1)+'/'+(cnt*20):'—')+'</td>';
@@ -13510,22 +13468,36 @@ function saveQuizMarks(){
   if(!cid||!week){alert('Select a class and week first.');return;}
   var students=yearStudents().filter(function(s){return s.classId===cid;});
   var subjects=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
-  var cnt=0;
+  var cnt=0, cleared=0;
   students.forEach(function(st){
     subjects.forEach(function(sub){
       var el=document.getElementById('qzk_'+st.id+'_'+sub.id);
-      if(el&&el.value!==''){
-        var v=Math.min(parseFloat(el.value),20);
-        DB.marks[quizMarkKey(st.id,sub.id,week)]=String(v);cnt++;
+      if(!el) return;
+      var key=quizMarkKey(st.id,sub.id,week);
+      if(el.value!==''){
+        var n=parseFloat(el.value);
+        if(isNaN(n)) return;
+        var v=Math.max(0,Math.min(n,20));
+        DB.marks[key]=String(v);cnt++;
+      } else {
+        // Blank cell = vacant subject. If a mark was recorded when the table loaded
+        // and the teacher has now emptied it, clear it (blank value = no mark, which
+        // every ranking / breakdown / parent view already treats as "not taken").
+        var orig=el.getAttribute('data-orig');
+        var cur=DB.marks[key];
+        if(orig!==null&&orig!==''&&cur!==undefined&&cur!==''){
+          DB.marks[key]='';cleared++;
+        }
       }
+      el.setAttribute('data-orig',el.value); // baseline for any further edits before reload
     });
   });
-  addLog('Saved '+cnt+' quiz marks — '+(DB.classes.find(function(c){return c.id===cid;})||{}).name+' / '+(yr?yr.label:'?')+' / '+week);
+  addLog('Saved '+cnt+' quiz marks'+(cleared?', cleared '+cleared:'')+' — '+(DB.classes.find(function(c){return c.id===cid;})||{}).name+' / '+(yr?yr.label:'?')+' / '+week);
   _clearPendingKeys();
   dbSave();
   var fl=document.getElementById('qzSaveFlash');
   if(fl){
-    fl.innerHTML='<div class="al ok">✅ '+cnt+' quiz marks saved! <button class="btn sm gold" onclick="viewQuizProclamation()" style="margin-left:8px;">🏆 View Proclamation</button></div>';
+    fl.innerHTML='<div class="al ok">✅ '+cnt+' quiz marks saved'+(cleared?' · '+cleared+' cleared (left vacant)':'')+'! <button class="btn sm gold" onclick="viewQuizProclamation()" style="margin-left:8px;">🏆 View Proclamation</button></div>';
     setTimeout(function(){fl.innerHTML='';},5000);
   }
 }
@@ -13564,7 +13536,6 @@ function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
   var out=document.getElementById('qpOut');
-  quizRelUpdateBtn();
   _quizView='rankings';
   var outDiv2=document.getElementById('qpOut'); if(outDiv2) outDiv2.style.display='';
   var bdDiv2=document.getElementById('qpBreakdown'); if(bdDiv2) bdDiv2.style.display='none';
@@ -14424,7 +14395,6 @@ async function initApp(){
             if(Array.isArray(_lsData.termYears)) DB.termYears=_lsData.termYears;
             if(Array.isArray(_lsData.parents))   DB.parents=_lsData.parents;
             if(Array.isArray(_lsData.messages))  DB.messages=_lsData.messages;
-            if(Array.isArray(_lsData.quizReleases)) DB.quizReleases=_lsData.quizReleases;
             if(_lsData.parentChats) DB.parentChats=_lsData.parentChats;
           }catch(e){}
         }
@@ -14951,149 +14921,6 @@ function printProcl(){
     +'</style>';
   _openPrintWindow(printStyles + _resolveCssVars(src.innerHTML), false, proclTitle);
 }
-// ██████████████████████████████████████████████████████████████████
-// █  §27b  QUIZ RELEASE TO PARENTS
-// █  Teacher opens a week's marks to parents from Quiz Rankings.
-// █  A notification message is sent to that class's parents and is
-// █  deleted automatically after QUIZ_RELEASE_MSG_DAYS days.
-// ██████████████████████████████████████████████████████████████████
-var QUIZ_RELEASE_MSG_DAYS = 7;
-
-function quizReleaseFind(classId, yearId, weekId){
-  return (DB.quizReleases||[]).find(function(r){
-    return r.classId===classId && r.yearId===yearId && r.weekId===weekId;
-  }) || null;
-}
-function quizIsReleased(classId, yearId, weekId){
-  return !!quizReleaseFind(classId, yearId, weekId);
-}
-
-// Removes messages whose expiresAt has passed. Returns true if anything was deleted.
-function quizPurgeExpired(){
-  if(!DB.messages || !DB.messages.length) return false;
-  var now = Date.now();
-  var keep = DB.messages.filter(function(m){
-    return !(m.expiresAt && new Date(m.expiresAt).getTime() <= now);
-  });
-  if(keep.length === DB.messages.length) return false;
-  DB.messages = keep;
-  (DB.quizReleases||[]).forEach(function(r){
-    if(r.msgId && !keep.some(function(m){ return m.id===r.msgId; })) r.msgId = null;
-  });
-  return true;
-}
-
-// Runs every minute: deletes expired notices, saves (staff) and refreshes badges/inbox
-setInterval(function(){
-  if(!quizPurgeExpired()) return;
-  if(PARENT_USER){
-    parentUpdateBadge();
-    if(_parentView==='inbox') parentShowInbox();
-  } else if(ME){
-    dbSave();
-    msgUpdateBadge();
-    var pg = document.getElementById('p-quizprocl');
-    if(pg && pg.classList.contains('on')) quizRelUpdateBtn();
-  }
-}, 60000);
-
-function quizRelUpdateBtn(){
-  var btn = document.getElementById('qpReleaseBtn');
-  var st  = document.getElementById('qpReleaseStatus');
-  if(!btn) return;
-  var cid  = (document.getElementById('qpCls')||{}).value;
-  var wk   = (document.getElementById('qpWeek')||{}).value;
-  var yr   = getActiveQuizYear();
-  if(!cid || !wk || !yr){
-    btn.disabled = true; btn.style.opacity = '.5';
-    btn.className = 'btn green'; btn.innerHTML = '📢 Release to Parents';
-    if(st) st.style.display = 'none';
-    return;
-  }
-  quizPurgeExpired();
-  var rel = quizReleaseFind(cid, yr.id, wk);
-  btn.disabled = false; btn.style.opacity = '1';
-  if(rel){
-    btn.className = 'btn red'; btn.innerHTML = '🔒 Withdraw from Parents';
-    if(st){
-      var wkObj = yr.weeks.find(function(w){ return w.id===wk; });
-      var msg = rel.msgId ? (DB.messages||[]).find(function(m){ return m.id===rel.msgId; }) : null;
-      st.innerHTML = '✅ <strong>'+esc(wkObj?wkObj.label:wk)+'</strong> marks are visible to parents (released '
-        + new Date(rel.releasedAt).toLocaleDateString()+').'
-        + (msg && msg.expiresAt
-            ? ' The notification message will be deleted automatically on <strong>'+new Date(msg.expiresAt).toLocaleDateString()+'</strong>.'
-            : ' The notification message has been deleted automatically.');
-      st.style.display = 'block';
-    }
-  } else {
-    btn.className = 'btn green'; btn.innerHTML = '📢 Release to Parents';
-    if(st) st.style.display = 'none';
-  }
-}
-
-function quizToggleRelease(){
-  var cid = document.getElementById('qpCls').value;
-  var wk  = document.getElementById('qpWeek').value;
-  var yr  = getActiveQuizYear();
-  if(!cid || !wk || !yr){ alert('Select a class and a week first.'); return; }
-  var cls    = DB.classes.find(function(c){ return c.id===cid; });
-  var wkObj  = yr.weeks.find(function(w){ return w.id===wk; });
-  var wkLbl  = wkObj ? wkObj.label : wk;
-  var clsName= cls ? cls.name : '';
-  if(!DB.quizReleases) DB.quizReleases = [];
-  if(!DB.messages)     DB.messages = [];
-
-  var existing = quizReleaseFind(cid, yr.id, wk);
-
-  // ── Withdraw ──
-  if(existing){
-    if(!confirm('Withdraw '+wkLbl+' marks from parents of '+clsName+'?\n\nParents will no longer see this week.')) return;
-    DB.quizReleases = DB.quizReleases.filter(function(r){ return r!==existing; });
-    if(existing.msgId) DB.messages = DB.messages.filter(function(m){ return m.id!==existing.msgId; });
-    addLog('🔒 Withdrew quiz '+wkLbl+' from parents ('+clsName+')');
-    dbSave();
-    quizRelUpdateBtn();
-    return;
-  }
-
-  // ── Release ── (need at least one recorded mark)
-  var subjects = levelSubjects().filter(function(s){ return s.scale!=='letter' && !s.universal; });
-  var hasMarks = yearStudents().filter(function(s){ return s.classId===cid; }).some(function(st){
-    return subjects.some(function(sub){
-      var v = DB.marks[quizMarkKey(st.id, sub.id, wk)];
-      return v!==undefined && v!=='' && !isNaN(parseFloat(v));
-    });
-  });
-  if(!hasMarks){ alert('No quiz marks are recorded for '+wkLbl+' yet.'); return; }
-
-  if(!confirm('Allow parents of '+clsName+' to see the '+wkLbl+' quiz marks?\n\n'
-    +'They will receive a notification message, deleted automatically after '+QUIZ_RELEASE_MSG_DAYS+' days.')) return;
-
-  var now = new Date();
-  var exp = new Date(now.getTime() + QUIZ_RELEASE_MSG_DAYS*86400000);
-  var stamp = Date.now();
-  var msgId = 'MSG'+stamp;
-  DB.messages.unshift({
-    id: msgId, kind: 'quizRelease',
-    from: ME.id, fromName: ME.name || 'Teacher',
-    subject: '🌅 '+wkLbl+' quiz results are ready',
-    body: 'The Morning Quiz marks for '+wkLbl+' ('+clsName+', '+yr.label+') are now available.\n'
-        + 'Open your child\'s quiz results to see their position, marks per subject and average.\n\n'
-        + 'This message will be deleted automatically on '+exp.toLocaleDateString()+'.',
-    to: 'parents', classId: cid,
-    sentAt: now.toISOString(), expiresAt: exp.toISOString(),
-    readBy: [ME.id]
-  });
-  DB.quizReleases.push({
-    id: 'QR'+stamp, classId: cid, yearId: yr.id, weekId: wk,
-    releasedBy: ME.id, releasedByName: ME.name || '',
-    releasedAt: now.toISOString(), msgId: msgId
-  });
-  addLog('📢 Released quiz '+wkLbl+' to parents ('+clsName+')');
-  dbSave();
-  quizRelUpdateBtn();
-}
-
 function printQuizProcl(){
   var out = document.getElementById('qpOut');
   var bd  = document.getElementById('qpBreakdown');
