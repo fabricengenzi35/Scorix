@@ -13650,8 +13650,8 @@ function genQuizProcl(){
   // Header banner (printable)
   html += '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
     +(logoSrc
-        ? '<img src="'+logoSrc+'" style="height:70px;margin-bottom:.6rem;">'
-        : '<div style="width:70px;height:70px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.65rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
+        ? '<img src="'+logoSrc+'" style="height:150px;margin-bottom:.6rem;">'
+        : '<div style="width:150px;height:150px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.85rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
     +(schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(schoolName)+'</div>':'')
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🌅 Morning Quiz — Proclamation List</div>'
     +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
@@ -13790,8 +13790,8 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
   var _bdLogoSrc = DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var html = '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
     +(_bdLogoSrc
-        ? '<img src="'+_bdLogoSrc+'" style="height:70px;margin-bottom:.6rem;">'
-        : '<div style="width:70px;height:70px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.65rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
+        ? '<img src="'+_bdLogoSrc+'" style="height:150px;margin-bottom:.6rem;">'
+        : '<div style="width:150px;height:150px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.85rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
     +(DB.settings&&DB.settings.schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(DB.settings.schoolName)+'</div>':'')
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;font-weight:700;">&#128202; Quiz Subject Breakdown</div>'
     +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
