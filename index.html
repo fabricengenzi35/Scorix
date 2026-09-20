@@ -13442,11 +13442,14 @@ function loadQuizTable(){
     if(!DB.parentChats) DB.parentChats={};
     var chatThread = DB.parentChats[st.id]||[];
     var unread = chatThread.filter(function(m){ return m.senderRole==='parent' && !m.readByTeacher; }).length;
-    var parIcon = parRegistered
-      ? '<button class="par-reg-icon" title="Parent registered — click to chat" onclick="openParChat(\''+st.id+'\')">'
-          +(unread>0?'<span style="position:relative;">💬<span style="position:absolute;top:-5px;right:-6px;background:var(--red);color:#fff;border-radius:8px;font-size:.52rem;padding:1px 4px;font-weight:700;line-height:1;">'+unread+'</span></span>':'👪')
-        +'</button>'
-      : '<span class="par-reg-icon no-par" title="No parent registered">👤</span>';
+    // Admins must not be able to read parent↔teacher conversations — only the class teacher can.
+    var parIcon = !parRegistered
+      ? '<span class="par-reg-icon no-par" title="No parent registered">👤</span>'
+      : isAdmin()
+        ? '<span class="par-reg-icon no-par" title="Parent-teacher chat is private to the class teacher">👪</span>'
+        : '<button class="par-reg-icon" title="Parent registered — click to chat" onclick="openParChat(\''+st.id+'\')">'
+            +(unread>0?'<span style="position:relative;">💬<span style="position:absolute;top:-5px;right:-6px;background:var(--red);color:#fff;border-radius:8px;font-size:.52rem;padding:1px 4px;font-weight:700;line-height:1;">'+unread+'</span></span>':'👪')
+          +'</button>';
     var row='<tr><td>'+(i+1)+'</td><td><div style="display:flex;align-items:center;gap:4px;"><div><strong>'+st.name+'</strong><div style="font-size:.7rem;color:var(--ink3);">'+st.sid+'</div></div>'+parIcon+'</div></td>';
     var tot=0;var cnt=0;
     subjects.forEach(function(sub){
@@ -13468,11 +13471,13 @@ function loadQuizTable(){
     if(!DB.parentChats) DB.parentChats={};
     var chatThread2 = DB.parentChats[st.id]||[];
     var unread2 = chatThread2.filter(function(m){ return m.senderRole==='parent' && !m.readByTeacher; }).length;
-    var chatCell = parReg2
-      ? '<td style="text-align:center;"><button class="btn sm green" onclick="openParChat(\''+st.id+'\')" title="Chat with parent" style="position:relative;padding:4px 10px;">'
-          +(unread2>0?'💬 <span style="background:var(--red);color:#fff;border-radius:8px;font-size:.55rem;padding:1px 5px;font-weight:700;vertical-align:middle;">'+unread2+'</span>':'💬')
-        +'</button></td>'
-      : '<td style="text-align:center;"><span style="font-size:.75rem;color:var(--ink3);" title="No parent registered">—</span></td>';
+    var chatCell = !parReg2
+      ? '<td style="text-align:center;"><span style="font-size:.75rem;color:var(--ink3);" title="No parent registered">—</span></td>'
+      : isAdmin()
+        ? '<td style="text-align:center;"><span style="font-size:.75rem;color:var(--ink3);" title="Parent-teacher chat is private to the class teacher">🔒</span></td>'
+        : '<td style="text-align:center;"><button class="btn sm green" onclick="openParChat(\''+st.id+'\')" title="Chat with parent" style="position:relative;padding:4px 10px;">'
+            +(unread2>0?'💬 <span style="background:var(--red);color:#fff;border-radius:8px;font-size:.55rem;padding:1px 5px;font-weight:700;vertical-align:middle;">'+unread2+'</span>':'💬')
+          +'</button></td>';
     return row+chatCell+'</tr>';
   }).join('');
 
@@ -15576,6 +15581,11 @@ function translatePageElements(){
 var _parChatStudentId = null;
 
 function openParChat(studentId){
+  // Parent↔teacher conversations are private to the class teacher — admins may not view them.
+  if(isAdmin()){
+    alert('Parent-teacher chat is private and not visible to admins.');
+    return;
+  }
   if(!DB.parentChats) DB.parentChats = {};
   if(purgeOldParentMessages()) dbSave();
   var st = DB.students.find(function(s){ return s.id === studentId; });
