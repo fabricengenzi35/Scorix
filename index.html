@@ -4074,7 +4074,8 @@ var DB = {
   quizYears:[],   // [{id, label, weeks:[{id,label}], locked, createdAt}]
   termYears:[],   // [{id, label, locked, createdAt}] — each year uses its own marks via key prefix
   messages:[],    // [{id, from, fromName, subject, body, to:'all'|'teachers'|'parents', sentAt, readBy:[uid,...]}]
-  parentChats:{}, // {studentId: [{id, senderRole:'teacher'|'parent', senderName, text, sentAt}]}
+  parentChats:{}, // {studentId: [{id, senderRole:'teacher'|'parent', senderName, text, sentAt}]} — auto-purged after 14 days
+  quizVisibility:{}, // {classId_weekId: true} — set by class teacher to release morning-quiz marks to parents; never auto-deleted
   subApprovals:{}, // {clsId_termId_subId_eu|et: {submitted,submittedBy,submittedAt,savedBy,savedAt}}
   terms:[
     {id:'T1',name:'Term 1',type:'term',active:true,components:[
@@ -4162,6 +4163,11 @@ async function supabaseLoad(sid){
     if(Array.isArray(d.parents))   DB.parents=d.parents;
     if(Array.isArray(d.messages))  DB.messages=d.messages;
     if(d.parentChats && typeof d.parentChats==='object') DB.parentChats=d.parentChats;
+    if(d.quizVisibility && typeof d.quizVisibility==='object') DB.quizVisibility=d.quizVisibility;
+
+    // ── Auto-delete parent↔teacher messages older than 14 days. This only ──
+    // ── ever touches DB.parentChats — quiz/term marks are never affected. ──
+    if(purgeOldParentMessages()) dbSave();
 
     // ── MIGRATION 3: old quiz mark keys → new year-keyed format ──
     // Old: qz_studentId_subId_W1  (4 parts split by _)
@@ -4265,6 +4271,29 @@ async function supabaseLoad(sid){
     return true;
   }
   return false;
+}
+
+// ── Delete parent↔teacher chat messages once they are more than 14 days old.
+// ── This ONLY prunes DB.parentChats — it never touches DB.marks, quizVisibility,
+// ── or any other data, so morning-quiz / term marks are never deleted by this.
+function purgeOldParentMessages(){
+  if(!DB.parentChats) return false;
+  var cutoffMs = 14*24*60*60*1000; // 14 days
+  var cutoff = Date.now() - cutoffMs;
+  var changed = false;
+  Object.keys(DB.parentChats).forEach(function(sid){
+    var thread = DB.parentChats[sid];
+    if(!Array.isArray(thread) || !thread.length) return;
+    var kept = thread.filter(function(m){
+      var t = m.sentAt ? new Date(m.sentAt).getTime() : 0;
+      return t && t >= cutoff; // messages with no/invalid timestamp are dropped too
+    });
+    if(kept.length !== thread.length){
+      DB.parentChats[sid] = kept;
+      changed = true;
+    }
+  });
+  return changed;
 }
 
 // ██████████████████████████████████████████████████████████████████
@@ -4817,6 +4846,14 @@ function renderParentPortal(){
           if(!hasMarks) return;
           hasAnyQuizData = true;
 
+          // ── Only show this week's marks if the class teacher has released them ──
+          if(!cls || !quizWeekVisible(cls.id, wk.id)){
+            yearHtml += '<div style="border:1px dashed var(--bd);border-radius:10px;padding:.8rem 1rem;margin-bottom:.7rem;background:var(--s2);text-align:center;">'
+              + '<div style="font-size:.78rem;color:var(--ink3);">🔒 <strong>'+wk.label+'</strong> — results not yet released by the teacher.</div>'
+              + '</div>';
+            return;
+          }
+
           // Compute this student's total and average
           var myTotal = 0; var myCnt = 0;
           subResults.forEach(function(c){ if(c.val!==null){myTotal+=c.val;myCnt++;} });
@@ -5239,7 +5276,7 @@ function doLogout(){
   ME=null; PARENT_USER=null; CURRENT_SCHOOL_ID=null; _markMode='term'; CURRENT_LEVEL='PRIMARY';
   document.body.classList.remove('role-admin','role-teacher','role-superadmin');
   _userIndexCache = null; // force fresh login lookup next time
-  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],parentChats:{},remarks:{},
+  DB={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},parents:[],messages:[],parentChats:{},quizVisibility:{},remarks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:'',reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],quizYears:[],termYears:[],attendance:{},
     terms:[
@@ -13350,6 +13387,34 @@ function renderTermYearsList(){
 // █  ✏️  To change quiz max mark (/20), display format, or ranking logic
 // ██████████████████████████████████████████████████████████████████
 // ═══════════════════════════════════════
+
+// ── Parent visibility for a given class+week's morning-quiz marks ──
+// Controlled entirely by the class teacher's toggle button. This flag is
+// persisted in DB.quizVisibility and is NEVER cleared automatically —
+// once a teacher releases a week to parents it stays released (and the
+// underlying marks are never touched/deleted by this feature).
+function quizWeekVisible(classId, weekId){
+  return !!(DB.quizVisibility && DB.quizVisibility[classId+'_'+weekId]);
+}
+
+function toggleQuizParentVisibility(classId, weekId){
+  if(!classId||!weekId) return;
+  if(!DB.quizVisibility) DB.quizVisibility={};
+  var key = classId+'_'+weekId;
+  var wasVisible = !!DB.quizVisibility[key];
+  if(wasVisible){
+    delete DB.quizVisibility[key];
+  } else {
+    DB.quizVisibility[key] = true;
+  }
+  var cls = DB.classes.find(function(c){return c.id===classId;});
+  var yr = getActiveQuizYear();
+  var weekObj = yr&&yr.weeks?yr.weeks.find(function(w){return w.id===weekId;}):null;
+  addLog((wasVisible?'🔒 Hid':'🔓 Released')+' quiz marks to parents — '+(cls?cls.name:classId)+' / '+(weekObj?weekObj.label:weekId));
+  dbSave();
+  loadQuizTable();
+}
+
 function loadQuizTable(){
   var cid=document.getElementById('qzCls').value;
   var week=document.getElementById('qzWeek').value;
@@ -13411,7 +13476,14 @@ function loadQuizTable(){
     return row+chatCell+'</tr>';
   }).join('');
 
-  wrap.innerHTML='<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
+  // ── Parent visibility banner + toggle (class teacher controls this) ──
+  var pv = quizWeekVisible(cid, week);
+  var visBanner = '<div style="margin-bottom:.8rem;padding:.7rem 1rem;border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:'+(pv?'rgba(62,207,142,.08)':'rgba(224,82,82,.06)')+';border:1px solid '+(pv?'rgba(62,207,142,.25)':'rgba(224,82,82,.2)')+';">'
+    +'<div style="font-size:.8rem;font-weight:600;color:'+(pv?'var(--green)':'var(--red)')+';">'+(pv?'🔓 Parents can currently see these quiz marks':'🔒 Parents cannot see these quiz marks yet')+'</div>'
+    +'<button class="btn sm '+(pv?'red':'green')+'" onclick="toggleQuizParentVisibility(\''+cid+'\',\''+week+'\')">'+(pv?'🔒 Hide from Parents':'🔓 Show to Parents')+'</button>'
+    +'</div>';
+
+  wrap.innerHTML=visBanner+'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
     +(locked
       ? '<div class="al warn" style="margin-top:.9rem;">🔒 This academic year is closed. Quiz marks are read-only.</div>'
       : '<div style="margin-top:.9rem;display:flex;gap:8px;flex-wrap:wrap;">'
@@ -14396,6 +14468,8 @@ async function initApp(){
             if(Array.isArray(_lsData.parents))   DB.parents=_lsData.parents;
             if(Array.isArray(_lsData.messages))  DB.messages=_lsData.messages;
             if(_lsData.parentChats) DB.parentChats=_lsData.parentChats;
+            if(_lsData.quizVisibility) DB.quizVisibility=_lsData.quizVisibility;
+            purgeOldParentMessages(); // supabaseLoad() right after will persist any deletions
           }catch(e){}
         }
         CURRENT_SCHOOL_ID = _sd.schoolId !== '__super__' ? _sd.schoolId : null;
@@ -15495,6 +15569,7 @@ var _parChatStudentId = null;
 
 function openParChat(studentId){
   if(!DB.parentChats) DB.parentChats = {};
+  if(purgeOldParentMessages()) dbSave();
   var st = DB.students.find(function(s){ return s.id === studentId; });
   if(!st){ alert('Student not found.'); return; }
 
@@ -15672,6 +15747,7 @@ function parentDeleteChatMsg(studentId, msgId){
 function renderParentChatForStudent(studentId, containerEl){
   if(!containerEl) return;
   if(!DB.parentChats) DB.parentChats = {};
+  if(purgeOldParentMessages()) dbSave();
   var thread = DB.parentChats[studentId] || [];
 
   // Check if chat box already exists — if so, just refresh messages without rebuilding
