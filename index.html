@@ -47,7 +47,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SCORIX">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com https://zabdtormeyrucjwjipzl.supabase.co data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://zabdtormeyrucjwjipzl.supabase.co wss://zabdtormeyrucjwjipzl.supabase.co https://api.emailjs.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';">
 <meta name="referrer" content="no-referrer-when-downgrade">
 <title>SCORIX — International Academic System v4.0 ✦ Performance Edition</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -2512,7 +2512,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div class="card admin-only" style="max-width:520px;border:1px solid rgba(0,214,143,.25);background:linear-gradient(135deg,rgba(0,214,143,.04),var(--s1));">
           <div class="ctitle">💾 Data Backup</div>
           <div style="font-size:.76rem;color:var(--ink3);margin-bottom:1rem;line-height:1.7;">
-            Download a full backup of all school data — students, marks, teachers, classes, subjects and settings. Save it to a safe place (USB, Google Drive, email). <strong style="color:var(--ink2);">Recommended: once a month.</strong>
+            Download a full backup of all school data — students, marks, teachers, classes, subjects and settings. It saves as a file on this device only. Save it to a safe place (USB, Google Drive, email it yourself). <strong style="color:var(--ink2);">Recommended: once a month.</strong>
           </div>
           <div id="backup-last" style="font-size:.72rem;color:var(--ink3);margin-bottom:.9rem;"></div>
           <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;">
@@ -2688,10 +2688,13 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div class="card admin-only" style="max-width:520px;border:1px solid rgba(0,214,143,.25);background:linear-gradient(135deg,rgba(0,214,143,.04),var(--s1));">
           <div class="ctitle">💾 Download Backup</div>
           <div style="font-size:.82rem;color:var(--ink3);margin-bottom:1rem;line-height:1.7;">
-            Download a full backup of all school data — students, marks, teachers, classes, subjects and settings. Save it to a safe place (USB, Google Drive, email). <strong style="color:var(--ink2);">Recommended: once a month.</strong>
+            Download a full backup of all school data — students, marks, teachers, classes, subjects and settings. It saves as a file on this device only. Save it to a safe place (USB, Google Drive, email it yourself). <strong style="color:var(--ink2);">Recommended: once a month.</strong>
           </div>
           <div id="backup-last2" style="font-size:.72rem;color:var(--ink3);margin-bottom:.9rem;"></div>
           <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;">
+            <button class="btn" onclick="showAuditLog()" style="background:var(--s2);color:var(--ink);border:1px solid var(--bd);padding:10px 22px;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer;">
+              📋 Audit Log
+            </button>
             <button class="btn green" onclick="downloadBackup()" style="background:var(--grd-green);color:#fff;border:none;padding:10px 22px;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(0,214,143,.25);transition:all .18s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 22px rgba(0,214,143,.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,214,143,.25)'">
               ⬇️ Download Backup (.json)
             </button>
@@ -3958,6 +3961,8 @@ async function _flushWrite(key, data){
   showSyncStatus('saving');
   _lastSaveTimestamp = Date.now(); // tell realtime to ignore our own echo
   try{
+    // Reconcile against any newer remote save before overwriting a school's data document
+    if(key.indexOf('epaza_school_')===0){ data = await _reconcileBeforeWrite(key, data); }
     await _withRetry(function(){
       return _withTimeout(
         supabaseClient.from('epaza_data').upsert({id:key, data:data}),
@@ -4031,13 +4036,349 @@ function _invalidateReadCache(key){
 //  superusers:[{id,username,password,name,role:'superadmin'}]
 // ═══════════════════════════════════════
 var SUPERDB = {
-  superusers:[{id:'sa1',username:'superadmin',password:'super@2025',name:'Super Administrator',role:'superadmin'}],
+  superusers:[], // No default account. First run prompts creation of a superadmin with a chosen password (see §02b).
   schools:[],  // {id, name, paused:false, adminIds:[]}
   settings:{
     systemName:'SCORIX',         // brand name shown on login & topbar
     systemTagline:'School Marks Management System',
     systemColor:'#f0b429'        // accent colour (gold by default)
   }
+};
+
+// ══════════════════════════════════════════════════════════════════════
+//  §02b  SECURITY & GOVERNANCE  (v5.0)
+//  Salted PBKDF2 hashing, first-run superadmin setup, forced password
+//  change, login throttle, audit log, privacy notice, backup reminder,
+//  merge-on-conflict for concurrent saves.
+// ══════════════════════════════════════════════════════════════════════
+
+// Set to false once every user has signed in at least once after the upgrade.
+// While true, legacy plain-text / unsalted SHA-256 passwords are still accepted
+// ONE LAST TIME so they can be silently upgraded to salted PBKDF2.
+var LEGACY_PW_MIGRATION = true;
+var PBKDF2_ITER = 150000;
+var _pwTouchedAt = 0;
+var KNOWN_DEFAULT_PWS = ['super@2025','admin','admin123','password','12345678','123456789','teacher','teacher123','scorix','scorix123'];
+
+function _b64(buf){ var b=new Uint8Array(buf), s=''; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
+function _unb64(s){ var r=atob(s), b=new Uint8Array(r.length); for(var i=0;i<r.length;i++) b[i]=r.charCodeAt(i); return b; }
+function _ctEq(a,b){
+  a=String(a); b=String(b);
+  if(a.length!==b.length) return false;
+  var d=0; for(var i=0;i<a.length;i++) d|=a.charCodeAt(i)^b.charCodeAt(i);
+  return d===0;
+}
+async function _pbkdf2(plain, salt, iter){
+  var k = await crypto.subtle.importKey('raw', new TextEncoder().encode(plain), 'PBKDF2', false, ['deriveBits']);
+  return crypto.subtle.deriveBits({name:'PBKDF2', salt:salt, iterations:iter, hash:'SHA-256'}, k, 256);
+}
+// Create a salted hash:  pbkdf2$<iterations>$<salt b64>$<hash b64>
+async function hashPw(plain){
+  _pwTouchedAt = Date.now();
+  var salt = crypto.getRandomValues(new Uint8Array(16));
+  var bits = await _pbkdf2(plain, salt, PBKDF2_ITER);
+  return 'pbkdf2$'+PBKDF2_ITER+'$'+_b64(salt)+'$'+_b64(bits);
+}
+async function _sha256Legacy(str){
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return 'sha256:'+Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+// Verify a password against ANY stored format. Legacy formats only while LEGACY_PW_MIGRATION is on.
+async function verifyPw(stored, plain){
+  try{
+    if(!stored || !plain) return false;
+    if(stored.indexOf('pbkdf2$')===0){
+      var parts = stored.split('$');
+      var iter = parseInt(parts[1],10);
+      if(!(iter>=10000 && iter<=1000000) || parts.length!==4) return false;
+      var bits = await _pbkdf2(plain, _unb64(parts[2]), iter);
+      return _ctEq(_b64(bits), parts[3]);
+    }
+    if(!LEGACY_PW_MIGRATION) return false;
+    if(stored.indexOf('sha256:')===0) return _ctEq(stored, await _sha256Legacy(plain));
+    return _ctEq(stored, plain);
+  }catch(e){ return false; }
+}
+function pwNeedsUpgrade(stored){ return !(stored && String(stored).indexOf('pbkdf2$')===0); }
+function pwIsHashed(s){ return !!s && (String(s).indexOf('pbkdf2$')===0 || String(s).indexOf('sha256:')===0); }
+function _isKnownDefaultPw(p){ return KNOWN_DEFAULT_PWS.indexOf(String(p||'').toLowerCase())>=0; }
+function pwStrengthError(pw){
+  if(!pw || pw.length<8) return 'Password must be at least 8 characters.';
+  if(!/[A-Za-z]/.test(pw) || !/[0-9]/.test(pw)) return 'Use both letters and numbers.';
+  if(_isKnownDefaultPw(pw)) return 'That password is too common. Please choose another.';
+  return '';
+}
+
+// ── Login throttle (per device; slows guessing, does not replace server-side limits) ──
+function _loginThrottleCheck(){
+  try{ var t=JSON.parse(localStorage.getItem('scorix_lt')||'{}'); if(t.until && t.until>Date.now()) return t.until-Date.now(); }catch(e){}
+  return 0;
+}
+function _loginThrottleFail(){
+  try{
+    var now=Date.now(), t=JSON.parse(localStorage.getItem('scorix_lt')||'{}');
+    if(!t.first || now-t.first>600000) t={n:1, first:now}; else t.n=(t.n||0)+1;
+    if(t.n>=5) t.until = now+Math.min(300000, 30000*Math.pow(2,t.n-5));
+    localStorage.setItem('scorix_lt', JSON.stringify(t));
+  }catch(e){}
+}
+function _loginThrottleReset(){ try{ localStorage.removeItem('scorix_lt'); }catch(e){} }
+
+// ── Small modal helper ──
+var _SEC_INPUT = 'width:100%;padding:10px 12px;margin:5px 0 10px;border-radius:8px;border:1px solid var(--bd,#333);background:var(--s2,#0f1117);color:inherit;font:inherit;box-sizing:border-box;';
+var _SEC_BTN   = 'background:var(--gold,#f0b429);color:#111;border:none;padding:10px 18px;border-radius:8px;font-weight:600;cursor:pointer;font:inherit;';
+var _SEC_BTN2  = 'background:transparent;color:inherit;border:1px solid var(--bd,#444);padding:10px 16px;border-radius:8px;cursor:pointer;font:inherit;';
+function _secModal(html, width){
+  var ov=document.createElement('div');
+  ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
+  ov.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:100000;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--s1,#171a22);color:var(--ink,#eee);border:1px solid var(--bd,#333);border-radius:14px;max-width:'+(width||'440px')+';width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:92vh;overflow:auto;font-size:.9rem;line-height:1.55;';
+  box.innerHTML=html; ov.appendChild(box); document.body.appendChild(ov);
+  return {box:box, close:function(){ try{ov.remove();}catch(e){} }};
+}
+function _secToast(msg){
+  var t=document.createElement('div');
+  t.setAttribute('role','status');
+  t.style.cssText='position:fixed;left:16px;bottom:16px;z-index:100001;max-width:340px;background:var(--s1,#171a22);color:var(--ink,#eee);border:1px solid var(--gold,#f0b429);border-radius:10px;padding:10px 14px;font-size:.82rem;box-shadow:0 8px 30px rgba(0,0,0,.4);';
+  t.textContent=msg; document.body.appendChild(t);
+  setTimeout(function(){ try{t.remove();}catch(e){} }, 6000);
+}
+
+// ── Superadmin bootstrap: NO default account exists ──
+async function superdbRemoteState(){
+  try{
+    var r = await _withTimeout(supabaseClient.from('epaza_data').select('id').eq('id','superdb').maybeSingle(), 5000);
+    if(r && r.error) return 'error';
+    return (r && r.data) ? 'exists' : 'empty';
+  }catch(e){ return 'error'; }
+}
+function showFirstRunSetup(){
+  return new Promise(function(resolve){
+    var m=_secModal(
+      '<h3 style="margin:0 0 6px;font-size:1.15rem;">First-time setup</h3>'
+     +'<p style="margin:0 0 12px;color:var(--ink2,#bbb);">No system administrator exists yet. Create the Super Administrator account. There is no default password.</p>'
+     +'<label>Full name</label><input id="fs_name" style="'+_SEC_INPUT+'" autocomplete="name">'
+     +'<label>Username</label><input id="fs_user" style="'+_SEC_INPUT+'" autocomplete="username">'
+     +'<label>Password (8+ characters, letters and numbers)</label><input id="fs_pw" type="password" style="'+_SEC_INPUT+'" autocomplete="new-password">'
+     +'<label>Confirm password</label><input id="fs_pw2" type="password" style="'+_SEC_INPUT+'" autocomplete="new-password">'
+     +'<div id="fs_err" style="color:#e05252;font-size:.8rem;min-height:1.2em;margin-bottom:8px;"></div>'
+     +'<button id="fs_ok" style="'+_SEC_BTN+'">Create account</button> <button id="fs_cancel" style="'+_SEC_BTN2+'">Cancel</button>');
+    var q=function(id){ return m.box.querySelector('#'+id); };
+    q('fs_cancel').onclick=function(){ m.close(); resolve(false); };
+    q('fs_ok').onclick=async function(){
+      var name=q('fs_name').value.trim(), user=q('fs_user').value.trim(), pw=q('fs_pw').value, pw2=q('fs_pw2').value;
+      var e=q('fs_err');
+      if(!name||!user){ e.textContent='Enter your name and a username.'; return; }
+      if(user.length<3){ e.textContent='Username must be at least 3 characters.'; return; }
+      var pe=pwStrengthError(pw); if(pe){ e.textContent=pe; return; }
+      if(pw!==pw2){ e.textContent='Passwords do not match.'; return; }
+      q('fs_ok').disabled=true; e.textContent='Creating...';
+      var st=await superdbRemoteState();
+      if(st!=='empty'){ e.textContent = st==='exists' ? 'A system administrator already exists. Close this and sign in.' : 'Cannot reach the server. Check your connection.'; q('fs_ok').disabled=false; return; }
+      SUPERDB.superusers=[{id:'sa_'+Date.now(), username:user, password:await hashPw(pw), name:name, role:'superadmin'}];
+      superSave();
+      m.close(); resolve(true);
+    };
+    setTimeout(function(){ var f=q('fs_name'); if(f) f.focus(); },50);
+  });
+}
+// Forced password change (used when a known default password was just used)
+function forcePasswordChange(su, saveFn){
+  saveFn = saveFn || function(){ superSave(); };
+  return new Promise(function(resolve){
+    var m=_secModal(
+      '<h3 style="margin:0 0 6px;font-size:1.15rem;">Change your password</h3>'
+     +'<p style="margin:0 0 12px;color:var(--ink2,#bbb);">You signed in with a default or well-known password. Choose a new one to continue.</p>'
+     +'<label>New password (8+ characters, letters and numbers)</label><input id="fp_pw" type="password" style="'+_SEC_INPUT+'" autocomplete="new-password">'
+     +'<label>Confirm new password</label><input id="fp_pw2" type="password" style="'+_SEC_INPUT+'" autocomplete="new-password">'
+     +'<div id="fp_err" style="color:#e05252;font-size:.8rem;min-height:1.2em;margin-bottom:8px;"></div>'
+     +'<button id="fp_ok" style="'+_SEC_BTN+'">Save and continue</button> <button id="fp_cancel" style="'+_SEC_BTN2+'">Sign out</button>');
+    var q=function(id){ return m.box.querySelector('#'+id); };
+    q('fp_cancel').onclick=function(){ m.close(); resolve(false); };
+    q('fp_ok').onclick=async function(){
+      var pw=q('fp_pw').value, pw2=q('fp_pw2').value, e=q('fp_err');
+      var pe=pwStrengthError(pw); if(pe){ e.textContent=pe; return; }
+      if(pw!==pw2){ e.textContent='Passwords do not match.'; return; }
+      q('fp_ok').disabled=true;
+      su.password=await hashPw(pw);
+      saveFn();
+      m.close(); resolve(true);
+    };
+    setTimeout(function(){ var f=q('fp_pw'); if(f) f.focus(); },50);
+  });
+}
+
+// ── Audit log ──
+function _auditStore(){
+  if(CURRENT_SCHOOL_ID==='__super__'){ if(!Array.isArray(SUPERDB.audit)) SUPERDB.audit=[]; return SUPERDB.audit; }
+  if(!Array.isArray(DB.audit)) DB.audit=[];
+  return DB.audit;
+}
+function auditLog(action, detail){
+  try{
+    var who = ME ? (ME.username||ME.name||'?') : (typeof PARENT_USER!=='undefined' && PARENT_USER ? (PARENT_USER.email||'parent') : 'anonymous');
+    var role = ME ? (ME.role||'') : (typeof PARENT_USER!=='undefined' && PARENT_USER ? 'parent' : '');
+    var arr=_auditStore();
+    arr.push({id:Math.random().toString(36).slice(2,9)+Date.now().toString(36), t:new Date().toISOString(), u:String(who).slice(0,60), r:role, a:String(action).slice(0,30), d:String(detail==null?'':detail).slice(0,140)});
+    if(arr.length>1000) arr.splice(0, arr.length-1000);
+  }catch(e){}
+}
+var _marksSnap = null;
+function _auditSnapshot(){ try{ _marksSnap = Object.assign({}, (DB&&DB.marks)||{}); }catch(e){ _marksSnap=null; } }
+function _auditMarksDiff(){
+  if(!_marksSnap || !DB || !DB.marks || !ME) return;
+  var cur=DB.marks, ch=[];
+  Object.keys(cur).forEach(function(k){ if(_marksSnap[k]!==cur[k]) ch.push([k,_marksSnap[k],cur[k]]); });
+  Object.keys(_marksSnap).forEach(function(k){ if(!(k in cur)) ch.push([k,_marksSnap[k],null]); });
+  if(!ch.length) return;
+  if(ch.length<=25){
+    ch.forEach(function(c){ auditLog('mark', c[0]+': '+(c[1]==null?'(none)':c[1])+' -> '+(c[2]==null?'(deleted)':c[2])); });
+  } else {
+    auditLog('marks-bulk', ch.length+' mark values changed (first: '+ch[0][0]+')');
+  }
+  _marksSnap = Object.assign({}, cur);
+}
+function showAuditLog(){
+  if(!isAdmin()){ return; }
+  var arr=(_auditStore()||[]).slice().sort(function(a,b){ return a.t<b.t?1:-1; });
+  var rows=arr.slice(0,300).map(function(e){
+    return '<tr><td style="white-space:nowrap;padding:4px 8px;">'+esc(new Date(e.t).toLocaleString())+'</td><td style="padding:4px 8px;">'+esc(e.u)+'</td><td style="padding:4px 8px;">'+esc(e.r)+'</td><td style="padding:4px 8px;">'+esc(e.a)+'</td><td style="padding:4px 8px;word-break:break-word;">'+esc(e.d)+'</td></tr>';
+  }).join('');
+  var m=_secModal(
+    '<h3 style="margin:0 0 6px;font-size:1.15rem;">Audit log</h3>'
+   +'<p style="margin:0 0 10px;color:var(--ink2,#bbb);">Sign-ins, mark changes, password changes, deletions and backups. Showing the latest '+Math.min(300,arr.length)+' of '+arr.length+' entries (max 1000 kept).</p>'
+   +'<div style="overflow:auto;max-height:55vh;border:1px solid var(--bd,#333);border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:.76rem;"><thead><tr style="text-align:left;background:var(--s2,#0f1117);"><th style="padding:6px 8px;">Time</th><th style="padding:6px 8px;">User</th><th style="padding:6px 8px;">Role</th><th style="padding:6px 8px;">Action</th><th style="padding:6px 8px;">Detail</th></tr></thead><tbody>'
+   +(rows||'<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--ink3,#888);">No entries yet.</td></tr>')
+   +'</tbody></table></div>'
+   +'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button id="al_csv" style="'+_SEC_BTN+'">Export CSV</button><button id="al_close" style="'+_SEC_BTN2+'">Close</button></div>', '860px');
+  m.box.querySelector('#al_close').onclick=m.close;
+  m.box.querySelector('#al_csv').onclick=function(){
+    function cell(v){ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; }
+    var csv='Time,User,Role,Action,Detail\n'+arr.map(function(e){ return [e.t,e.u,e.r,e.a,e.d].map(cell).join(','); }).join('\n');
+    var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download='scorix_audit_log_'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
+    auditLog('export','audit log exported');
+  };
+}
+
+// ── Privacy notice (children's records) ──
+var PRIVACY_KEY = 'scorix_privacy_ack_v1';
+function showPrivacyNotice(requireAck){
+  return new Promise(function(resolve){
+    var m=_secModal(
+      '<h3 style="margin:0 0 8px;font-size:1.15rem;">Privacy &amp; data protection notice</h3>'
+     +'<div style="color:var(--ink2,#bbb);">'
+     +'<p style="margin:0 0 8px;"><strong>What is stored:</strong> student names and class details, marks, attendance, report remarks, teacher and parent accounts (name, email), and school messages.</p>'
+     +'<p style="margin:0 0 8px;"><strong>Why:</strong> to record and report pupils\' academic progress and to communicate between school and parents. Data is never sold or used for advertising.</p>'
+     +'<p style="margin:0 0 8px;"><strong>Who can see it:</strong> staff see data for their own school according to their role; a parent sees only their own child\'s information. Please never share your login.</p>'
+     +'<p style="margin:0 0 8px;"><strong>Retention:</strong> parent-teacher chat messages are deleted automatically after 14 days. Academic records are kept for as long as the school requires them.</p>'
+     +'<p style="margin:0 0 8px;"><strong>Security:</strong> passwords are stored salted and hashed, and changes to marks, accounts and backups are recorded in an audit log. Data is hosted with cloud providers (Supabase and Vercel).</p>'
+     +'<p style="margin:0 0 8px;"><strong>Your rights:</strong> you may ask the school administration to access, correct or delete personal data, as provided by Rwanda\'s law on the protection of personal data and privacy (Law No. 058/2021). The school acts as data controller; report any suspected misuse to the administrator.</p>'
+     +'</div>'
+     +'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">'
+     +'<button id="pv_ok" style="'+_SEC_BTN+'">'+(requireAck?'I understand':'Close')+'</button></div>');
+    m.box.querySelector('#pv_ok').onclick=function(){
+      if(requireAck){ try{ localStorage.setItem(PRIVACY_KEY, new Date().toISOString()); }catch(e){} }
+      m.close(); resolve(true);
+    };
+  });
+}
+
+// ── Backup reminder ──
+function _backupReminder(){
+  try{
+    if(!ME || !isAdmin() || CURRENT_SCHOOL_ID==='__super__') return;
+    if(document.getElementById('bkReminder')) return;
+    var last=localStorage.getItem('scorix_last_backup');
+    var days = last ? Math.floor((Date.now()-new Date(last).getTime())/86400000) : 999;
+    if(days<7) return;
+    var b=document.createElement('div'); b.id='bkReminder'; b.setAttribute('role','status');
+    b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:99999;max-width:92vw;background:var(--s1,#171a22);color:var(--ink,#eee);border:1px solid var(--orange,#f5a623);border-radius:12px;padding:12px 16px;font-size:.84rem;box-shadow:0 10px 40px rgba(0,0,0,.5);display:flex;gap:10px;align-items:center;flex-wrap:wrap;';
+    b.innerHTML='<span>'+(last?('Your last backup was '+days+' days ago.'):'No backup has been made on this device yet.')+' Please download one.</span>'
+      +'<button id="bkr_now" style="'+_SEC_BTN+'padding:6px 12px;">Back up now</button><button id="bkr_x" style="'+_SEC_BTN2+'padding:6px 12px;">Later</button>';
+    document.body.appendChild(b);
+    b.querySelector('#bkr_now').onclick=function(){ b.remove(); try{ downloadBackup(); }catch(e){} };
+    b.querySelector('#bkr_x').onclick=function(){ b.remove(); };
+  }catch(e){}
+}
+function _postLoginChecks(){
+  try{
+    if(!ME) return;
+    var done=Promise.resolve();
+    if(!localStorage.getItem(PRIVACY_KEY)) done=showPrivacyNotice(true);
+    done.then(function(){ setTimeout(_backupReminder, 1500); });
+  }catch(e){}
+}
+
+// ── Merge-on-conflict for concurrent saves ──
+// Marks/attendance/etc. are stored as one JSON document per school. If another
+// user saved since we last loaded, pull their newer records in before writing so
+// we never silently erase them. Same record edited by both: local (latest) wins.
+var _MERGE_SKIP = {_rev:1, activity:1, audit:1};
+function _isPlainObj(o){ return o && typeof o==='object' && !Array.isArray(o); }
+function _allHaveIds(a){ return a.length>0 && a.every(function(x){ return _isPlainObj(x) && x.id!==undefined; }); }
+function _unionById(a, b){
+  var map={}; (a||[]).concat(b||[]).forEach(function(e){ if(e && e.id && !map[e.id]) map[e.id]=e; });
+  var out=Object.keys(map).map(function(k){ return map[k]; });
+  out.sort(function(x,y){ return (x.t||'')<(y.t||'')?-1:1; });
+  return out.length>1000 ? out.slice(-1000) : out;
+}
+function _mergeRemoteIntoLocal(local, remote, nested){
+  Object.keys(remote).forEach(function(k){
+    if(!nested && _MERGE_SKIP[k]) return;
+    var rv=remote[k], lv=local[k];
+    if(lv===undefined){ local[k]=rv; return; }
+    if(Array.isArray(lv) && Array.isArray(rv)){
+      if(_allHaveIds(rv) && (_allHaveIds(lv) || !lv.length)){
+        var byId={}; lv.forEach(function(x){ byId[x.id]=x; });
+        rv.forEach(function(x){
+          if(!byId[x.id]) lv.push(x);
+          else if(!nested && (k==='users'||k==='parents') && x.password && (Date.now()-_pwTouchedAt>120000)) byId[x.id].password=x.password;
+        });
+      }
+    } else if(_isPlainObj(lv) && _isPlainObj(rv)){
+      _mergeRemoteIntoLocal(lv, rv, true);
+    }
+  });
+}
+async function _reconcileBeforeWrite(key, data){
+  try{
+    var r = await _withTimeout(supabaseClient.from('epaza_data').select('rev:data->_rev').eq('id',key).maybeSingle(), 4000);
+    if(r && r.error) throw r.error;
+    var remoteRev = Number(r && r.data && r.data.rev) || 0;
+    var localBase = Number(data._rev) || 0;
+    if(remoteRev > localBase){
+      var full = await _withTimeout(supabaseClient.from('epaza_data').select('data').eq('id',key).single(), 8000);
+      var rd = full && full.data && full.data.data;
+      if(rd){
+        _mergeRemoteIntoLocal(data, rd, false);
+        data.audit = _unionById(data.audit, rd.audit);
+        remoteRev = Math.max(remoteRev, Number(rd._rev)||0);
+        _secToast('Another user saved changes at the same time. Their changes were merged with yours.');
+        try{ _silentRerender(); }catch(e){}
+      }
+    }
+    data._rev = Math.max(remoteRev, localBase) + 1;
+  }catch(e){
+    data._rev = (Number(data._rev)||0) + 1;
+  }
+  return data;
+}
+
+// ── Wrappers (kept here so the original functions stay untouched) ──
+var _origSupabaseLoad = supabaseLoad;
+supabaseLoad = async function(){
+  var r = await _origSupabaseLoad.apply(this, arguments);
+  _auditSnapshot();
+  return r;
+};
+var _origEnterApp = enterApp;
+enterApp = function(){
+  var r = _origEnterApp.apply(this, arguments);
+  setTimeout(_postLoginChecks, 2500);
+  return r;
 };
 
 async function superSave(){
@@ -4304,6 +4645,7 @@ function purgeOldParentMessages(){
 // ═══════════════════════════════════════
 function dbSave(){
   if(!CURRENT_SCHOOL_ID) return;
+  try{ _auditMarksDiff(); }catch(e){}
   // Block saves if school is paused (except superadmin)
   if(isSuperAdmin()) { _doSave(); return; }
   var school=SUPERDB.schools.find(function(s){return s.id===CURRENT_SCHOOL_ID;});
@@ -4499,10 +4841,11 @@ async function doParentForgotPw(){
       fErr('That student code does not match this account. Check the code on the report card.');
       return;
     }
-    var newHash = await sha256(newPass);
+    var newHash = await hashPw(newPass);
     parent.password = newHash;
     CURRENT_SCHOOL_ID = schoolId;
     addLog('Parent self-reset password: '+email);
+    auditLog('password-reset','parent self-reset: '+email);
     dbSave();
     fOk('Password reset! You can now sign in with your new password.');
     setTimeout(function(){
@@ -4560,7 +4903,7 @@ async function doParentSignup(){
   }
 
   // New parent registration
-  var parentPwHash = await sha256(pass);
+  var parentPwHash = await hashPw(pass);
   var newParent = {
     id: 'PAR'+Date.now(),
     email: email,
@@ -4594,8 +4937,10 @@ async function doParentLogin(){
   if(btn){ btn.disabled=true; btn.textContent='Signing in…'; }
   errEl.style.display='none';
 
+  var _wait=_loginThrottleCheck();
+  if(_wait>0){ pErr('Too many failed attempts. Try again in '+Math.ceil(_wait/1000)+'s.'); return; }
+
   try{
-    var passHashP = await sha256(pass);
     var foundParent = null;
     var foundSchoolId = null;
 
@@ -4612,17 +4957,19 @@ async function doParentLogin(){
       await supabaseLoad(sc.id);
       if(!DB.parents) DB.parents=[];
       // Match email+password within THIS school only
-      var p = DB.parents.find(function(x){
-        return x.email===email && (x.password===passHashP || (!x.password.startsWith('sha256:') && x.password===pass));
-      });
+      var p = null;
+      for(var _pi=0;_pi<DB.parents.length;_pi++){
+        if(DB.parents[_pi].email===email && await verifyPw(DB.parents[_pi].password, pass)){ p=DB.parents[_pi]; break; }
+      }
       if(p){
-        // Migrate legacy plain-text password to hash
-        if(!p.password.startsWith('sha256:')){ p.password=passHashP; CURRENT_SCHOOL_ID=sc.id; dbSave(); }
+        // Migrate legacy password format to salted hash
+        if(pwNeedsUpgrade(p.password)){ p.password=await hashPw(pass); CURRENT_SCHOOL_ID=sc.id; dbSave(); }
         foundParent=p; foundSchoolId=sc.id; break;
       }
     }
 
-    if(!foundParent){ pErr('Email or password is incorrect. Make sure you select the correct school.'); return; }
+    if(!foundParent){ _loginThrottleFail(); pErr('Email or password is incorrect. Make sure you select the correct school.'); return; }
+    _loginThrottleReset();
 
     // Verify school is not paused
     var foundSc = SUPERDB.schools.find(function(s){ return s.id===foundSchoolId; });
@@ -4630,6 +4977,7 @@ async function doParentLogin(){
 
     PARENT_USER = foundParent;
     CURRENT_SCHOOL_ID = foundSchoolId;
+    auditLog('login','parent '+email);
     document.getElementById('parentWrap').style.display='none';
     enterParentPortal();
 
@@ -5076,22 +5424,29 @@ async function doLogin(){
 
   if(!u||!p){ err.style.display='flex'; err.textContent='❌ Please enter username and password.'; return; }
 
+  var _wait=_loginThrottleCheck();
+  if(_wait>0){ err.style.display='flex'; err.textContent='❌ Too many failed attempts. Try again in '+Math.ceil(_wait/1000)+'s.'; return; }
+
   btn.disabled=true; btn.textContent='Signing in…';
   err.style.display='none';
 
   try{
 
-  // Hash the entered password for comparison
-  var pHash = await sha256(p);
+  var _usedDefaultPw = _isKnownDefaultPw(p);
 
   // 1. Superadmin check — always local, instant, no network needed
-  var su=SUPERDB.superusers.find(function(x){
-    return x.username===u && (x.password===pHash || x.password===p);
-  });
+  var su=null;
+  for(var _si=0;_si<SUPERDB.superusers.length;_si++){
+    var _cand=SUPERDB.superusers[_si];
+    if(_cand.username===u && await verifyPw(_cand.password, p)){ su=_cand; break; }
+  }
   if(su){
-    // Migrate plain-text superadmin password to hash
-    if(su.password===p){ su.password=pHash; superSave(); }
-    ME=su; CURRENT_SCHOOL_ID='__super__'; enterApp(); return;
+    _loginThrottleReset();
+    if(pwNeedsUpgrade(su.password)){ su.password=await hashPw(p); superSave(); }
+    ME=su; CURRENT_SCHOOL_ID='__super__';
+    if(_usedDefaultPw){ var _cont=await forcePasswordChange(su); if(!_cont) return; }
+    auditLog('login','superadmin '+u);
+    enterApp(); return;
   }
 
   // 2. Fast lookup via cached user index (zero network if pre-warmed)
@@ -5100,11 +5455,11 @@ async function doLogin(){
 
   if(index && index[u]){
     var entry = index[u];
-    // Accept hash or legacy plain-text
-    if(entry.password===pHash || entry.password===p){
+    if(await verifyPw(entry.password, p)){
       foundSchoolId = entry.schoolId;
     } else {
       // Password mismatch — don't bother scanning schools
+      _loginThrottleFail();
       err.style.display='flex'; err.textContent='❌ Invalid username or password.'; return;
     }
   }
@@ -5114,12 +5469,13 @@ async function doLogin(){
     var found = null;
     var scanResults = await Promise.all(SUPERDB.schools.map(function(sc){
       return _resilientRead(schoolDbKey(sc.id), 3000)
-        .then(function(d){
+        .then(async function(d){
           if(!d||!d.users) return null;
-          var c=d.users.find(function(x){
-            return x.username===u && (x.password===pHash || x.password===p);
-          });
-          return c ? sc.id : null;
+          for(var _i=0;_i<d.users.length;_i++){
+            var _x=d.users[_i];
+            if(_x.username===u && await verifyPw(_x.password, p)) return sc.id;
+          }
+          return null;
         }).catch(function(){ return null; });
     }));
     for(var si=0;si<scanResults.length;si++){
@@ -5133,10 +5489,12 @@ async function doLogin(){
       err.style.display='flex';
       err.textContent='📵 No network connection. Your data is saved locally — please reconnect and try again.';
     } else {
+      _loginThrottleFail();
       err.style.display='flex'; err.textContent='❌ Invalid username or password.';
     }
     return;
   }
+  _loginThrottleReset();
 
   // Check pause
   var foundSchool=SUPERDB.schools.find(function(s){return s.id===foundSchoolId;});
@@ -5150,9 +5508,12 @@ async function doLogin(){
   CURRENT_SCHOOL_ID=foundSchoolId;
   await supabaseLoad(CURRENT_SCHOOL_ID);
 
-  var me=DB.users.find(function(x){return x.username===u&&(x.password===pHash||x.password===p);});
+  var me=null;
+  for(var _mi=0;_mi<DB.users.length;_mi++){
+    if(DB.users[_mi].username===u && await verifyPw(DB.users[_mi].password, p)){ me=DB.users[_mi]; break; }
+  }
   if(!me){
-    me={id:'u_'+Date.now(),username:u,password:pHash,role:'admin',name:u,schoolId:foundSchoolId};
+    me={id:'u_'+Date.now(),username:u,password:await hashPw(p),role:'admin',name:u,schoolId:foundSchoolId};
   }
   ME=me;
   // Ensure ME has all latest data from DB
@@ -5185,18 +5546,22 @@ async function doLogin(){
   else if(ME.role==='admin') document.body.classList.add('role-admin');
   else document.body.classList.add('role-teacher');
 
-  // Migrate plain-text password to hash on first login with new code
+  // Migrate legacy password formats to salted PBKDF2 on first login with new code
   var dbUser2=DB.users.find(function(x){return x.id===ME.id;});
-  if(dbUser2 && dbUser2.password===p && pHash){
-    dbUser2.password=pHash; ME.password=pHash;
-    // Also update teachers mirror
-    var tMirror=DB.teachers.find(function(x){return x.id===ME.id;});
-    // (teachers don't store passwords — users table only)
+  if(dbUser2 && pwNeedsUpgrade(dbUser2.password)){
+    var _newHash=await hashPw(p);
+    dbUser2.password=_newHash; ME.password=_newHash;
     setTimeout(function(){ dbSave(); rebuildUserIndex(); },800);
   }
 
   // Update user index in background — no await, doesn't block login
   setTimeout(function(){ rebuildUserIndex(); }, 2000);
+
+  auditLog('login', ME.role+' '+u);
+  if(_usedDefaultPw){
+    var _cont2=await forcePasswordChange(ME, function(){ if(dbUser2) dbUser2.password=ME.password; dbSave(); rebuildUserIndex(); });
+    if(!_cont2) return;
+  }
 
   enterApp();
 
@@ -6938,7 +7303,7 @@ function addTeacher(){
   var subs=getChkSelected('mts-chk');
   var classTeacher=document.getElementById('mtct').value;
   var teacherLevel=(document.getElementById('mt-level')||{}).value||CURRENT_LEVEL;
-  sha256(pass).then(function(passHash){
+  hashPw(pass).then(function(passHash){
     DB.users.push({id:id,username:uname,password:passHash,role:'teacher',name:name,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel});
     DB.teachers.push({id:id,name:name,username:uname,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel});
     addLog('Added teacher: '+name); dbSave(); rebuildUserIndex(); renderTeachers(); cm('mt');
@@ -7028,7 +7393,7 @@ function saveEditTeacher(){
       document.getElementById('uname').textContent=name;
     }
   };
-  if(pass){ sha256(pass).then(function(h){ _finishEditTeacher(h); }); }
+  if(pass){ hashPw(pass).then(function(h){ _finishEditTeacher(h); }); }
   else { _finishEditTeacher(null); }
 }
 async function refreshOverview(){
@@ -7290,7 +7655,7 @@ function resetTeacherPw(tid, tname){
   if(newPw === null) return; // cancelled
   newPw = newPw.trim();
   if(newPw.length < 6){ alert('Password must be at least 6 characters.'); return; }
-  sha256(newPw).then(function(hash){
+  hashPw(newPw).then(function(hash){
     var u = DB.users.find(function(x){ return x.id===tid; });
     var t = DB.teachers.find(function(x){ return x.id===tid; });
     if(!u){ alert('Teacher not found.'); return; }
@@ -7828,6 +8193,7 @@ function delStudent(id){
   var st=DB.students.find(function(x){return x.id===id;});
   if(!st)return;
   if(!confirm('Delete student "'+st.name+'"? All their marks will also be removed. This cannot be undone.'))return;
+  auditLog('delete-student', st.name+' ('+st.id+')');
   // Also remove their marks
   Object.keys(DB.marks).forEach(function(k){ if(k.startsWith(st.id+'_')||k.indexOf('_'+st.id+'_')>=0) delete DB.marks[k]; });
   DB.students=DB.students.filter(function(s){return s.id!==id;});
@@ -11972,6 +12338,13 @@ var EMAILJS_SERVICE  = 'service_o61hije';
 var EMAILJS_TEMPLATE = 'template_a8js9t9';
 var EMAILJS_KEY      = 'XcvyLRKrkiAxxdrDx';
 var BACKUP_EMAIL     = 'fabricengenzi25@gmail.com';
+// SECURITY FIX: backups no longer auto-email full student/teacher/parent data
+// to a single hardcoded personal inbox. Every school's data was being sent to
+// one address regardless of which school clicked "Download Backup" — a serious
+// privacy problem for a multi-school system. Email delivery is now OFF by
+// default. Set to true only for a specific deployment where that inbox is a
+// deliberate, disclosed part of the school's own backup process.
+var BACKUP_EMAIL_ENABLED = false;
 
 // █  downloadBackup() — exports full DB snapshot as JSON + sends email notification
 async function downloadBackup(){
@@ -12014,6 +12387,16 @@ async function downloadBackup(){
     document.body.appendChild(a); a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    auditLog('backup', schoolName+' — '+studentCount+' students');
+
+    if(!BACKUP_EMAIL_ENABLED){
+      try{ localStorage.setItem('scorix_last_backup', now.toISOString()); }catch(e){}
+      var localMsg = '✅ Last backup: <strong style="color:var(--green);">'+now.toLocaleString()+'</strong> — saved to your device.';
+      if(lbl) lbl.innerHTML=localMsg;
+      var lbl2x=document.getElementById('backup-last2'); if(lbl2x) lbl2x.innerHTML=localMsg;
+      if(btn){ btn.disabled=false; btn.innerHTML='⬇️ Download Backup (.json)'; }
+      return;
+    }
 
     // ── 2. Send full data inside email via EmailJS ──
     if(btn){ btn.innerHTML='📧 Sending to Gmail...'; }
@@ -12085,17 +12468,14 @@ async function changePw(){
   var oldV=document.getElementById('pwold').value;
   var nw=document.getElementById('pwnew').value;
   var cf=document.getElementById('pwcf').value;
-  if(nw.length<6){flash('pwal','warn','❌ Password too short (minimum 6 characters).');return;}
+  var pe=pwStrengthError(nw); if(pe){flash('pwal','warn','❌ '+pe);return;}
   if(nw!==cf){flash('pwal','warn','❌ Passwords do not match.');return;}
-  // Accept hash or legacy plain-text for current password
-  var oldHash = await sha256(oldV);
-  var storedPw = ME.password||'';
-  var match = (storedPw===oldHash || storedPw===oldV);
+  var match = await verifyPw(ME.password||'', oldV);
   if(!match){flash('pwal','warn','❌ Current password incorrect.');return;}
-  var newHash = await sha256(nw);
+  var newHash = await hashPw(nw);
   ME.password=newHash;
   DB.users=DB.users.map(function(u){return u.id===ME.id?Object.assign({},u,{password:newHash}):u;});
-  dbSave(); rebuildUserIndex(); flash('pwal','ok','✅ Password updated.');
+  dbSave(); rebuildUserIndex(); auditLog('password-change', ME.username||''); flash('pwal','ok','✅ Password updated.');
   document.getElementById('pwold').value='';document.getElementById('pwnew').value='';document.getElementById('pwcf').value='';
 }
 function exportData(){
@@ -13650,8 +14030,8 @@ function genQuizProcl(){
   // Header banner (printable)
   html += '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
     +(logoSrc
-        ? '<img src="'+logoSrc+'" style="height:150px;margin-bottom:.6rem;">'
-        : '<div style="width:150px;height:150px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.85rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
+        ? '<img src="'+logoSrc+'" style="height:70px;margin-bottom:.6rem;">'
+        : '<div style="width:70px;height:70px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.65rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
     +(schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(schoolName)+'</div>':'')
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🌅 Morning Quiz — Proclamation List</div>'
     +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
@@ -13790,8 +14170,8 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
   var _bdLogoSrc = DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var html = '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
     +(_bdLogoSrc
-        ? '<img src="'+_bdLogoSrc+'" style="height:150px;margin-bottom:.6rem;">'
-        : '<div style="width:150px;height:150px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.85rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
+        ? '<img src="'+_bdLogoSrc+'" style="height:70px;margin-bottom:.6rem;">'
+        : '<div style="width:70px;height:70px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.65rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
     +(DB.settings&&DB.settings.schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(DB.settings.schoolName)+'</div>':'')
     +'<div style="font-family:\'Playfair Display\',serif;font-size:1.2rem;font-weight:700;">&#128202; Quiz Subject Breakdown</div>'
     +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
@@ -14188,7 +14568,7 @@ function renderEsAdminList(admins,sid){
   if(!admins.length){ el.innerHTML='<div style="font-size:.8rem;color:var(--ink3);padding:6px;">No admins yet.</div>'; return; }
   el.innerHTML=admins.map(function(u){
     // Decode stored password for display (sha256 stored, show placeholder; plain shown directly)
-    var pwDisplay = u.password&&u.password.startsWith('sha256:') ? '' : (u.password||'');
+    var pwDisplay = pwIsHashed(u.password) ? '' : (u.password||''); // legacy plain-text only, upgraded on next login
     var safeId = u.id.replace(/[^a-zA-Z0-9_]/g,'_');
     return '<div style="background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:10px 12px;margin-bottom:6px;">'
       // Header row
@@ -14244,7 +14624,7 @@ async function superSaveAdminCreds(sid, uid){
 
   var oldUsername = admin.username;
   admin.username = newUsername;
-  if(newPass){ admin.password = await sha256(newPass); }
+  if(newPass){ admin.password = await hashPw(newPass); }
 
   localStorage.setItem(schoolDbKey(sid), JSON.stringify(d));
   try{ await supabaseClient.from('epaza_data').upsert({id:schoolDbKey(sid), data:d}); }catch(e){}
@@ -14256,7 +14636,7 @@ async function superSaveAdminCreds(sid, uid){
       var idxRes=await supabaseClient.from('epaza_data').select('data').eq('id',idxKey).single();
       var idx=(idxRes.data&&idxRes.data.data)||{};
       if(idx[oldUsername]) { idx[newUsername]=idx[oldUsername]; delete idx[oldUsername]; }
-      if(newPass) idx[newUsername].password = await sha256(newPass);
+      if(newPass) idx[newUsername].password = await hashPw(newPass);
       await supabaseClient.from('epaza_data').upsert({id:idxKey,data:idx});
     }catch(e){ console.warn('User index update failed',e); }
     rebuildUserIndex();
@@ -14293,7 +14673,7 @@ async function superAddAdminToSchool(){
   if(!d){ var raw=localStorage.getItem(schoolDbKey(sid)); if(raw) try{d=JSON.parse(raw);}catch(e){} }
   if(!d) d={users:[],teachers:[],classes:[],subjects:[],students:[],marks:{},settings:{grA:80,grB:70,grC:60,grD:50,schoolName:''},activity:[],terms:[{id:'T1',name:'Term 1',type:'term',active:true},{id:'T2',name:'Term 2',type:'term',active:true},{id:'T3',name:'Term 3',type:'term',active:true},{id:'Final',name:'Final Exam',type:'exam',active:true}]};
   if((d.users||[]).find(function(u){return u.username===uname;})){ flash('mEditSchoolAlert','warn','Username already taken.'); return; }
-  var newAdmin={id:'adm_'+Date.now(),username:uname,password:await sha256(pass),role:'admin',name:name,schoolId:sid};
+  var newAdmin={id:'adm_'+Date.now(),username:uname,password:await hashPw(pass),role:'admin',name:name,schoolId:sid};
   if(!d.users) d.users=[];
   d.users.push(newAdmin);
   localStorage.setItem(schoolDbKey(sid),JSON.stringify(d));
@@ -14338,7 +14718,7 @@ async function superAddSchool(){
   var sid='school_'+Date.now();
   SUPERDB.schools.push({id:sid,name:sname,paused:false,adminIds:[auser]});
   var schoolData={
-    users:[{id:'adm_'+Date.now(),username:auser,password:await sha256(apass),role:'admin',name:aname,schoolId:sid}],
+    users:[{id:'adm_'+Date.now(),username:auser,password:await hashPw(apass),role:'admin',name:aname,schoolId:sid}],
     teachers:[],classes:[],subjects:[],students:[],marks:{},
     settings:{grA:80,grB:70,grC:60,grD:50,schoolName:sname,reportSubjects:{},reportMergeTerms:false,reportClasses:[]},
     activity:[],
@@ -14354,7 +14734,7 @@ async function superAddSchool(){
     ]);
     // Update user index with new admin
     var idx=existingIndex||{};
-    idx[auser]={schoolId:sid,password:await sha256(apass)};
+    idx[auser]={schoolId:sid,password:await hashPw(apass)};
     await supabaseClient.from('epaza_data').upsert({id:'epaza_users',data:idx});
   }catch(e){ console.error(e); flash('mAddSchoolAlert','warn','⚠️ Network error. Try again.'); if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='✅ Create School';} return; }
 
@@ -14374,7 +14754,7 @@ function superAddSuperUser(){
   var pass=document.getElementById('suPass').value;
   if(!name||!uname||!pass){ flash('mAddSuAlert','warn','Fill all fields.'); return; }
   if(SUPERDB.superusers.find(function(u){return u.username===uname;})){ flash('mAddSuAlert','warn','Username taken.'); return; }
-  sha256(pass).then(function(passHash){
+  hashPw(pass).then(function(passHash){
     SUPERDB.superusers.push({id:'su_'+Date.now(),username:uname,password:passHash,name:name,role:'superadmin'});
     superSave();
     document.getElementById('suName').value='';
@@ -14532,6 +14912,11 @@ async function initApp(){
     // No valid session — freshen superDB from Supabase now (user hasn't typed yet)
     document.getElementById('loadBar').style.width='70%';
     try{ await superLoad(); }catch(e){ console.warn('[SCORIX] superLoad failed on init', e); }
+    if(!SUPERDB.superusers || !SUPERDB.superusers.length){
+      try{ overlay.remove(); }catch(e){}
+      var _lOverlay0 = document.getElementById('loadOverlay'); if(_lOverlay0) _lOverlay0.remove();
+      await showFirstRunSetup();
+    }
     applyBranding();
     // Pre-warm user index so login is instant
     setTimeout(function(){ try{ userIndexLoad(); rebuildUserIndex(); }catch(e){} }, 200);
@@ -14898,7 +15283,7 @@ function _openPrintWindow(bodyHtml, isT3Card, printTitle){
     +'</style>'
     +'</head><body>'
     +'<div class="no-print">'
-    +'<strong>'+(printTitle==='Proclamation'?'🏆 Proclamation ready.':'📄 Report Card ready.')+'</strong> &nbsp; '
+    +'<strong>'+((printTitle||'').indexOf('Proclamation')===0?'🏆 Proclamation ready.':'📄 Report Card ready.')+'</strong> &nbsp; '
     +'Tap the menu (⋮) → <strong>Print</strong> or <strong>Share → Save as PDF</strong>'
     +'&nbsp;&nbsp;<button onclick="window.print()" style="padding:6px 16px;background:#1a237e;color:#fff;border:none;border-radius:6px;font-size:.85rem;cursor:pointer;font-family:Outfit,sans-serif;">🖨️ Print / Save PDF</button>'
     +'</div>'
@@ -14994,7 +15379,7 @@ function printProcl(){
   var trmSel  = document.getElementById('prTerm');
   var clsName = clsSel && clsSel.options[clsSel.selectedIndex] ? clsSel.options[clsSel.selectedIndex].text.trim() : '';
   var trmName = trmSel && trmSel.options[trmSel.selectedIndex] ? trmSel.options[trmSel.selectedIndex].text.trim() : '';
-  var proclTitle = 'Proclamation' + (clsName ? ' — ' + clsName : '') + (trmName ? ' — ' + trmName : '');
+  var proclTitle = 'Proclamation List' + (clsName ? ' — ' + clsName : '') + (trmName ? ' — ' + trmName : '');
   var printStyles = '<style>'
     +'table{border-collapse:collapse;width:100%;font-size:.8rem;}'
     +'th,td{border:1px solid #c0c8e0;padding:6px 8px;}'
@@ -15018,27 +15403,32 @@ function printQuizProcl(){
     alert('Nothing to print yet. Select class and week first.');
     return;
   }
-  // Inject extra print-friendly table styles before resolving vars
-  // Compressed to keep the whole proclamation list (banner + 20-30 rows) on a single A4 page.
+  // Build a descriptive title: "Proclamation List — P3 — Week 4"
+  var clsSel  = document.getElementById('qpCls');
+  var wkSel   = document.getElementById('qpWeek');
+  var clsName = clsSel && clsSel.options[clsSel.selectedIndex] ? clsSel.options[clsSel.selectedIndex].text.trim() : '';
+  var wkName  = wkSel && wkSel.options[wkSel.selectedIndex] ? wkSel.options[wkSel.selectedIndex].text.trim() : '';
+  var quizProclTitle = 'Proclamation List' + (clsName ? ' — ' + clsName : '') + (wkName ? ' — ' + wkName : '');
+  // Full-size layout: let the list use the whole page at natural size instead of
+  // shrinking everything down to force it onto a single sheet. Longer class lists
+  // will simply flow onto additional pages.
   var printStyles = '<style>'
-    +'@page{size:A4 portrait;margin:4mm!important;}'
-    +'body{zoom:.72;}'
-    +'table{border-collapse:collapse;width:100%;font-size:.66rem;}'
-    +'th,td{border:1px solid #c0c8e0;padding:3px 5px!important;}'
+    +'@page{size:A4 portrait;margin:10mm;}'
+    +'body{width:100%;}'
+    +'table{border-collapse:collapse;width:100%;font-size:.86rem;}'
+    +'th,td{border:1px solid #c0c8e0;padding:7px 9px!important;}'
     +'thead tr{background:#e8ecf7!important;}'
     +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
-    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;font-weight:700;font-size:.62rem;}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.8rem;}'
     +'.r1{background:#f6c90e;color:#1a1200;}'
     +'.r2{background:#b0bec5;color:#1a1200;}'
     +'.r3{background:#cd7f32;color:#fff;}'
     +'.rn{background:#e8ecf7;color:#2a2f4e;}'
-    +'#qpProclTable td div{font-size:.68rem!important;}'
-    +'#qpProclTable td div div, #qpProclTable td div span{font-size:.6rem!important;}'
-    +'#qpProclTable > div:first-child{padding:.5rem .6rem!important;margin-bottom:.4rem!important;}'
-    +'#qpProclTable > div:first-child div{margin-top:.2rem!important;margin-bottom:.2rem!important;}'
-    +'.ctitle{margin-bottom:.3rem!important;font-size:.8rem!important;}'
+    +'#qpProclTable{width:100%!important;}'
+    +'#qpProclTable > div:first-child{padding:1rem 1.2rem!important;margin-bottom:1rem!important;}'
+    +'.ctitle{font-size:1rem!important;}'
     +'</style>';
-  _openPrintWindow(printStyles + _resolveCssVars(content));
+  _openPrintWindow(printStyles + _resolveCssVars(content), false, quizProclTitle);
 }
 
 function stopSunriseAnimation(){
@@ -15199,13 +15589,13 @@ async function dsChangePw(){
   var cfpw=document.getElementById('ds_pwcf').value;
   if(!oldpw||!newpw||!cfpw){ flash('dsPwAlert','warn','Fill all password fields.'); return; }
   if(newpw!==cfpw){ flash('dsPwAlert','warn','New passwords do not match.'); return; }
-  if(newpw.length<6){ flash('dsPwAlert','warn','Password must be at least 6 characters.'); return; }
-  if(!pwMatch(ME.password,oldpw)){ flash('dsPwAlert','warn','⚠️ Current password is incorrect.'); return; }
-  var hashed=await sha256(newpw);
+  var pe=pwStrengthError(newpw); if(pe){ flash('dsPwAlert','warn',pe); return; }
+  if(!(await verifyPw(ME.password,oldpw))){ flash('dsPwAlert','warn','⚠️ Current password is incorrect.'); return; }
+  var hashed=await hashPw(newpw);
   ME.password=hashed;
   var userInDB=(DB.users||[]).find(function(u){return u.id===ME.id;});
   if(userInDB) userInDB.password=hashed;
-  dbSave();
+  dbSave(); auditLog('password-change', ME.username||'');
   document.getElementById('ds_pwold').value='';
   document.getElementById('ds_pwnew').value='';
   document.getElementById('ds_pwcf').value='';
