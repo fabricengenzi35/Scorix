@@ -15270,7 +15270,7 @@ function _fitThenPrint(doc, win, autofit, afterPrint){
   }
   if(!autofit || !autofit.pageHeightPx){ setTimeout(doPrint, 450); return; }
   var ph=autofit.pageHeightPx, bf=autofit.baseFontPx||13, bp=autofit.basePadPx||5,
-      mnf=autofit.minFontPx||7, mxf=autofit.maxFontPx||18;
+      mnf=autofit.minFontPx||7, mxf=autofit.maxFontPx||18, pw=autofit.pageWidthPx||0;
   function go(){
     var wrap = doc.getElementById('fitWrap');
     if(!wrap){ doPrint(); return; }
@@ -15278,6 +15278,13 @@ function _fitThenPrint(doc, win, autofit, afterPrint){
     function apply(){
       doc.documentElement.style.setProperty('--pxf', f+'px');
       doc.documentElement.style.setProperty('--pxp', p+'px');
+      // The generated table/badges use fixed "rem" font sizes baked into
+      // their inline styles, so --pxf alone (only read by a couple of
+      // selectors) can't shrink or grow the bulk of the text. Scaling the
+      // root font-size in lockstep makes every rem-sized element scale
+      // together with --pxf/--pxp, so the WHOLE list actually grows to
+      // fill a mostly-empty page, or shrinks to avoid spilling to a 2nd.
+      doc.documentElement.style.fontSize = (16 * (f / bf)) + 'px';
     }
     function step(){
       apply();
@@ -15285,12 +15292,38 @@ function _fitThenPrint(doc, win, autofit, afterPrint){
         var h = wrap.scrollHeight || 1;
         var ratio = ph / h;
         tries++;
-        if((h > ph+2 || ratio > 1.06) && tries < 12 && f > mnf-0.5 && f < mxf+0.5){
+        if((h > ph+2 || ratio > 1.06) && tries < 16 && f > mnf-0.5 && f < mxf+0.5){
           f = Math.max(mnf, Math.min(mxf, f*ratio*0.97));
           p = Math.max(2, Math.min(12, bp*(f/bf)));
           step();
         } else {
-          setTimeout(doPrint, 150);
+          // Hard guarantee: this list must NEVER spill onto a 2nd page.
+          // If even the smallest allowed font/padding still overflows
+          // (e.g. an unusually large class with many subjects), squeeze
+          // the whole block down using CSS zoom — NOT transform:scale(),
+          // which only repaints smaller without changing layout size, so
+          // the print engine would still paginate using the original
+          // (unshrunk) height and push rows onto a 2nd page anyway. zoom
+          // actually changes the element's real layout box, so the page
+          // break calculation sees the smaller size and keeps everything
+          // on one sheet. Re-checked once and nudged further if the first
+          // pass undershot slightly (font hinting/rounding).
+          function squeeze(pass){
+            setTimeout(function(){
+              var finalH = wrap.scrollHeight || 1;
+              if(finalH > ph + 2 && pass < 3){
+                var shrink = ph / finalH;
+                var curZoom = parseFloat(wrap.style.zoom) || 1;
+                var newZoom = curZoom * shrink;
+                if(pw){ wrap.style.width = (pw / newZoom) + 'px'; }
+                wrap.style.zoom = newZoom;
+                squeeze(pass + 1);
+              } else {
+                setTimeout(doPrint, 150);
+              }
+            }, 80);
+          }
+          squeeze(0);
         }
       }, 80);
     }
@@ -15488,7 +15521,7 @@ function printQuizProcl(){
     +'</style>';
   var fitBody = printStyles + '<div id="fitWrap">' + _resolveCssVars(content) + '</div>';
   _openPrintWindow(fitBody, false, quizProclTitle, {
-    pageHeightPx: PAGE_H_PX, baseFontPx: 13, basePadPx: 5, minFontPx: 7, maxFontPx: 18
+    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 13, basePadPx: 5, minFontPx: 7, maxFontPx: 18
   });
 }
 
