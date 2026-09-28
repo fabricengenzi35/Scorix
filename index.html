@@ -2126,7 +2126,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
               </div>
               <div class="fg">
                 <label>Week</label>
-                <select id="qzWeek" onchange="loadQuizTable()">
+                <select id="qzWeek" onchange="_rememberQzWeek(this.value);loadQuizTable()">
                   <option value="">— Select Week —</option>
                 </select>
               </div>
@@ -3504,6 +3504,7 @@ function pasteMarksFromClipboard(){
       if(!comp) comp = term && term.components && term.components[0];
       if(!comp) return;
       var key = getYearMarkKey(st.id, subId, term.id, comp.id);
+      _markPendingKey(key);
       DB.marks[key] = String(markVal);
       imported++;
     });
@@ -3676,8 +3677,8 @@ function fmtDate(isoStr, locale){
 // █  Supabase URL/key, DB schema, global vars (ME, CURRENT_LEVEL…)
 // █  ✏️  To change API keys or add new global variables
 // ██████████████████████████████████████████████████████████████████
-const SUPABASE_URL = "https://zabdtormeyrucjwjipzl.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphYmR0b3JtZXlydWNqd2ppcHpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NTkzODUsImV4cCI6MjA4OTAzNTM4NX0.Rs-puu3GLuQBJzpVdYfgP63GNnb8AxU8XFcvGEpwHPw";
+const SUPABASE_URL = "https://brloctschffopliqqrkq.supabase.co";  // TEST PROJECT
+const SUPABASE_KEY = "sb_publishable_2j_ExZ1gdaiawYRhk2mWqg_BEdhfkJU";  // TEST PROJECT
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   realtime: { params: { eventsPerSecond: 10 } },
   global: { headers: { 'x-client-info': 'scorix/4.0' } },
@@ -3749,6 +3750,16 @@ function _stopParentRealtimeSubscription(){
 var _lastSaveTimestamp = 0;
 function _applyRemoteData(d){
   if(!d) return;
+  // v13: if this device has unsaved work, MERGE instead of replacing everything
+  if(Object.keys(_pendingWrites).length>0 || _saveInFlight>0 || (_offlineQueue && _offlineQueue.length>0)){
+    try{ _mergeRemoteIntoLocal(DB, d, false); }catch(e){}
+    if(d.marks && typeof d.marks==='object'){
+      Object.keys(d.marks).forEach(function(k){ if(!_pendingMarkKeys[k]) DB.marks[k]=d.marks[k]; });
+    }
+    _silentRerender();
+    msgUpdateBadge();
+    return;
+  }
   // Structural data: always apply (teachers, classes, subjects, students, settings…)
   if(Array.isArray(d.users)&&d.users.length)       DB.users=d.users;
   if(Array.isArray(d.teachers))                    DB.teachers=d.teachers;
@@ -3919,10 +3930,14 @@ async function _drainQueue(){
   for(var i=0;i<_offlineQueue.length;i++){
     var item = _offlineQueue[i];
     try{
-      await _withTimeout(
-        supabaseClient.from('epaza_data').upsert({id:item.key, data:item.data}),
-        5000
-      );
+      if(item.key.indexOf('epaza_school_')===0){
+        await _casWrite(item.key, item.data, true);   // v13: merge + compare-and-set, never blind overwrite
+      } else {
+        await _withTimeout(
+          supabaseClient.from('epaza_data').upsert({id:item.key, data:item.data}),
+          5000
+        );
+      }
       // success — don't keep it
     }catch(e){
       remaining.push(item); // keep for next drain
@@ -3934,6 +3949,7 @@ async function _drainQueue(){
 }
 
 // Deduplicated write — merges rapid saves into one network call
+var _saveInFlight = 0;
 var _pendingWrites = {}; // key → {data, timer}
 var WRITE_DEBOUNCE = 250; // ms — faster than 400ms for snappier saves
 
@@ -3959,16 +3975,20 @@ async function _flushWrite(key, data){
     return;
   }
   showSyncStatus('saving');
+  _saveInFlight++;
   _lastSaveTimestamp = Date.now(); // tell realtime to ignore our own echo
   try{
-    // Reconcile against any newer remote save before overwriting a school's data document
-    if(key.indexOf('epaza_school_')===0){ data = await _reconcileBeforeWrite(key, data); }
-    await _withRetry(function(){
-      return _withTimeout(
-        supabaseClient.from('epaza_data').upsert({id:key, data:data}),
-        4000  // reduced from 5000ms for faster failure detection
-      );
-    }, 3, 'write:'+key);
+    if(key.indexOf('epaza_school_')===0){
+      // v13: atomic compare-and-set save — never overwrites someone else's newer save
+      data = await _casWrite(key, data);
+    } else {
+      await _withRetry(function(){
+        return _withTimeout(
+          supabaseClient.from('epaza_data').upsert({id:key, data:data}),
+          4000
+        );
+      }, 3, 'write:'+key);
+    }
     showSyncStatus('saved');
     _clearPendingKeys(); // marks are safely persisted — realtime can merge again
     // Drain any queued writes now we know we're online
@@ -3978,7 +3998,7 @@ async function _flushWrite(key, data){
     _enqueueWrite(key, data);
     showSyncStatus('error');
     console.warn('[SCORIX] Write failed, queued:', key);
-  }
+  }finally{ _saveInFlight--; }
 }
 
 // In-memory read cache — avoids repeated Supabase round-trips for same key in same session
@@ -4014,6 +4034,7 @@ async function _resilientRead(key, timeoutMs){
   try{
     var raw = localStorage.getItem(key);
     if(raw){
+      if(key.indexOf('epaza_school_')===0){ try{ _secToast('Could not reach the server. Showing the copy saved on this phone — it may be out of date.'); }catch(e){} }
       var parsed = JSON.parse(raw);
       _readCache[key] = { data: parsed, ts: Date.now() };
       return parsed;
@@ -4366,6 +4387,65 @@ async function _reconcileBeforeWrite(key, data){
   }
   return data;
 }
+
+// ── v13: ATOMIC SAVE (compare-and-set) ──────────────────────────────────
+// The database function scorix_save() only writes if nobody else saved since we
+// read the revision. If someone did, we merge their records in and try again.
+// A failed/timed-out check NEVER falls back to a blind overwrite any more.
+async function _casWrite(key, data, keepLocalOnConflict){
+  var base = Number(data._rev) || 0;     // revision this device last saw
+  var merged = false;
+  for(var attempt=0; attempt<6; attempt++){
+    var rr = await _withTimeout(supabaseClient.from('epaza_data').select('rev:data->_rev').eq('id',key).maybeSingle(), 8000);
+    if(rr && rr.error) throw rr.error;
+    var remoteRev = Number(rr && rr.data && rr.data.rev) || 0;
+    if(remoteRev > base){
+      var full = await _withTimeout(supabaseClient.from('epaza_data').select('data').eq('id',key).single(), 10000);
+      if(full && full.error) throw full.error;
+      var rd = full && full.data && full.data.data;
+      if(rd){
+        _mergeRemoteIntoLocal(data, rd, false);
+        data.audit = _unionById(data.audit, rd.audit);
+        // cells this device did NOT just edit take the newer value from the database
+        if(!keepLocalOnConflict && rd.marks && data.marks){
+          Object.keys(rd.marks).forEach(function(k){ if(!_pendingMarkKeys[k]) data.marks[k]=rd.marks[k]; });
+        }
+        remoteRev = Math.max(remoteRev, Number(rd._rev)||0);
+        merged = true;
+      }
+      base = remoteRev;
+    }
+    data._rev = remoteRev + 1;
+    var w = await _withTimeout(supabaseClient.rpc('scorix_save', {p_id:key, p_data:data, p_expected:remoteRev}), 15000);
+    if(w && w.error) throw w.error;
+    if(w && w.data === true){
+      if(merged){
+        try{ _secToast('Another user saved at the same time. Their changes were merged with yours.'); }catch(e){}
+        try{ _silentRerender(); }catch(e){}
+      }
+      return data;
+    }
+    await new Promise(function(res){ setTimeout(res, 150*(attempt+1)); }); // someone else won the race: re-read and retry
+  }
+  throw new Error('save_conflict');
+}
+
+// ── v13: never lose pending marks when the app is closed / sent to background ──
+function _persistPendingNow(){
+  try{
+    Object.keys(_pendingWrites).forEach(function(k){
+      var p=_pendingWrites[k];
+      if(p){ clearTimeout(p.timer); _enqueueWrite(k, p.data); delete _pendingWrites[k]; }
+    });
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='hidden'){ _persistPendingNow(); _drainQueue(); }
+});
+window.addEventListener('pagehide', function(){ _persistPendingNow(); });
+window.addEventListener('beforeunload', function(e){
+  if(Object.keys(_pendingWrites).length || (_offlineQueue && _offlineQueue.length)){ e.preventDefault(); e.returnValue=''; }
+});
 
 // ── Wrappers (kept here so the original functions stay untouched) ──
 var _origSupabaseLoad = supabaseLoad;
@@ -9126,6 +9206,7 @@ function saveDualMarks(which){
     if(el&&el.value!==''){
       var v = Math.min(parseFloat(el.value), subMax3);
       var key3 = s.id+'_'+sid+'_'+tidToSave+'_'+compToSave.id;
+      _markPendingKey(termMarkKey(key3));
       DB.marks[termMarkKey(key3)] = String(v);
       cnt3++;
     }
@@ -9276,6 +9357,7 @@ function saveAllMarks(){
         ? s.id+'_'+sid+'_'+actualTid+'_'+selectedComp.id
         : s.id+'_'+sid+'_'+actualTid;
       // Write to year-scoped key
+      _markPendingKey(termMarkKey(baseKey));
       DB.marks[termMarkKey(baseKey)]=String(v);
       cnt++;
     }
@@ -12964,6 +13046,13 @@ function quizMarkKey(stId, subId, weekId){
   return 'qz_'+stId+'_'+subId+'_'+(CURRENT_QUIZ_YEAR_ID||'noyr')+'_'+weekId;
 }
 
+function _rememberQzWeek(v){
+  try{
+    var yr=getActiveQuizYear();
+    if(yr && v) localStorage.setItem('scorix_qzWeek_'+yr.id, v);
+  }catch(e){}
+}
+
 function syncQuizWeekDropdowns(){
   var yr = getActiveQuizYear(); // auto-selects if CURRENT_QUIZ_YEAR_ID is null
   var opts = yr && yr.weeks && yr.weeks.length
@@ -12975,6 +13064,14 @@ function syncQuizWeekDropdowns(){
       var cur=el.value;
       el.innerHTML='<option value="">— Select Week —</option>'+opts;
       if(cur) el.value=cur;
+      // v13: after a reload/new day, reopen on the last week used (or the newest week) instead of blank
+      if(!cur && id==='qzWeek' && yr && yr.weeks && yr.weeks.length){
+        var want='';
+        try{ want=localStorage.getItem('scorix_qzWeek_'+yr.id)||''; }catch(e){}
+        if(!want || !yr.weeks.some(function(w){return w.id===want;})) want=yr.weeks[yr.weeks.length-1].id;
+        el.value=want;
+        setTimeout(function(){ try{ if(el.value) loadQuizTable(); }catch(e){} }, 0);
+      }
     }
   });
   // Update year labels
@@ -13935,6 +14032,7 @@ function saveQuizMarks(){
         var n=parseFloat(el.value);
         if(isNaN(n)) return;
         var v=Math.max(0,Math.min(n,20));
+        _markPendingKey(key);
         DB.marks[key]=String(v);cnt++;
       } else {
         // Blank cell = vacant subject. If a mark was recorded when the table loaded
@@ -13943,6 +14041,7 @@ function saveQuizMarks(){
         var orig=el.getAttribute('data-orig');
         var cur=DB.marks[key];
         if(orig!==null&&orig!==''&&cur!==undefined&&cur!==''){
+          _markPendingKey(key);
           DB.marks[key]='';cleared++;
         }
       }
@@ -15294,7 +15393,7 @@ function _fitThenPrint(doc, win, autofit, afterPrint){
         tries++;
         if((h > ph+2 || ratio > 1.06) && tries < 16 && f > mnf-0.5 && f < mxf+0.5){
           f = Math.max(mnf, Math.min(mxf, f*ratio*0.97));
-          p = Math.max(2, Math.min(12, bp*(f/bf)));
+          p = Math.max(2, Math.min(16, bp*(f/bf)));
           step();
         } else {
           // Hard guarantee: this list must NEVER spill onto a 2nd page.
@@ -15462,18 +15561,36 @@ function printProcl(){
   var clsName = clsSel && clsSel.options[clsSel.selectedIndex] ? clsSel.options[clsSel.selectedIndex].text.trim() : '';
   var trmName = trmSel && trmSel.options[trmSel.selectedIndex] ? trmSel.options[trmSel.selectedIndex].text.trim() : '';
   var proclTitle = 'Proclamation List' + (clsName ? ' — ' + clsName : '') + (trmName ? ' — ' + trmName : '');
+  // Fit the proclamation to ONE full A4 landscape page. The print engine
+  // measures the actual rendered content, then grows/shrinks the font and
+  // cell padding so the list uses the available page instead of printing
+  // tiny with large empty space or spilling onto a second page.
+  var PAGE_W_PX = 1048; // A4 landscape printable width with 5mm margins at 96dpi
+  var PAGE_H_PX = 756;
   var printStyles = '<style>'
-    +'table{border-collapse:collapse;width:100%;font-size:.8rem;}'
-    +'th,td{border:1px solid #c0c8e0;padding:6px 8px;}'
+    +':root{--pxf:13px;--pxp:5px;}'
+    +'@page{size:A4 landscape;margin:5mm;}'
+    +'body{width:100%;padding:0!important;margin:0!important;}'
+    +'#fitWrap{width:100%!important;max-width:100%!important;margin:0!important;min-height:700px;}'
+    +'.card{overflow:visible!important;width:100%!important;}'
+    +'#qpProclTable{width:100%!important;min-height:700px;}'
+    +'table{border-collapse:collapse;width:100%!important;table-layout:fixed;font-size:var(--pxf)!important;line-height:1.12!important;}'
+    +'th,td{border:1px solid #c0c8e0;padding:var(--pxp) calc(var(--pxp) * 1.15)!important;white-space:normal!important;word-wrap:break-word;overflow-wrap:break-word;line-height:1.12!important;}'
     +'thead tr{background:#e8ecf7!important;}'
     +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
-    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.8rem;}'
+    +'th,td{font-size:var(--pxf)!important;}'
+    +'th:first-child,td:first-child{width:5%;}'
+    +'th:nth-child(2),td:nth-child(2){width:15%;}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--pxf) * 1.7);height:calc(var(--pxf) * 1.7);border-radius:50%;font-weight:700;font-size:calc(var(--pxf) * .85);}'
     +'.r1{background:#f6c90e;color:#1a1200;}'
     +'.r2{background:#b0bec5;color:#1a1200;}'
     +'.r3{background:#cd7f32;color:#fff;}'
     +'.rn{background:#e8ecf7;color:#2a2f4e;}'
     +'</style>';
-  _openPrintWindow(printStyles + _resolveCssVars(src.innerHTML), false, proclTitle);
+  var fitBody = printStyles + '<div id="fitWrap">' + _resolveCssVars(src.innerHTML) + '</div>';
+  _openPrintWindow(fitBody, false, proclTitle, {
+    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 16, basePadPx: 9, minFontPx: 8, maxFontPx: 26
+  });
 }
 function printQuizProcl(){
   var out = document.getElementById('qpOut');
@@ -15496,21 +15613,26 @@ function printQuizProcl(){
   // measuring the rendered table, so the list always fills exactly one A4
   // landscape page — never spilling to a 2nd/3rd sheet, and never left tiny
   // on an otherwise-empty page for small classes.
-  var PAGE_W_PX = 1062; // A4 landscape, 8mm margins, 96dpi
-  var PAGE_H_PX = 733;
+  var PAGE_W_PX = 1048; // A4 landscape printable width with 5mm margins at 96dpi
+  var PAGE_H_PX = 756;
   var printStyles = '<style>'
     +':root{--pxf:13px;--pxp:5px;}'
-    +'@page{size:A4 landscape;margin:8mm;}'
-    +'body{width:100%;}'
-    +'#fitWrap{width:'+PAGE_W_PX+'px;margin:0 auto;}'
-    +'.card{overflow:visible!important;}'
-    +'table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:var(--pxf);}'
-    +'th,td{border:1px solid #c0c8e0;padding:var(--pxp) calc(var(--pxp) * 1.15)!important;white-space:normal!important;word-wrap:break-word;overflow-wrap:break-word;}'
+    +'@page{size:A4 landscape;margin:5mm;}'
+    +'body{width:100%;padding:0!important;margin:0!important;}'
+    +'#fitWrap{width:100%!important;max-width:100%!important;margin:0!important;min-height:700px;}'
+    +'.card{overflow:visible!important;width:100%!important;}'
+    +'#qpProclTable{width:100%!important;min-height:700px;}'
+    +'table{border-collapse:collapse;width:100%!important;table-layout:fixed;font-size:var(--pxf)!important;line-height:1.12!important;}'
+    +'th,td{border:1px solid #c0c8e0;padding:var(--pxp) calc(var(--pxp) * 1.15)!important;white-space:normal!important;word-wrap:break-word;overflow-wrap:break-word;line-height:1.12!important;}'
+    +'th,td{font-size:var(--pxf)!important;}'
     +'thead tr{background:#e8ecf7!important;}'
+    +'#qpProclTable>div.card{min-height:620px;}'
+    +'#qpProclTable>div.card>table{height:620px!important;}'
+    +'#qpProclTable>div.card>table tbody tr{height:1px;}'
     +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
     +'th:first-child,td:first-child{width:5%;}'
     +'th:nth-child(2),td:nth-child(2){width:15%;}'
-    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--pxf) * 1.85);height:calc(var(--pxf) * 1.85);border-radius:50%;font-weight:700;font-size:calc(var(--pxf) * .92);}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--pxf) * 1.7);height:calc(var(--pxf) * 1.7);border-radius:50%;font-weight:700;font-size:calc(var(--pxf) * .85);}'
     +'.r1{background:#f6c90e;color:#1a1200;}'
     +'.r2{background:#b0bec5;color:#1a1200;}'
     +'.r3{background:#cd7f32;color:#fff;}'
@@ -15521,7 +15643,7 @@ function printQuizProcl(){
     +'</style>';
   var fitBody = printStyles + '<div id="fitWrap">' + _resolveCssVars(content) + '</div>';
   _openPrintWindow(fitBody, false, quizProclTitle, {
-    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 13, basePadPx: 5, minFontPx: 7, maxFontPx: 18
+    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 16, basePadPx: 9, minFontPx: 8, maxFontPx: 26
   });
 }
 
