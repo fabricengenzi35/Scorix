@@ -12484,9 +12484,67 @@ function exportData(){
   a.download='scorix_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();
 }
 function loadBackup(e){
-  var f=e.target.files[0];if(!f)return;
+  var inp=e.target, f=inp.files[0]; if(!f) return;
   var r=new FileReader();
-  r.onload=function(ev){try{DB=JSON.parse(ev.target.result);dbSave();location.reload();}catch(e){alert('Invalid backup file.');}};
+  r.onload=async function(ev){
+    try{
+      var obj=JSON.parse(ev.target.result);
+      // "Download Backup" files wrap the data as {_backup_info, data:{...}};
+      // "Export Backup" files are the raw database. Accept both.
+      var src=(obj && obj.data && typeof obj.data==='object' && !Array.isArray(obj.data)
+               && (obj._backup_info || obj.data.students || obj.data.classes)) ? obj.data : obj;
+      if(!src || !Array.isArray(src.students) || !Array.isArray(src.classes)){
+        alert('Invalid backup file: no students/classes found.'); inp.value=''; return;
+      }
+      var info=obj._backup_info||{};
+      var msg='Restore this backup?\n\n'
+        +(info.school?('School: '+info.school+'\n'):'')
+        +(info.generated?('Made on: '+new Date(info.generated).toLocaleString()+'\n'):'')
+        +'Students: '+src.students.length+'\nClasses: '+src.classes.length
+        +'\nTeachers: '+(src.teachers||[]).length
+        +'\nMarks entries: '+Object.keys(src.marks||{}).length
+        +'\n\nThis REPLACES all current data. Continue?';
+      if(!confirm(msg)){ inp.value=''; return; }
+
+      // Backups hide passwords as "[hidden]" -> keep the current passwords of the same accounts
+      var unmatched=0;
+      function restorePw(list, cur, keys){
+        (list||[]).forEach(function(x){
+          if(x && x.password==='[hidden]'){
+            var m=(cur||[]).find(function(c){
+              if(c.id && x.id && c.id===x.id) return true;
+              return keys.some(function(k){ return c[k] && x[k] && String(c[k]).toLowerCase()===String(x[k]).toLowerCase(); });
+            });
+            if(m && m.password && m.password!=='[hidden]') x.password=m.password; else unmatched++;
+          }
+        });
+      }
+      restorePw(src.users,    DB.users,    ['username','email']);
+      restorePw(src.teachers, DB.teachers, ['username','email']);
+      restorePw(src.parents,  DB.parents,  ['email','username']);
+
+      Object.keys(src).forEach(function(k){ DB[k]=src[k]; });
+      // Newer revision number so the cloud does not merge older/newer remote data back over the restore
+      DB._rev=Math.max(Number(DB._rev)||0, Date.now());
+
+      dbSave();
+      // Push to the cloud NOW (saving is normally delayed, and reloading would cancel it)
+      var keys=Object.keys(_pendingWrites);
+      for(var i=0;i<keys.length;i++){
+        var pw=_pendingWrites[keys[i]]; if(!pw) continue;
+        clearTimeout(pw.timer); delete _pendingWrites[keys[i]];
+        await _flushWrite(keys[i], pw.data);
+      }
+      alert('Backup restored: '+src.students.length+' students, '+src.classes.length+' classes.'
+        +(unmatched?('\n\nNote: '+unmatched+' account(s) had hidden passwords that could not be matched. Reset those passwords.'):'')
+        +(_isOnline?'':'\n\nYou are offline: saved on this device only, it will upload when the connection returns.'));
+      location.reload();
+    }catch(err){
+      console.error(err);
+      alert('Invalid backup file.');
+      inp.value='';
+    }
+  };
   r.readAsText(f);
 }
 function clearAll(){
@@ -15529,11 +15587,12 @@ function printQuizProcl(){
   // landscape page — never spilling to a 2nd/3rd sheet, and never left tiny
   // on an otherwise-empty page for small classes.
   var PAGE_W_PX = 728;  // A4 PORTRAIT, 8mm margins, 96dpi (194mm)
-  var PAGE_H_PX = 960;  // safe for BOTH Letter (996px usable) and A4 (1062px usable) — phones often default to Letter
+  var PAGE_H_PX = 935;  // safe for BOTH Letter (996px usable) and A4 (1062px usable) — phones often default to Letter
   var printStyles = '<style>'
     +':root{--pxf:11px;--pxp:4px;--pxv:0px;}'
     +'@page{size:A4 portrait;margin:8mm;}'
     +'html,body{padding:0!important;margin:0!important;}'
+    +'@media print{html,body{height:250mm!important;max-height:250mm!important;overflow:hidden!important;}}'
     +'body{width:100%;}'
     +'#fitWrap{width:'+PAGE_W_PX+'px;margin:0 auto;}'
     +'.card{overflow:visible!important;}'
