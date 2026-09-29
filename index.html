@@ -13989,6 +13989,25 @@ function setupQuizProcl(){
   genQuizProcl();
 }
 
+// Short subject codes for the quiz proclamation header (MATHS, KINY, ENG, FR, SRS, REL, SET...)
+function _quizAbbr(name){
+  var n=String(name||'').trim(), l=n.toLowerCase();
+  if(/^(math)/.test(l)) return 'MATHS';
+  if(/kinya|kiny/.test(l)) return 'KINY';
+  if(/^(eng)/.test(l)) return 'ENG';
+  if(/^(fr|fran)/.test(l)) return 'FR';
+  if(/social|^srs$|^sst$/.test(l)) return 'SRS';
+  if(/relig|^rel$|^cre$/.test(l)) return 'REL';
+  if(/elementary|^set$|sci.*tech/.test(l)) return 'SET';
+  if(/^(sci)/.test(l)) return 'SCI';
+  if(/^(kisw|swah)/.test(l)) return 'KISW';
+  if(/^(pe|sport|physical)/.test(l)) return 'PE';
+  if(/^(art|creative)/.test(l)) return 'ART';
+  var w=n.split(/\s+/).filter(Boolean);
+  if(w.length>1) return w.map(function(x){return x.charAt(0);}).join('').toUpperCase().slice(0,4);
+  return n.toUpperCase().slice(0,4);
+}
+
 function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
@@ -14027,34 +14046,33 @@ function genQuizProcl(){
   var schoolName = (DB.settings&&DB.settings.schoolName)||'';
   var logoSrc = DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var html = '<div id="qpProclTable">';
-  // Header banner (printable)
-  html += '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+  // Header banner (printable) — enlarged for readability
+  html += '<div style="text-align:center;padding:1rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:.8rem;">'
     +(logoSrc
-        ? '<img src="'+logoSrc+'" style="height:70px;margin-bottom:.6rem;">'
-        : '<div style="width:70px;height:70px;margin:0 auto .6rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.65rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
-    +(schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(schoolName)+'</div>':'')
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🌅 Morning Quiz — Proclamation List</div>'
-    +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
-    +'<span style="font-size:.9rem;font-weight:700;color:var(--gold);">'+(cls?esc(cls.name):'—')+'</span>'
+        ? '<img src="'+logoSrc+'" style="height:90px;margin-bottom:.4rem;">'
+        : '<div style="width:80px;height:80px;margin:0 auto .4rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.7rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
+    +(schoolName?'<div style="font-size:1.3rem;color:var(--ink2);font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.3rem;">'+esc(schoolName)+'</div>':'')
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:2rem;font-weight:800;line-height:1.15;">🌅 Morning Quiz — Proclamation List</div>'
+    +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.15);border:2px solid rgba(208,144,16,.55);border-radius:30px;padding:4px 32px;">'
+    +'<span style="font-size:2.3rem;font-weight:900;color:var(--gold);letter-spacing:.03em;">'+(cls?esc(cls.name):'—')+'</span>'
     +'</div>'
-    +'<div style="font-size:.78rem;color:var(--ink2);margin-top:.45rem;font-weight:600;">'+(yr?esc(yr.label):'?')+' &nbsp;·&nbsp; '+esc(weekLabel)+'</div>'
-    +'<div style="display:inline-block;margin-top:.55rem;padding:3px 13px;border-radius:20px;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);font-size:.68rem;color:var(--blue);font-weight:600;">⚠️ These scores have NO impact on official term results or report cards</div>'
+    +'<div style="font-size:1.15rem;color:var(--ink2);margin-top:.4rem;font-weight:700;">'+(yr?esc(yr.label):'?')+' &nbsp;·&nbsp; '+esc(weekLabel)+'</div>'
     +'</div>';
 
   // Table
   html += '<div class="card" style="overflow-x:auto;">'
     +'<div class="ctitle" style="margin-bottom:.9rem;">🎖️ Student Rankings — '+esc(weekLabel)
     +' &nbsp;<span style="font-size:.72rem;color:var(--ink3);font-weight:400;">('+ranked.length+' student'+(ranked.length!==1?'s':'')+')</span></div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:1rem;">'
     +'<thead><tr style="background:var(--s3);">'
-    +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Rank</th>'
-    +'<th style="padding:8px 10px;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Student</th>';
+    +'<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Rank</th>'
+    +'<th style="padding:8px 8px;text-align:left;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Student</th>';
   subjects.forEach(function(s){
-    html+='<th style="padding:8px 6px;text-align:center;font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);white-space:nowrap;">'+esc(s.name)+'<br><span style="font-weight:400;color:var(--ink3);">/20</span></th>';
+    html+='<th title="'+esc(s.name)+'" style="padding:8px 4px;text-align:center;font-size:1rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--bd);white-space:nowrap;">'+esc(_quizAbbr(s.name))+'<br><span style="font-weight:500;font-size:.7rem;color:var(--ink3);">/20</span></th>';
   });
-  html+='<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Total</th>'
-    +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Avg %</th>'
-    +'<th style="padding:8px 10px;text-align:center;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--bd);">Level</th>'
+  html+='<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Total</th>'
+    +'<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Avg %</th>'
+    +'<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Level</th>'
     +'</tr></thead><tbody>';
 
   ranked.forEach(function(s,i){
@@ -14063,19 +14081,19 @@ function genQuizProcl(){
     var rankDisplay=i===0?'1':i===1?'2':i===2?'3':''+(i+1);
     var rowBg=i%2===0?'background:var(--s2);':'';
     html+='<tr style="'+rowBg+'">'
-      +'<td style="padding:9px 10px;text-align:center;"><div class="rcirc '+circClass+'" style="margin:0 auto;">'+rankDisplay+'</div></td>'
-      +'<td style="padding:9px 10px;"><div style="font-weight:600;font-size:.9rem;">'+esc(s.name)+'</div><div style="font-size:.68rem;color:var(--ink3);">'+esc(s.sid)+'</div></td>';
+      +'<td style="padding:6px 8px;text-align:center;"><div class="rcirc '+circClass+'" style="margin:0 auto;">'+rankDisplay+'</div></td>'
+      +'<td style="padding:6px 8px;"><div style="font-weight:700;font-size:1rem;">'+esc(s.name)+'</div></td>';
     // Per-subject cells
     subjects.forEach(function(sub){
       var v=DB.marks[quizMarkKey(s.id,sub.id,week)];
       var val=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):null;
       var pct=val!==null?(val/20)*100:null;
       var col=pct===null?'var(--ink3)':pct>=80?'var(--green)':pct>=60?'var(--blue)':pct>=40?'var(--gold)':'var(--red)';
-      html+='<td style="padding:9px 6px;text-align:center;font-weight:600;color:'+col+';">'+(val!==null?val.toFixed(1):'<span style="color:var(--ink3);">—</span>')+'</td>';
+      html+='<td style="padding:6px 4px;text-align:center;font-weight:900;font-size:1.35rem;color:'+col+';">'+(val!==null?val.toFixed(1):'<span style="color:var(--ink3);">—</span>')+'</td>';
     });
-    html+='<td style="padding:9px 10px;text-align:center;font-size:1.05rem;font-weight:700;color:var(--gold);">'+s.quizTotal.toFixed(1)+'/'+(s.quizCnt*20)+'</td>'
-      +'<td style="padding:9px 10px;text-align:center;font-weight:700;color:var(--blue);">'+s.quizPct.toFixed(1)+'%</td>'
-      +'<td style="padding:9px 10px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:.68rem;font-weight:700;background:'+r.color+'22;color:'+r.color+';border:1px solid '+r.color+'44;">'+esc(r.label)+'</span></td>'
+    html+='<td style="padding:6px 8px;text-align:center;font-size:1.3rem;font-weight:900;color:var(--gold);">'+s.quizTotal.toFixed(1)+'/'+(s.quizCnt*20)+'</td>'
+      +'<td style="padding:6px 8px;text-align:center;font-size:1.15rem;font-weight:800;color:var(--blue);">'+s.quizPct.toFixed(1)+'%</td>'
+      +'<td style="padding:6px 8px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:.85rem;font-weight:700;background:'+r.color+'22;color:'+r.color+';border:1px solid '+r.color+'44;">'+esc(r.label)+'</span></td>'
       +'</tr>';
   });
   html+='</tbody></table></div></div>';
@@ -15323,7 +15341,21 @@ function _fitThenPrint(doc, win, autofit, afterPrint){
               }
             }, 80);
           }
-          squeeze(0);
+          function stretch(pass){
+            if(!autofit.stretchRows){ squeeze(0); return; }
+            setTimeout(function(){
+              var curH = wrap.scrollHeight || 1;
+              var rows = wrap.querySelectorAll('tr').length || 1;
+              var left = ph - curH;
+              if(left > 3 && pass < 6){
+                var v = parseFloat(doc.documentElement.style.getPropertyValue('--pxv')) || 0;
+                v += (left / rows) / 2 * 0.95;   // split between top & bottom padding of each row
+                doc.documentElement.style.setProperty('--pxv', v + 'px');
+                stretch(pass + 1);
+              } else { squeeze(0); }
+            }, 60);
+          }
+          stretch(0);
         }
       }, 80);
     }
@@ -15496,20 +15528,22 @@ function printQuizProcl(){
   // measuring the rendered table, so the list always fills exactly one A4
   // landscape page — never spilling to a 2nd/3rd sheet, and never left tiny
   // on an otherwise-empty page for small classes.
-  var PAGE_W_PX = 1062; // A4 landscape, 8mm margins, 96dpi
-  var PAGE_H_PX = 733;
+  var PAGE_W_PX = 728;  // A4 PORTRAIT, 8mm margins, 96dpi (194mm)
+  var PAGE_H_PX = 960;  // safe for BOTH Letter (996px usable) and A4 (1062px usable) — phones often default to Letter
   var printStyles = '<style>'
-    +':root{--pxf:13px;--pxp:5px;}'
-    +'@page{size:A4 landscape;margin:8mm;}'
+    +':root{--pxf:11px;--pxp:4px;--pxv:0px;}'
+    +'@page{size:A4 portrait;margin:8mm;}'
+    +'html,body{padding:0!important;margin:0!important;}'
     +'body{width:100%;}'
     +'#fitWrap{width:'+PAGE_W_PX+'px;margin:0 auto;}'
     +'.card{overflow:visible!important;}'
     +'table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:var(--pxf);}'
-    +'th,td{border:1px solid #c0c8e0;padding:var(--pxp) calc(var(--pxp) * 1.15)!important;white-space:normal!important;word-wrap:break-word;overflow-wrap:break-word;}'
+    +'th,td{border:1px solid #c0c8e0;padding:calc(var(--pxp) + var(--pxv)) calc(var(--pxp) * 1.15)!important;white-space:normal!important;word-wrap:break-word;overflow-wrap:break-word;}'
     +'thead tr{background:#e8ecf7!important;}'
     +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
     +'th:first-child,td:first-child{width:5%;}'
-    +'th:nth-child(2),td:nth-child(2){width:15%;}'
+    +'th:nth-child(2),td:nth-child(2){width:19%;text-align:left;}'
+    +'.ctitle{display:none!important;}'
     +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--pxf) * 1.85);height:calc(var(--pxf) * 1.85);border-radius:50%;font-weight:700;font-size:calc(var(--pxf) * .92);}'
     +'.r1{background:#f6c90e;color:#1a1200;}'
     +'.r2{background:#b0bec5;color:#1a1200;}'
@@ -15521,7 +15555,7 @@ function printQuizProcl(){
     +'</style>';
   var fitBody = printStyles + '<div id="fitWrap">' + _resolveCssVars(content) + '</div>';
   _openPrintWindow(fitBody, false, quizProclTitle, {
-    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 13, basePadPx: 5, minFontPx: 7, maxFontPx: 18
+    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 11, basePadPx: 4, minFontPx: 6, maxFontPx: 16, stretchRows: true
   });
 }
 
