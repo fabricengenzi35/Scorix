@@ -2125,6 +2125,14 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
                 <select id="qzCls" onchange="loadQuizTable()"><option value="">— Select Class —</option></select>
               </div>
               <div class="fg">
+                <label>Academic year</label>
+                <select id="qzYear" onchange="quizYearPick(this.value)"><option value="">—</option></select>
+              </div>
+              <div class="fg">
+                <label>Term</label>
+                <select id="qzTerm" onchange="quizTermPick('qz')"><option value="">—</option></select>
+              </div>
+              <div class="fg">
                 <label>Week</label>
                 <select id="qzWeek" onchange="loadQuizTable()">
                   <option value="">— Select Week —</option>
@@ -2160,6 +2168,14 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <div class="fg">
               <label>Class</label>
               <select id="qpCls" onchange="genQuizProcl()"><option value="">&#8212; Select Class &#8212;</option></select>
+            </div>
+            <div class="fg">
+              <label>Academic year</label>
+              <select id="qpYear" onchange="quizYearPick(this.value)"><option value="">—</option></select>
+            </div>
+            <div class="fg">
+              <label>Term</label>
+              <select id="qpTerm" onchange="quizTermPick('qp')"><option value="">—</option></select>
             </div>
             <div class="fg">
               <label>Week</label>
@@ -2675,10 +2691,12 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <button class="btn ghost" onclick="exportData()">📤 Export Backup</button>
             <button class="btn ghost" onclick="exportCSV()">📊 Export CSV</button>
             <button class="btn ghost" onclick="exportAnalyticsPDF()">📈 Analytics PDF</button>
-            <button class="btn ghost" onclick="document.getElementById('bkf').click()">📥 Import Backup</button>
+            <button class="btn ghost" onclick="document.getElementById('bkf3').click()">🔀 Merge Backup (keep new changes)</button>
+            <button class="btn ghost" onclick="document.getElementById('bkf').click()">📥 Import Backup (replace all)</button>
             <button class="btn red" onclick="clearAll()">🗑️ Clear All Data</button>
           </div>
           <input type="file" id="bkf" accept=".json" style="display:none" onchange="loadBackup(event)">
+          <input type="file" id="bkf3" accept=".json" style="display:none" onchange="mergeBackup(event)">
         </div>
       </div>
 
@@ -2704,12 +2722,14 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <div class="card admin-only" style="max-width:520px;">
           <div class="ctitle" style="color:var(--red);">⚠️ Restore / Import Backup</div>
           <div style="font-size:.82rem;color:var(--ink3);margin-bottom:1rem;line-height:1.7;">
-            Import a previously downloaded backup file. <strong style="color:var(--red);">This will overwrite all current data.</strong>
+            <strong style="color:var(--green);">Merge Backup</strong> brings back anything missing (e.g. a class whose marks were lost) and keeps everything you entered after the backup was made. <strong style="color:var(--red);">Import (replace all)</strong> overwrites all current data with the file.
           </div>
           <div style="display:flex;gap:.7rem;flex-wrap:wrap;">
-            <button class="btn ghost" onclick="document.getElementById('bkf2').click()">📥 Import Backup (.json)</button>
+            <button class="btn green" onclick="document.getElementById('bkf4').click()" style="background:var(--grd-green);color:#fff;border:none;">🔀 Merge Backup (keep new changes)</button>
+            <button class="btn ghost" onclick="document.getElementById('bkf2').click()">📥 Import Backup (replace all)</button>
           </div>
           <input type="file" id="bkf2" accept=".json" style="display:none" onchange="loadBackup(event)">
+          <input type="file" id="bkf4" accept=".json" style="display:none" onchange="mergeBackup(event)">
         </div>
       </div>
 
@@ -4110,18 +4130,8 @@ function pwStrengthError(pw){
 }
 
 // ── Login throttle (per device; slows guessing, does not replace server-side limits) ──
-function _loginThrottleCheck(){
-  try{ var t=JSON.parse(localStorage.getItem('scorix_lt')||'{}'); if(t.until && t.until>Date.now()) return t.until-Date.now(); }catch(e){}
-  return 0;
-}
-function _loginThrottleFail(){
-  try{
-    var now=Date.now(), t=JSON.parse(localStorage.getItem('scorix_lt')||'{}');
-    if(!t.first || now-t.first>600000) t={n:1, first:now}; else t.n=(t.n||0)+1;
-    if(t.n>=5) t.until = now+Math.min(300000, 30000*Math.pow(2,t.n-5));
-    localStorage.setItem('scorix_lt', JSON.stringify(t));
-  }catch(e){}
-}
+function _loginThrottleCheck(){ return 0; }   // no waiting after wrong password
+function _loginThrottleFail(){}
 function _loginThrottleReset(){ try{ localStorage.removeItem('scorix_lt'); }catch(e){} }
 
 // ── Small modal helper ──
@@ -5133,6 +5143,118 @@ function _buildParentAttendance(student, cls){
     +'</div>';
 }
 
+// ── Terms inside a quiz year: every week belongs to a term (Term 1, 2 or 3) ──
+function _weekTerm(w){ return (w && w.term) ? w.term : 'Term 1'; }
+function _termNum(t){ var n=parseInt(String(t).replace(/\D/g,''),10); return isNaN(n)?1:n; }
+function _wkSorted(yr){
+  return (yr.weeks||[]).map(function(w,i){ return {w:w,i:i}; })
+    .sort(function(a,b){ return (_termNum(_weekTerm(a.w))-_termNum(_weekTerm(b.w))) || (a.i-b.i); })
+    .map(function(x){ return x.w; });
+}
+// Returns an array of HTML blocks (one per term) so it can replace  yr.weeks.map(...)  before .join('')
+function _wkGroup(yr, chipFn){
+  var out=[], order=[], by={};
+  _wkSorted(yr).forEach(function(w){ var t=_weekTerm(w); if(!by[t]){ by[t]=[]; order.push(t); } by[t].push(w); });
+  var canMove = false; try{ canMove = !yr.locked && isAdmin(); }catch(e){}
+  order.forEach(function(t){
+    out.push('<div style="flex:1 1 100%;margin-bottom:.35rem;">'
+      +'<div style="font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:.15rem 0 .3rem;">'+t+' · '+by[t].length+' week'+(by[t].length!==1?'s':'')+'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
+      + by[t].map(function(w){
+          return canMove
+            ? '<span style="display:inline-flex;align-items:center;gap:2px;">'+chipFn(w)
+              +'<button onclick="setWeekTerm(\''+yr.id+'\',\''+w.id+'\')" title="Change term" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:.75rem;padding:0 2px;">⇄</button></span>'
+            : chipFn(w);
+        }).join('')
+      +'</div></div>');
+  });
+  return out;
+}
+function _promptNewWeek(yr){
+  var last = yr.weeks.length ? _weekTerm(yr.weeks[yr.weeks.length-1]) : 'Term 1';
+  var t = prompt('Which term is this week in? Enter 1, 2 or 3:', String(_termNum(last)));
+  if(t===null) return null;
+  var n = parseInt(t,10);
+  if(!(n>=1 && n<=3)){ alert('Please enter 1, 2 or 3.'); return null; }
+  var term = 'Term '+n;
+  var cnt = yr.weeks.filter(function(w){ return _weekTerm(w)===term; }).length;
+  var label = prompt('Week label for '+term+':', 'Week '+(cnt+1));
+  if(!label || !label.trim()) return null;
+  return { label: label.trim(), term: term };
+}
+function termWizard(yearId){
+  var yr = DB.quizYears.find(function(y){ return y.id===yearId; });
+  if(!yr || yr.locked){ alert('This year is locked.'); return; }
+  var cur = {1:0,2:0,3:0};
+  yr.weeks.forEach(function(w){ cur[_termNum(_weekTerm(w))]++; });
+  function ask(n, def){
+    var v = prompt('How many weeks in Term '+n+'?\n(Enter 0 if this term has no quiz weeks)', String(def));
+    if(v===null) return null;
+    var k = parseInt(v,10);
+    if(isNaN(k) || k<0 || k>60){ alert('Please enter a number from 0 to 60.'); return null; }
+    return k;
+  }
+  var n1 = ask(1, cur[1] || yr.weeks.length); if(n1===null) return;
+  var n2 = ask(2, cur[2]); if(n2===null) return;
+  var n3 = ask(3, Math.max(0, yr.weeks.length-n1-n2)); if(n3===null) return;
+  var total = n1+n2+n3;
+  if(total < yr.weeks.length){
+    alert('You have '+yr.weeks.length+' weeks but the terms add up to '+total+'.\nRemove the extra weeks with ✕ first, or increase a term.');
+    return;
+  }
+  var add = total - yr.weeks.length;
+  if(!confirm('Set the terms like this?\n\nTerm 1: '+n1+' weeks\nTerm 2: '+n2+' weeks\nTerm 3: '+n3+' weeks'
+      +(add?('\n\n'+add+' new week(s) will be created.'):'')+'\n\nExisting weeks are assigned in order. No marks are removed.')) return;
+  var sizes = {1:n1, 2:n2, 3:n3};
+  var stamp = Date.now();
+  for(var i=0; i<add; i++) yr.weeks.push({id:'W'+(stamp+i), label:'Week', term:'Term 1'});
+  var idx = 0;
+  [1,2,3].forEach(function(t){
+    for(var k=1; k<=sizes[t]; k++){
+      var w = yr.weeks[idx++];
+      w.term = 'Term '+t;
+      if(!w.label || /^week\s*\d*$/i.test(w.label.trim())) w.label = 'Week '+k;   // restart numbering in each term
+    }
+  });
+  try{ addLog('Set terms for '+yr.label+': T1='+n1+', T2='+n2+', T3='+n3); }catch(e){}
+  dbSave();
+  ['renderQuizYearsList','ovRenderQuizYearsList','renderDashQuizView','syncQuizWeekDropdowns'].forEach(function(fn){
+    try{ if(eval('typeof '+fn)==='function') eval(fn+'()'); }catch(e){}
+  });
+}
+
+function setWeekTerm(yearId, weekId){
+  var yr = DB.quizYears.find(function(y){ return y.id===yearId; });
+  if(!yr || yr.locked) return;
+  var idx = yr.weeks.findIndex(function(w){ return w.id===weekId; });
+  if(idx<0) return;
+  var w = yr.weeks[idx];
+  var t = prompt('Move "'+w.label+'" (now '+_weekTerm(w)+') to which term? Enter 1, 2 or 3:', String(_termNum(_weekTerm(w))));
+  if(t===null) return;
+  var n = parseInt(t,10);
+  if(!(n>=1 && n<=3)){ alert('Please enter 1, 2 or 3.'); return; }
+  var term = 'Term '+n;
+  w.term = term;
+  var later = yr.weeks.slice(idx+1).filter(function(x){ return _weekTerm(x)!==term; });
+  if(later.length && confirm('Also move the '+later.length+' week(s) listed after "'+w.label+'" to '+term+'?')){
+    later.forEach(function(x){ x.term = term; });
+  }
+  try{ addLog('Set term for week "'+w.label+'" to '+term); }catch(e){}
+  dbSave();
+  ['renderQuizYearsList','ovRenderQuizYearsList','renderDashQuizView','syncQuizWeekDropdowns'].forEach(function(fn){
+    try{ if(typeof window[fn]==='function') window[fn](); else if(typeof eval('typeof '+fn)==='string' && eval('typeof '+fn)==='function') eval(fn+'()'); }catch(e){}
+  });
+}
+
+function parSelChange(kind, val){
+  var s = window._parSel || (window._parSel = {});
+  if(kind==='child'){ s.code = val; s.yearId = null; s.term = null; s.weekId = null; }
+  else if(kind==='year'){ s.yearId = val; s.term = null; s.weekId = null; }
+  else if(kind==='term'){ s.term = val; s.weekId = (s.weekId==='all') ? 'all' : null; }
+  else { s.weekId = val; }
+  renderParentPortal();
+}
+
 function renderParentPortal(){
   var content = document.getElementById('parent-portal-content');
   if(!content) return;
@@ -5152,12 +5274,88 @@ function renderParentPortal(){
     + '<div style="font-size:.78rem;color:var(--ink3);">Position, marks per subject and average percentage — your child only.</div>'
     + '</div>';
 
+  // ── Selection state: child / term (year) / week ──
+  function _q(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
+  var foundStudents = [];
+  var missingCodes = [];
+  codes.forEach(function(code){
+    var st = DB.students.find(function(s){ return s.sid.toUpperCase()===code.toUpperCase(); });
+    if(st) foundStudents.push(st); else missingCodes.push(code);
+  });
+  var sel = window._parSel || (window._parSel = {});
+  var selStudent = foundStudents.find(function(s){ return s.sid.toUpperCase()===String(sel.code||'').toUpperCase(); }) || foundStudents[0] || null;
+  sel.code = selStudent ? selStudent.sid : null;
+  var yearsWithWeeks = (DB.quizYears||[]).filter(function(y){ return y.weeks && y.weeks.length; });
+  var selYear = yearsWithWeeks.find(function(y){ return y.id===sel.yearId; }) || yearsWithWeeks[yearsWithWeeks.length-1] || null;
+  sel.yearId = selYear ? selYear.id : null;
+  var selYearId = selYear ? selYear.id : null;
+  var selTerm = null, selWeekId = null, termsInYear = [], termWeeks = [];
+  if(selYear){
+    var sortedWeeks = _wkSorted(selYear);
+    sortedWeeks.forEach(function(w){ var t=_weekTerm(w); if(termsInYear.indexOf(t)<0) termsInYear.push(t); });
+    selTerm = termsInYear.indexOf(sel.term)>=0 ? sel.term : null;
+    var pool = sortedWeeks.filter(function(w){ return !selTerm || _weekTerm(w)===selTerm; });
+    selWeekId = sel.weekId;
+    var weekOk = selWeekId==='all' || pool.some(function(w){ return w.id===selWeekId; });
+    if(!weekOk){
+      // default: newest week that has marks for this child, else the newest week
+      var pick = pool[pool.length-1];
+      if(selStudent){
+        for(var wi=pool.length-1; wi>=0; wi--){
+          var w0 = pool[wi];
+          var has = quizSubs.some(function(sub){
+            var v = DB.marks['qz_'+selStudent.id+'_'+sub.id+'_'+selYear.id+'_'+w0.id];
+            return v!==undefined && v!=='' && !isNaN(parseFloat(v));
+          });
+          if(has){ pick = w0; break; }
+        }
+      }
+      selWeekId = pick.id;
+    }
+    if(!selTerm){
+      selTerm = (selWeekId==='all')
+        ? termsInYear[termsInYear.length-1]
+        : _weekTerm(selYear.weeks.find(function(w){ return w.id===selWeekId; }));
+    }
+    sel.term = selTerm; sel.weekId = selWeekId;
+    termWeeks = sortedWeeks.filter(function(w){ return _weekTerm(w)===selTerm; });
+  }
+
+  if(missingCodes.length){
+    html += '<div style="padding:.7rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;color:var(--ink3);font-size:.8rem;">⚠️ Student with code <strong>'+missingCodes.join(', ')+'</strong> not found in current data.</div>';
+  }
+
+  var _selStyle = 'width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--bd);background:var(--s2);color:inherit;font:inherit;font-size:.88rem;';
+  var _lblStyle = 'display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:4px;';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1.2rem;">';
+  if(foundStudents.length){
+    html += '<div style="flex:1 1 100%;"><label style="'+_lblStyle+'">Child</label>'
+      + '<select style="'+_selStyle+'" onchange="parSelChange(\'child\',this.value)">'
+      + foundStudents.map(function(st){ return '<option value="'+_q(st.sid)+'"'+(selStudent && st.id===selStudent.id?' selected':'')+'>'+st.name+'</option>'; }).join('')
+      + '</select></div>';
+  }
+  if(selYear){
+    {
+      html += '<div style="flex:1 1 100%;"><label style="'+_lblStyle+'">Academic year</label>'
+        + '<select style="'+_selStyle+'" onchange="parSelChange(\'year\',this.value)">'
+        + yearsWithWeeks.slice().reverse().map(function(y){ return '<option value="'+_q(y.id)+'"'+(y.id===selYearId?' selected':'')+'>'+y.label+'</option>'; }).join('')
+        + '</select></div>';
+    }
+    html += '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">Term</label>'
+      + '<select style="'+_selStyle+'" onchange="parSelChange(\'term\',this.value)">'
+      + termsInYear.map(function(t){ return '<option value="'+_q(t)+'"'+(t===selTerm?' selected':'')+'>'+t+'</option>'; }).join('')
+      + '</select></div>'
+      + '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">Week</label>'
+      + '<select style="'+_selStyle+'" onchange="parSelChange(\'week\',this.value)">'
+      + termWeeks.map(function(w){ return '<option value="'+_q(w.id)+'"'+(w.id===selWeekId?' selected':'')+'>'+w.label+'</option>'; }).join('')
+      + '<option value="all"'+(selWeekId==='all'?' selected':'')+'>All weeks in this term</option>'
+      + '</select></div>';
+  }
+  html += '</div>';
+
   codes.forEach(function(code){
     var student = DB.students.find(function(s){ return s.sid.toUpperCase()===code.toUpperCase(); });
-    if(!student){
-      html += '<div style="padding:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;color:var(--ink3);font-size:.85rem;">⚠️ Student with code <strong>'+code+'</strong> not found in current data.</div>';
-      return;
-    }
+    if(!student || !selStudent || student.id!==selStudent.id) return;
     var cls = DB.classes.find(function(c){ return c.id===student.classId; });
 
     // Student card wrapper
@@ -5178,9 +5376,11 @@ function renderParentPortal(){
 
       DB.quizYears.slice().reverse().forEach(function(yr){
         if(!yr.weeks || !yr.weeks.length) return;
+        if(yr.id!==selYearId) return;
         var yearHtml = '';
 
         yr.weeks.forEach(function(wk){
+          if(selWeekId==='all'){ if(_weekTerm(wk)!==selTerm) return; } else if(wk.id!==selWeekId) return;
           // Gather this student's marks for this week
           var subResults = quizSubs.map(function(sub){
             var key = 'qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
@@ -5274,7 +5474,7 @@ function renderParentPortal(){
       });
 
       if(!hasAnyQuizData){
-        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz marks recorded yet.</div>';
+        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No marks recorded yet for the selected week.</div>';
       }
     }
 
@@ -6221,7 +6421,7 @@ function renderDashQuizView(){
         +'<button class="btn gold" onclick="dashSwitchMode(\'term\');showPage(\'marks\');setTimeout(function(){switchMarkMode(\'quiz\');},120);">✏️ Enter Quiz Marks</button>'
       +'</div>'
       +(wc?'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
-        +activeYr.weeks.map(function(w){
+        +_wkGroup(activeYr, function(w){
           return '<span style="padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);color:var(--blue);">'+w.label+'</span>';
         }).join('')+'</div>'
       :'<div style="font-size:.74rem;color:var(--ink3);font-style:italic;">No weeks configured yet.</div>')
@@ -6255,6 +6455,7 @@ function renderDashQuizView(){
         +(!locked
           ?'<div style="display:flex;gap:5px;">'
             +'<button class="btn sm gold" onclick="ovAddWeek(\''+yr.id+'\')">+ Add Week</button>'
+            +'<button class="btn sm ghost" onclick="termWizard(\''+yr.id+'\')">🗂️ Terms</button>'
             +'<button class="btn sm ghost" onclick="ovEditYear(\''+yr.id+'\')">✏️</button>'
             +'<button class="btn sm ghost" onclick="ovLockYear(\''+yr.id+'\')">🔒 Close</button>'
           +'</div>'
@@ -6262,7 +6463,7 @@ function renderDashQuizView(){
       +'</div>'
       +(weeksCount
         ?'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
-          +yr.weeks.map(function(w){
+          +_wkGroup(yr, function(w){
             return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);color:var(--blue);">'
               +w.label
               +(!locked?'<button onclick="ovRemoveWeek(\''+yr.id+'\',\''+w.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.7rem;padding:0 0 0 3px;line-height:1;">✕</button>':'')
@@ -6295,11 +6496,10 @@ function ovAddQuizYear(){
 function ovAddWeek(yearId){
   var yr=DB.quizYears.find(function(y){return y.id===yearId;});
   if(!yr||yr.locked){alert('Year is locked.');return;}
-  var num=yr.weeks.length+1;
-  var label=prompt('Week label:','Week '+num);
-  if(!label||!label.trim()) return;
-  yr.weeks.push({id:'W'+Date.now(),label:label.trim()});
-  addLog('Added week to '+yr.label);
+  var nw=_promptNewWeek(yr);
+  if(!nw) return;
+  yr.weeks.push({id:'W'+Date.now(),label:nw.label,term:nw.term});
+  addLog('Added week to '+yr.label+' ('+nw.term+')');
   dbSave();
   renderQuizYearsList();
   ovRenderQuizYearsList();
@@ -6377,6 +6577,7 @@ function ovRenderQuizYearsList(){
         +'</div>'
         +'<div style="display:flex;gap:4px;flex-wrap:wrap;">'
           +(!locked?'<button class="btn sm gold" onclick="ovAddWeek(\''+yr.id+'\')">+ Week</button>':'')
+          +(!locked?'<button class="btn sm ghost" onclick="termWizard(\''+yr.id+'\')">🗂️ Terms</button>':'')
           +'<button class="btn sm ghost" onclick="ovEditYear(\''+yr.id+'\')">✏️</button>'
           +(!locked?'<button class="btn sm ghost" onclick="ovLockYear(\''+yr.id+'\')">🔒 Close</button>':'')
           +'<button class="btn sm red" onclick="ovDeleteYear(\''+yr.id+'\')">🗑️</button>'
@@ -6384,7 +6585,7 @@ function ovRenderQuizYearsList(){
       +'</div>'
       +(wc
         ?'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
-          +yr.weeks.map(function(w){
+          +_wkGroup(yr, function(w){
             return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:rgba(74,143,255,.1);border:1px solid rgba(74,143,255,.2);color:var(--blue);">'
               +w.label
               +(!locked?'<button onclick="ovRemoveWeek(\''+yr.id+'\',\''+w.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.7rem;padding:0 0 0 3px;line-height:1;">✕</button>':'')
@@ -12547,6 +12748,93 @@ function loadBackup(e){
   };
   r.readAsText(f);
 }
+
+// ── Merge Backup: add back what is missing, never overwrite newer data ──
+function _bkIsObj(o){ return o && typeof o==='object' && !Array.isArray(o); }
+function _bkHasId(x){ return _bkIsObj(x) && x.id!==undefined; }
+function _bkMerge(cur, src, top, stats, depth){
+  Object.keys(src).forEach(function(k){
+    if(depth===0 && (k==='_rev'||k==='activity'||k==='audit'||k==='settings')) return;
+    var t = depth===0 ? k : top;
+    var sv=src[k], cv=cur[k];
+    if(cv===undefined || cv===null){
+      cur[k]=sv;
+      stats[t]=(stats[t]||0)+((depth===0 && Array.isArray(sv))?sv.length:(depth===0&&_bkIsObj(sv)?Object.keys(sv).length:1));
+      if(depth===0 && Array.isArray(sv) && (k==='users'||k==='teachers'||k==='parents')){
+        sv.forEach(function(x){ if(x && x.password==='[hidden]') stats._noPw=(stats._noPw||0)+1; });
+      }
+      return;
+    }
+    if(Array.isArray(cv) && Array.isArray(sv)){
+      if(sv.every(_bkHasId) && cv.every(_bkHasId)){
+        var have={}; cv.forEach(function(x){ have[x.id]=1; });
+        sv.forEach(function(x){
+          if(have[x.id]) return;
+          cv.push(x); stats[t]=(stats[t]||0)+1;
+          if(depth===0 && (k==='users'||k==='teachers'||k==='parents') && x.password==='[hidden]') stats._noPw=(stats._noPw||0)+1;
+        });
+      }
+    } else if(_bkIsObj(cv) && _bkIsObj(sv)){
+      _bkMerge(cv, sv, t, stats, depth+1);
+    } else if(t==='marks' && depth===1 && cv==='' && sv!=='' && sv!==undefined && sv!==null){
+      cur[k]=sv; stats.marks=(stats.marks||0)+1;   // blank now, had a mark in the backup
+    }
+  });
+}
+function mergeBackup(e){
+  var inp=e.target, f=inp.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=async function(ev){
+    try{
+      var obj=JSON.parse(ev.target.result);
+      var src=(obj && obj.data && typeof obj.data==='object' && !Array.isArray(obj.data)
+               && (obj._backup_info || obj.data.students || obj.data.classes)) ? obj.data : obj;
+      if(!src || !Array.isArray(src.students) || !Array.isArray(src.classes)){
+        alert('Invalid backup file: no students/classes found.'); inp.value=''; return;
+      }
+      // Dry run on a copy first
+      var copy=JSON.parse(JSON.stringify(DB));
+      var stats={};
+      _bkMerge(copy, JSON.parse(JSON.stringify(src)), '', stats, 0);
+      var noPw=stats._noPw||0; delete stats._noPw;
+      var labels={marks:'Marks',students:'Students',classes:'Classes',subjects:'Subjects',teachers:'Teachers',users:'User accounts',parents:'Parents',attendance:'Attendance entries',remarks:'Remarks',messages:'Messages'};
+      var keys=Object.keys(stats).filter(function(k){ return stats[k]>0; });
+      if(!keys.length){
+        alert('Nothing to restore. Your current data already contains everything in this backup.');
+        inp.value=''; return;
+      }
+      var info=obj._backup_info||{};
+      var msg='Merge this backup into your current data?\n\n'
+        +(info.school?('School: '+info.school+'\n'):'')
+        +(info.generated?('Backup made on: '+new Date(info.generated).toLocaleString()+'\n'):'')
+        +'\nWill be ADDED back (missing from current data):\n'
+        +keys.map(function(k){ return ' • '+(labels[k]||k)+': '+stats[k]; }).join('\n')
+        +'\n\nEverything you entered or changed after this backup is KEPT. Nothing is overwritten.'
+        +'\n\nContinue?';
+      if(!confirm(msg)){ inp.value=''; return; }
+
+      Object.keys(copy).forEach(function(k){ DB[k]=copy[k]; });
+      DB._rev=Math.max(Number(DB._rev)||0, Date.now());
+      try{ auditLog('backup-merge', keys.map(function(k){ return k+':'+stats[k]; }).join(', ')); }catch(_){}
+      dbSave();
+      var pk=Object.keys(_pendingWrites);
+      for(var i=0;i<pk.length;i++){
+        var pw=_pendingWrites[pk[i]]; if(!pw) continue;
+        clearTimeout(pw.timer); delete _pendingWrites[pk[i]];
+        await _flushWrite(pk[i], pw.data);
+      }
+      alert('Backup merged.\n\n'+keys.map(function(k){ return (labels[k]||k)+': +'+stats[k]; }).join('\n')
+        +(noPw?('\n\nNote: '+noPw+' restored account(s) have no usable password (backups hide passwords). Reset those passwords.'):'')
+        +(_isOnline?'':'\n\nYou are offline: saved on this device only, it will upload when the connection returns.'));
+      location.reload();
+    }catch(err){
+      console.error(err);
+      alert('Invalid backup file.');
+      inp.value='';
+    }
+  };
+  r.readAsText(f);
+}
 function clearAll(){
   if(!confirm('⚠️ Delete ALL data? This cannot be undone.'))return;
   if(!confirm('Are you absolutely sure?'))return;
@@ -13022,19 +13310,55 @@ function quizMarkKey(stId, subId, weekId){
   return 'qz_'+stId+'_'+subId+'_'+(CURRENT_QUIZ_YEAR_ID||'noyr')+'_'+weekId;
 }
 
+// ── Academic year / Term / Week selects for quiz entry and quiz rankings ──
+var _qTermSel = {qz:null, qp:null};
+function _fillQuizSelects(prefix, yr){
+  var yEl=document.getElementById(prefix+'Year'), tEl=document.getElementById(prefix+'Term'), wEl=document.getElementById(prefix+'Week');
+  if(yEl){
+    yEl.innerHTML = (DB.quizYears||[]).slice().reverse().map(function(y){
+      return '<option value="'+y.id+'"'+(yr && y.id===yr.id?' selected':'')+'>'+y.label+(y.locked?' 🔒':'')+'</option>';
+    }).join('') || '<option value="">— No academic year —</option>';
+  }
+  var weeks = (yr && yr.weeks) ? _wkSorted(yr) : [];
+  var terms = [];
+  weeks.forEach(function(w){ var t=_weekTerm(w); if(terms.indexOf(t)<0) terms.push(t); });
+  var curWeek = wEl ? wEl.value : '';
+  var term = _qTermSel[prefix];
+  if(curWeek){ var cw = weeks.find(function(w){ return w.id===curWeek; }); if(cw) term = _weekTerm(cw); }
+  if(terms.indexOf(term)<0) term = terms.length ? terms[terms.length-1] : null;
+  _qTermSel[prefix] = term;
+  if(tEl){
+    tEl.innerHTML = terms.length
+      ? terms.map(function(t){ return '<option value="'+t+'"'+(t===term?' selected':'')+'>'+t+'</option>'; }).join('')
+      : '<option value="">— No terms —</option>';
+  }
+  if(wEl){
+    var list = weeks.filter(function(w){ return _weekTerm(w)===term; });
+    wEl.innerHTML = '<option value="">— Select Week —</option>'
+      + (list.length
+          ? list.map(function(w){ return '<option value="'+w.id+'">'+w.label+'</option>'; }).join('')
+          : '<option value="" disabled>— No weeks — ask director —</option>');
+    if(curWeek && list.some(function(w){ return w.id===curWeek; })) wEl.value = curWeek;
+  }
+}
+function quizTermPick(prefix){
+  var tEl=document.getElementById(prefix+'Term'), wEl=document.getElementById(prefix+'Week');
+  _qTermSel[prefix] = tEl ? tEl.value : null;
+  if(wEl) wEl.value = '';
+  _fillQuizSelects(prefix, getActiveQuizYear());
+  if(prefix==='qz'){ try{ loadQuizTable(); }catch(e){} } else { try{ genQuizProcl(); }catch(e){} }
+}
+function quizYearPick(yearId){
+  if(!yearId) return;
+  _qTermSel.qz = null; _qTermSel.qp = null;
+  ['qzWeek','qpWeek'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+  selectQuizYear(yearId);
+}
+
 function syncQuizWeekDropdowns(){
   var yr = getActiveQuizYear(); // auto-selects if CURRENT_QUIZ_YEAR_ID is null
-  var opts = yr && yr.weeks && yr.weeks.length
-    ? yr.weeks.map(function(w){return'<option value="'+w.id+'">'+w.label+'</option>';}).join('')
-    : '<option value="">— No weeks — ask director —</option>';
-  ['qzWeek','qpWeek'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(el){
-      var cur=el.value;
-      el.innerHTML='<option value="">— Select Week —</option>'+opts;
-      if(cur) el.value=cur;
-    }
-  });
+  _fillQuizSelects('qz', yr);
+  _fillQuizSelects('qp', yr);
   // Update year labels
   var lbl = yr ? yr.label : '—';
   var locked = yr && yr.locked;
@@ -13188,12 +13512,11 @@ function addQuizWeek(yearId){
   var yr = DB.quizYears.find(function(y){return y.id===yearId;});
   if(!yr){return;}
   if(yr.locked){alert('This year is locked.');return;}
-  var num = (yr.weeks.length+1);
-  var label = prompt('Week label (e.g. Week '+num+'):','Week '+num);
-  if(!label||!label.trim()) return;
+  var nw = _promptNewWeek(yr);
+  if(!nw) return;
   var wid = 'W'+Date.now();
-  yr.weeks.push({id:wid, label:label.trim()});
-  addLog('Added week "'+label.trim()+'" to '+yr.label);
+  yr.weeks.push({id:wid, label:nw.label, term:nw.term});
+  addLog('Added week "'+nw.label+'" ('+nw.term+') to '+yr.label);
   dbSave();
   renderQuizYearsList();
   syncQuizWeekDropdowns();
@@ -13274,6 +13597,7 @@ function renderQuizYearsList(){
         +'</div>'
         +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'
           +(!locked?'<button class="btn sm ghost" onclick="addQuizWeek(\''+yr.id+'\')">+ Week</button>':'')
+          +(!locked?'<button class="btn sm ghost" onclick="termWizard(\''+yr.id+'\')">🗂️ Terms</button>':'')
           +'<button class="btn sm ghost" onclick="editQuizYear(\''+yr.id+'\')" title="Rename year">✏️</button>'
           +(!locked?'<button class="btn sm gold" onclick="lockQuizYear(\''+yr.id+'\')">🔒 Close Year</button>':'<span style="font-size:.7rem;font-weight:700;color:var(--red);padding:3px 10px;background:rgba(224,82,82,.1);border-radius:10px;">🔒 CLOSED</span>')
           +'<button class="btn sm red" onclick="deleteQuizYear(\''+yr.id+'\')">🗑️</button>'
@@ -13282,7 +13606,7 @@ function renderQuizYearsList(){
       // Weeks
       +(yr.weeks&&yr.weeks.length
         ? '<div style="display:flex;flex-wrap:wrap;gap:5px;">'
-          +yr.weeks.map(function(w){
+          +_wkGroup(yr, function(w){
             return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:var(--s3);border:1px solid var(--bd);color:var(--ink2);">'
               +w.label
               +(!locked?'<button onclick="removeQuizWeek(\''+yr.id+'\',\''+w.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.7rem;padding:0 0 0 3px;line-height:1;">✕</button>':'')
