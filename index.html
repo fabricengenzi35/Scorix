@@ -14,6 +14,18 @@
   - Timezone settings
   - Fixed pwMatch async comparison
   - Performance: debounced writes, offline queue, incremental user index
+  Safe saving for many users (v6):
+  - Every save is a compare-and-swap on the document revision: the server refuses it if someone
+    else saved first; the app then 3-way merges (last synced / mine / theirs) and retries
+  - Deletions and edits by other users are no longer undone by a stale device
+  - Unsaved work is recovered after a crash/closed tab; daily auto snapshots kept 10 days
+  - Academic codes are unique per student (checked on add, edit, import and parent sign-up)
+  Student-loss protection:
+  - A save is never written over newer server data when the server check fails (it is queued and retried)
+  - Audit log now records every student that disappears from the list, with who/when
+  Save-before-closing:
+  - Unsaved changes are flushed when the tab is hidden/closed, and kept in a local queue
+    that is uploaded (merged with newer remote data) the next time the app opens
   Parent portal hardening:
   - After registering, a clear "You may now sign in" screen with a Sign In button
   - One student can be registered on ONE email only (per school); other emails are blocked
@@ -2731,6 +2743,9 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             <button class="btn" onclick="showAuditLog()" style="background:var(--s2);color:var(--ink);border:1px solid var(--bd);padding:10px 22px;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer;">
               📋 Audit Log
             </button>
+            <button class="btn" onclick="showAutoSnapshots()" style="background:var(--s2);color:var(--ink);border:1px solid var(--bd);padding:10px 22px;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer;">
+              🕒 Auto Snapshots
+            </button>
             <button class="btn green" onclick="downloadBackup()" style="background:var(--grd-green);color:#fff;border:none;padding:10px 22px;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(0,214,143,.25);transition:all .18s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 22px rgba(0,214,143,.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(0,214,143,.25)'">
               ⬇️ Download Backup (.json)
             </button>
@@ -3736,10 +3751,11 @@ function _startRealtimeSubscription(){
     .on('postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'epaza_data', filter: 'id=eq.'+key },
       function(payload){
-        // Ignore if we triggered this update ourselves (within 2s of last save)
-        if(Date.now() - _lastSaveTimestamp < 2000) return;
+        // Merge-safe: our own echo is recognised by its revision number
         if(payload.new && payload.new.data){
           _applyRemoteData(payload.new.data);
+        } else {
+          _pullRemoteIfNewer(true);   // very large documents arrive without data → fetch it
         }
       }
     )
@@ -3759,8 +3775,7 @@ function _startParentRealtimeSubscription(){
       function(payload){
         if(payload.new && payload.new.data){
           var d = payload.new.data;
-          if(d.parentChats) DB.parentChats = d.parentChats;
-          if(d.messages)    DB.messages    = d.messages;
+          _applyRemoteData(d);
           // Re-render parent chat sections
           var codes = PARENT_USER.studentCodes || [];
           codes.forEach(function(code){
@@ -3786,38 +3801,27 @@ function _stopParentRealtimeSubscription(){
 // Apply remote data diff — only update changed fields, never overwrite mid-entry marks
 var _lastSaveTimestamp = 0;
 function _applyRemoteData(d){
-  if(!d) return;
-  // Structural data: always apply (teachers, classes, subjects, students, settings…)
-  if(Array.isArray(d.users)&&d.users.length)       DB.users=d.users;
-  if(Array.isArray(d.teachers))                    DB.teachers=d.teachers;
-  if(Array.isArray(d.classes))                     DB.classes=d.classes;
-  if(Array.isArray(d.subjects))                    DB.subjects=d.subjects;
-  if(Array.isArray(d.students))                    DB.students=d.students;
-  if(d.settings&&typeof d.settings==='object')     DB.settings=Object.assign(DB.settings,d.settings);
-  if(Array.isArray(d.activity))                    DB.activity=d.activity;
-  if(Array.isArray(d.terms)&&d.terms.length)       DB.terms=d.terms;
-  if(d.approvals&&typeof d.approvals==="object")   DB.approvals=d.approvals;
-  if(d.subApprovals&&typeof d.subApprovals==="object") DB.subApprovals=d.subApprovals;
-  if(d.attendance&&typeof d.attendance==='object') DB.attendance=d.attendance;
-  if(d.remarks&&typeof d.remarks==='object')       DB.remarks=d.remarks;
-  if(Array.isArray(d.quizYears))                   DB.quizYears=d.quizYears;
-  if(Array.isArray(d.termYears))                   DB.termYears=d.termYears;
-  if(Array.isArray(d.parents))                     DB.parents=d.parents;
+  if(!d || typeof d!=='object') return;
+  if(!CURRENT_SCHOOL_ID || CURRENT_SCHOOL_ID==='__super__') return;
+  var key = schoolDbKey(CURRENT_SCHOOL_ID);
+  if(_dbKeyLoaded!==key || !_syncBase[key]) return;
+  var rrev = Number(d._rev)||0;
+  if(rrev && rrev <= (Number(DB._rev)||0)) return;   // we already have this version (e.g. echo of our own save)
+  var before = _clone(DB);
+  var merged = _merge3(_syncBase[key], before, _clone(d));
+  var changed = _applyMerged(DB, before, merged);
+  DB._rev = rrev;
+  _syncBase[key] = _clone(d);
+  _persistBase(key, _syncBase[key], false);
+  if(!changed) return;
   if(typeof PARENT_USER!=='undefined' && PARENT_USER && Array.isArray(DB.parents)){
     var _freshPar = DB.parents.find(function(p){ return p.id===PARENT_USER.id; });
     if(_freshPar) PARENT_USER = _freshPar;
   }
-  if(Array.isArray(d.messages))                    DB.messages=d.messages;
-  if(d.parentChats&&typeof d.parentChats==='object') DB.parentChats=d.parentChats;
-  // Marks: merge carefully — don't overwrite unsaved local changes
-  if(d.marks&&typeof d.marks==='object'){
-    Object.keys(d.marks).forEach(function(k){
-      if(!_pendingMarkKeys || !_pendingMarkKeys[k]) DB.marks[k]=d.marks[k];
-    });
-  }
-  // Re-render active page silently
+  try{ _studSnapRefresh(); }catch(e){}
   _silentRerender();
   msgUpdateBadge();
+  try{ _warnDuplicateSids(); }catch(e){}
 }
 
 // Track which mark inputs are currently being edited
@@ -3931,6 +3935,242 @@ function _withTimeout(promise, ms){
   return Promise.race([promise, tout]);
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  CONCURRENCY-SAFE SYNC (v6)
+//  • Every save is a compare-and-swap on the document revision (_rev): the
+//    server only accepts it if nobody else saved in the meantime.
+//  • If someone did, we 3-way merge (last synced copy / ours / theirs) and retry,
+//    so people working at the same time never overwrite each other and
+//    deletions are never undone by an old copy.
+//  • A snapshot of the school data is kept once a day (10 days) for recovery.
+// ═══════════════════════════════════════════════════════════════════
+var _SESS = Math.random().toString(36).slice(2);
+var _syncBase = {};        // key → pristine copy of the document as last synced with the server
+var _dbKeyLoaded = null;   // which school key the in-memory DB currently holds
+var _rawSnap = {}, _rawFresh = {};
+var _forceOverwrite = false;
+var _writeBusy = {}, _writeDirty = {};
+
+function _clone(o){ return o===undefined ? undefined : JSON.parse(JSON.stringify(o)); }
+function _isObj(x){ return x!==null && typeof x==='object' && !Array.isArray(x); }
+function _deq(a,b){
+  if(a===b) return true;
+  if(a===null || b===null || typeof a!=='object' || typeof b!=='object') return false;
+  var aa=Array.isArray(a), ba=Array.isArray(b);
+  if(aa!==ba) return false;
+  if(aa){
+    if(a.length!==b.length) return false;
+    for(var i=0;i<a.length;i++) if(!_deq(a[i],b[i])) return false;
+    return true;
+  }
+  var ka=Object.keys(a), kb=Object.keys(b);
+  if(ka.length!==kb.length) return false;
+  for(var j=0;j<ka.length;j++){
+    var k=ka[j];
+    if(!Object.prototype.hasOwnProperty.call(b,k) || !_deq(a[k],b[k])) return false;
+  }
+  return true;
+}
+function _idArr(a){ return Array.isArray(a) && a.every(function(x){ return _isObj(x) && x.id!==undefined && x.id!==null; }); }
+function _primArr(a){
+  if(!Array.isArray(a)) return false;
+  var seen={};
+  return a.every(function(x){
+    if(typeof x!=='string' && typeof x!=='number') return false;
+    var k=typeof x+':'+x; if(seen[k]) return false; seen[k]=1; return true;
+  });
+}
+function _mergeIdArrays(b,l,r){
+  var bm={}, lm={}, rm={};
+  b.forEach(function(x){ bm[String(x.id)]=x; });
+  l.forEach(function(x){ lm[String(x.id)]=x; });
+  r.forEach(function(x){ rm[String(x.id)]=x; });
+  var out=[], seen={};
+  function emit(id){
+    if(seen[id]) return; seen[id]=1;
+    var v=_merge3(bm[id], lm[id], rm[id]);
+    if(v!==undefined) out.push(v);
+  }
+  r.forEach(function(x){ emit(String(x.id)); });   // their order first
+  l.forEach(function(x){ emit(String(x.id)); });   // then what only we have
+  return out;
+}
+function _mergePrimArrays(b,l,r){
+  var inL={}, inR={}, removed={};
+  l.forEach(function(x){ inL[typeof x+':'+x]=1; });
+  r.forEach(function(x){ inR[typeof x+':'+x]=1; });
+  b.forEach(function(x){ var k=typeof x+':'+x; if(!inL[k] || !inR[k]) removed[k]=1; });
+  var out=[], seen={};
+  r.concat(l).forEach(function(x){
+    var k=typeof x+':'+x;
+    if(seen[k] || removed[k]) return;
+    seen[k]=1; out.push(x);
+  });
+  return out;
+}
+// 3-way merge: b = last synced copy, l = ours, r = theirs. undefined = "not present".
+function _merge3(b,l,r){
+  if(_deq(l,r)) return l;
+  if(_deq(l,b)) return r;      // we did not change it → take theirs
+  if(_deq(r,b)) return l;      // they did not change it → keep ours
+  if(l===undefined) return r;  // we deleted it but they changed it → keep their change
+  if(r===undefined) return l;  // they deleted it but we changed it → keep our change
+  if(_isObj(l) && _isObj(r)){
+    var bb=_isObj(b)?b:{}, out={}, seen={};
+    Object.keys(r).concat(Object.keys(l)).forEach(function(k){
+      if(seen[k]) return; seen[k]=1;
+      var v=_merge3(bb[k], l[k], r[k]);
+      if(v!==undefined) out[k]=v;
+    });
+    return out;
+  }
+  if(Array.isArray(l) && Array.isArray(r)){
+    var ba=Array.isArray(b)?b:[];
+    if(_idArr(l) && _idArr(r) && _idArr(ba)) return _mergeIdArrays(ba,l,r);
+    if(_primArr(l) && _primArr(r) && _primArr(ba)) return _mergePrimArrays(ba,l,r);
+  }
+  return l;                    // both changed the same value → ours (latest edit) wins
+}
+// Put merged top-level sections into target, only touching sections that really changed
+function _applyMerged(target, before, merged){
+  var changed=false;
+  Object.keys(merged||{}).forEach(function(k){
+    if(k==='_rev') return;
+    if(!_deq(merged[k], before[k])){ target[k]=merged[k]; changed=true; }
+  });
+  return changed;
+}
+function _fallbackMerge(local, remote){
+  try{
+    _mergeRemoteIntoLocal(local, remote, false);
+    local.audit = _unionById(local.audit, remote.audit);
+  }catch(e){}
+  return local;
+}
+
+var _basePersistAt = {};
+function _persistBase(key, doc, force){
+  try{
+    if(!doc) return;
+    if(!force && Date.now()-(_basePersistAt[key]||0) < 3000) return;
+    _basePersistAt[key] = Date.now();
+    localStorage.setItem('scorix_base_'+key, JSON.stringify(doc));
+  }catch(e){}
+}
+function _loadPersistedBase(key){
+  try{ var t=localStorage.getItem('scorix_base_'+key); return t ? JSON.parse(t) : undefined; }catch(e){ return undefined; }
+}
+
+function _casUpdate(key, toSend, expected){
+  var q = supabaseClient.from('epaza_data').update({data:toSend}).eq('id',key);
+  q = expected ? q.eq('data->>_rev', String(expected)) : q.is('data->>_rev', null);
+  return _withTimeout(q.select('id'), 30000).then(function(res){
+    if(res && res.error) throw res.error;
+    return !!(res && Array.isArray(res.data) && res.data.length);
+  });
+}
+async function _fetchRemote(key){
+  var r = await _withTimeout(supabaseClient.from('epaza_data').select('data').eq('id',key).maybeSingle(), 30000);
+  if(r && r.error) throw r.error;
+  return { exists: !!(r && r.data), doc: (r && r.data && r.data.data) || null };
+}
+
+// Once a day, keep the state the server had BEFORE our first save as a recovery snapshot
+async function _dailySnapshot(key, doc){
+  try{
+    if(!doc || key.indexOf('epaza_school_')!==0) return;
+    var day=new Date().toISOString().slice(0,10);
+    var flag='scorix_snap_'+key;
+    if(localStorage.getItem(flag)===day) return;
+    var sc=key.replace('epaza_school_','');
+    var r=await supabaseClient.from('epaza_data').upsert({id:'epaza_snap_'+sc+'_'+day, data:doc}, {ignoreDuplicates:true});
+    if(r && r.error) return;
+    localStorage.setItem(flag, day);
+    for(var i=11;i<=14;i++){
+      var od=new Date(Date.now()-i*864e5).toISOString().slice(0,10);
+      supabaseClient.from('epaza_data').delete().eq('id','epaza_snap_'+sc+'_'+od).then(function(){},function(){});
+    }
+  }catch(e){}
+}
+
+// Save a school document safely. data = live DB (opts.live) or a stored copy.
+async function _casWrite(key, data, opts){
+  opts = opts || {};
+  var live = !!opts.live;
+  var base = live ? _syncBase[key] : opts.base;
+  var forced = !!opts.force;
+  var mergedAny = false;
+  for(var attempt=0; attempt<12; attempt++){
+    if(Array.isArray(data.audit) && data.audit.length>1000) data.audit.splice(0, data.audit.length-1000);
+    var expected = Number(data._rev)||0;
+    var toSend = _clone(data);
+    toSend._rev = expected+1;
+    var ok = false;
+    if(forced){
+      // restore: unconditional overwrite, with a revision above whatever is on the server
+      var cur = await _fetchRemote(key);
+      var rr0 = Number(cur.doc && cur.doc._rev)||0;
+      toSend._rev = Math.max(rr0, expected)+1;
+      var up = await _withTimeout(supabaseClient.from('epaza_data').upsert({id:key, data:toSend}), 30000);
+      if(up && up.error) throw up.error;
+      ok = true;
+    } else {
+      ok = await _casUpdate(key, toSend, expected);
+    }
+    if(!ok){
+      var rem = await _fetchRemote(key);
+      if(!rem.exists){
+        var ins = await supabaseClient.from('epaza_data').insert({id:key, data:toSend});
+        if(!ins.error) ok = true;
+        else if(ins.error.code!=='23505') throw ins.error;
+      } else {
+        var remote = rem.doc || {};
+        var before = _clone(data);
+        var merged = base ? _merge3(base, before, remote) : _fallbackMerge(_clone(data), remote);
+        if(_applyMerged(data, before, merged)) mergedAny = true;
+        data._rev = Number(remote._rev)||0;
+        base = _clone(remote);
+        if(opts.holder) opts.holder.base = base;
+        if(live) _syncBase[key] = base;
+        await new Promise(function(res){ setTimeout(res, 60+Math.random()*(150+attempt*120)); });
+        continue;
+      }
+    }
+    if(ok){
+      var prev = live ? _syncBase[key] : base;
+      data._rev = toSend._rev;
+      if(live){ _syncBase[key] = toSend; _persistBase(key, toSend, false); _dailySnapshot(key, prev); }
+      if(mergedAny){
+        try{ _secToast('Another user saved at the same time. Their changes were merged with yours.'); }catch(e){}
+        try{ _silentRerender(); msgUpdateBadge(); }catch(e){}
+        try{ _warnDuplicateSids(); }catch(e){}
+      }
+      return;
+    }
+  }
+  throw new Error('too_many_conflicts');
+}
+
+// Pull newer server data (3-way merged into what is on screen)
+var _lastRevCheck = 0;
+async function _pullRemoteIfNewer(force){
+  try{
+    if(!CURRENT_SCHOOL_ID || CURRENT_SCHOOL_ID==='__super__' || !_isOnline) return;
+    var key = schoolDbKey(CURRENT_SCHOOL_ID);
+    if(_dbKeyLoaded!==key || _writeBusy[key]) return;
+    if(!force && Date.now()-_lastRevCheck < 25000) return;
+    _lastRevCheck = Date.now();
+    var r = await _withTimeout(supabaseClient.from('epaza_data').select('rev:data->_rev').eq('id',key).maybeSingle(), 8000);
+    var rr = Number(r && r.data && r.data.rev)||0;
+    if(rr > (Number(DB._rev)||0)){
+      var f = await _fetchRemote(key);
+      if(f.doc) _applyRemoteData(f.doc);
+    }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') _pullRemoteIfNewer(true); });
+window.addEventListener('online', function(){ _pullRemoteIfNewer(true); });
+
 // Offline queue — saves that failed get stored and retried automatically
 var _offlineQueue = [];
 var _draining     = false;
@@ -3940,9 +4180,9 @@ window.addEventListener('online',  function(){ _isOnline=true;  _drainQueue(); }
 window.addEventListener('offline', function(){ _isOnline=false; });
 
 function _enqueueWrite(key, data){
-  // Remove any pending write for same key (superseded)
-  _offlineQueue = _offlineQueue.filter(function(q){ return q.key!==key; });
-  _offlineQueue.push({key:key, data:data, ts:Date.now()});
+  // Replace an older entry of THIS session for the same key (entries from a previous session are kept)
+  _offlineQueue = _offlineQueue.filter(function(q){ return !(q.key===key && q.sess===_SESS); });
+  _offlineQueue.push({key:key, data:data, ts:Date.now(), sess:_SESS});
   // Always persist queue to localStorage so it survives page refresh
   try{ localStorage.setItem('scorix_offq', JSON.stringify(_offlineQueue)); }catch(e){}
 }
@@ -3952,36 +4192,72 @@ function _loadOfflineQueue(){
     var raw = localStorage.getItem('scorix_offq');
     if(raw) _offlineQueue = JSON.parse(raw)||[];
   }catch(e){ _offlineQueue=[]; }
+  // Recover work that was saved on this device but never reached the server (tab/browser killed)
+  try{
+    var have={}; _offlineQueue.forEach(function(q){ have[q.key]=1; });
+    var pre='scorix_dirty_', rm=[];
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(k && k.indexOf(pre)===0){
+        var dk=k.slice(pre.length);
+        rm.push(k);
+        if(have[dk]) continue;
+        var doc=localStorage.getItem(dk);
+        if(doc){ try{ _offlineQueue.push({key:dk, data:JSON.parse(doc), ts:Date.now(), sess:'recovered'}); }catch(e){} }
+      }
+    }
+    if(rm.length){
+      rm.forEach(function(k){ localStorage.removeItem(k); });
+      localStorage.setItem('scorix_offq', JSON.stringify(_offlineQueue));
+    }
+  }catch(e){}
 }
 
 async function _drainQueue(){
   if(_draining || !_isOnline || !_offlineQueue.length) return;
   _draining = true;
-  var remaining = [];
-  for(var i=0;i<_offlineQueue.length;i++){
-    var item = _offlineQueue[i];
+  var snap = _offlineQueue.slice().sort(function(x,y){ return (x.ts||0)-(y.ts||0); });
+  var failed = [];
+  for(var i=0;i<snap.length;i++){
+    var item = snap[i];
     try{
-      await _withTimeout(
-        supabaseClient.from('epaza_data').upsert({id:item.key, data:item.data}),
-        5000
-      );
-      // success — don't keep it
+      if(String(item.key).indexOf('epaza_school_')===0){
+        var live = (item.data===DB && _dbKeyLoaded===item.key);
+        if(live){
+          await _flushWrite(item.key, item.data);   // same one-at-a-time path as normal saves
+        } else {
+          await _casWrite(item.key, item.data, {base:_loadPersistedBase(item.key)});
+          if(!_pendingWrites[item.key]){ try{ localStorage.removeItem('scorix_dirty_'+item.key); }catch(e){} }
+        }
+      } else {
+        await _withTimeout(supabaseClient.from('epaza_data').upsert({id:item.key, data:item.data}), 8000);
+      }
     }catch(e){
-      remaining.push(item); // keep for next drain
+      failed.push(item); // keep for next drain
     }
   }
-  _offlineQueue = remaining;
+  // Keep anything that was queued while we were uploading
+  var added = _offlineQueue.filter(function(q){ return snap.indexOf(q)<0; });
+  var merged = failed.concat(added), byKey = {};
+  merged.forEach(function(q){
+    var kk = q.key+'|'+(q.sess||'');
+    if(!byKey[kk] || (q.ts||0) >= (byKey[kk].ts||0)) byKey[kk] = q;
+  });
+  _offlineQueue = Object.keys(byKey).map(function(k){ return byKey[k]; });
   try{ localStorage.setItem('scorix_offq', JSON.stringify(_offlineQueue)); }catch(e){}
   _draining = false;
 }
 
 // Deduplicated write — merges rapid saves into one network call
 var _pendingWrites = {}; // key → {data, timer}
+var _inflightWrites = {}; // key → data currently being uploaded
 var WRITE_DEBOUNCE = 250; // ms — faster than 400ms for snappier saves
 
 function _scheduleWrite(key, data){
   // Always update local cache immediately — instant for offline reads
   try{ localStorage.setItem(key, JSON.stringify(data)); }catch(e){}
+  // Mark "not yet on the server" so the work can be recovered if the tab/browser is killed
+  if(key.indexOf('epaza_school_')===0){ try{ localStorage.setItem('scorix_dirty_'+key, String(Date.now())); }catch(e){} }
 
   if(_pendingWrites[key]) clearTimeout(_pendingWrites[key].timer);
   _pendingWrites[key] = {
@@ -3995,39 +4271,101 @@ function _scheduleWrite(key, data){
 }
 
 async function _flushWrite(key, data){
+  var isSchool = key.indexOf('epaza_school_')===0;
   if(!_isOnline){
     _enqueueWrite(key, data);
     showSyncStatus('offline');
     return;
   }
-  showSyncStatus('saving');
-  _lastSaveTimestamp = Date.now(); // tell realtime to ignore our own echo
+  if(!isSchool){
+    // Other documents (super admin, user index): plain upsert
+    showSyncStatus('saving');
+    _lastSaveTimestamp = Date.now();
+    _inflightWrites[key] = data;
+    try{
+      await _withRetry(function(){
+        return _withTimeout(supabaseClient.from('epaza_data').upsert({id:key, data:data}), 8000);
+      }, 3, 'write:'+key);
+      delete _inflightWrites[key];
+      _offlineQueue = _offlineQueue.filter(function(q){ return !(q.key===key && q.data===data); });
+      try{ localStorage.setItem('scorix_offq', JSON.stringify(_offlineQueue)); }catch(e){}
+      showSyncStatus('saved');
+      _drainQueue();
+    }catch(e){
+      delete _inflightWrites[key];
+      _enqueueWrite(key, data);
+      setTimeout(function(){ try{ _drainQueue(); }catch(_e){} }, 15000);
+      showSyncStatus('error');
+    }
+    return;
+  }
+  // School data: one save at a time per school; newer requests are folded into the next round
+  if(_writeBusy[key]){ _writeDirty[key] = data; return; }
+  _writeBusy[key] = true;
   try{
-    // Reconcile against any newer remote save before overwriting a school's data document
-    if(key.indexOf('epaza_school_')===0){ data = await _reconcileBeforeWrite(key, data); }
-    await _withRetry(function(){
-      return _withTimeout(
-        supabaseClient.from('epaza_data').upsert({id:key, data:data}),
-        4000  // reduced from 5000ms for faster failure detection
-      );
-    }, 3, 'write:'+key);
-    showSyncStatus('saved');
-    _clearPendingKeys(); // marks are safely persisted — realtime can merge again
-    // Drain any queued writes now we know we're online
-    _drainQueue();
-  }catch(e){
-    // Network failed — queue for later
-    _enqueueWrite(key, data);
-    showSyncStatus('error');
-    console.warn('[SCORIX] Write failed, queued:', key);
+    var again;
+    do{
+      again = false;
+      _writeDirty[key] = null;
+      showSyncStatus('saving');
+      _lastSaveTimestamp = Date.now();
+      _inflightWrites[key] = data;
+      var live = (data===DB && _dbKeyLoaded===key);
+      var force = _forceOverwrite; _forceOverwrite = false;
+      try{
+        await _casWrite(key, data, live ? {live:true, force:force} : {base:_loadPersistedBase(key), force:force});
+        delete _inflightWrites[key];
+        // everything this session queued for this school is now on the server
+        _offlineQueue = _offlineQueue.filter(function(q){ return !(q.key===key && q.sess===_SESS); });
+        try{ localStorage.setItem('scorix_offq', JSON.stringify(_offlineQueue)); }catch(e){}
+        if(!_pendingWrites[key]){ try{ localStorage.removeItem('scorix_dirty_'+key); }catch(e){} }
+        showSyncStatus('saved');
+        _clearPendingKeys();
+        _drainQueue();
+      }catch(e){
+        delete _inflightWrites[key];
+        _enqueueWrite(key, data);
+        setTimeout(function(){ try{ _drainQueue(); }catch(_e){} }, 15000+Math.random()*5000);
+        showSyncStatus('error');
+        console.warn('[SCORIX] Write failed, queued:', key, e && e.message);
+        break;
+      }
+      if(_writeDirty[key]){ data = _writeDirty[key]; again = true; }
+    } while(again);
+  } finally {
+    _writeBusy[key] = false;
   }
 }
+
+// ── Save before closing / leaving the tab ──
+// Anything still waiting in the debounce timer, or mid-upload, is copied to the
+// local queue (survives the tab closing) and an upload is attempted right away.
+// If the tab dies before the upload finishes, the queue is uploaded on next open.
+function _flushOnClose(){
+  try{
+    var keys = {};
+    Object.keys(_pendingWrites).forEach(function(k){ keys[k] = _pendingWrites[k] ? _pendingWrites[k].data : null; });
+    Object.keys(_inflightWrites).forEach(function(k){ if(!(k in keys)) keys[k] = _inflightWrites[k]; });
+    var any = false;
+    Object.keys(keys).forEach(function(k){
+      var d = keys[k]; if(!d) return;
+      if(_pendingWrites[k]){ clearTimeout(_pendingWrites[k].timer); delete _pendingWrites[k]; }
+      try{ if(_syncBase[k]) _persistBase(k, _syncBase[k], true); }catch(e){}
+      _enqueueWrite(k, d);
+      any = true;
+    });
+    if(any && _isOnline) _drainQueue();
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') _flushOnClose(); });
+window.addEventListener('pagehide', _flushOnClose);
+window.addEventListener('beforeunload', _flushOnClose);
 
 // In-memory read cache — avoids repeated Supabase round-trips for same key in same session
 var _readCache = {};
 var _readCacheTTL = 8000; // 8 seconds — data is fresh enough from realtime
 
-async function _resilientRead(key, timeoutMs){
+async function _resilientReadRaw(key, timeoutMs){
   timeoutMs = timeoutMs || 4000; // reduced from 5000ms
 
   // 0. In-memory cache hit (fastest — zero network)
@@ -4062,6 +4400,24 @@ async function _resilientRead(key, timeoutMs){
     }
   }catch(e){}
   return null;
+}
+
+// School documents: keep the in-memory read cache pristine (never shared with the live DB)
+async function _resilientRead(key, timeoutMs){
+  var before = _readCache[key];
+  var doc = await _resilientReadRaw(key, timeoutMs);
+  try{
+    if(doc && key.indexOf('epaza_school_')===0){
+      if(before && _readCache[key]===before){
+        return _clone(before.data);                 // cache hit → hand out a copy
+      }
+      if(_readCache[key]){
+        _rawSnap[key] = _clone(doc); _rawFresh[key] = true;
+        _readCache[key].data = _rawSnap[key];       // cache keeps the pristine copy; DB gets the original
+      }
+    }
+  }catch(e){}
+  return doc;
 }
 
 // Invalidate cache for a key after we save it
@@ -4257,7 +4613,20 @@ function auditLog(action, detail){
   }catch(e){}
 }
 var _marksSnap = null;
-function _auditSnapshot(){ try{ _marksSnap = Object.assign({}, (DB&&DB.marks)||{}); }catch(e){ _marksSnap=null; } }
+function _auditSnapshot(){ try{ _marksSnap = Object.assign({}, (DB&&DB.marks)||{}); }catch(e){ _marksSnap=null; } try{ _studSnapRefresh(); }catch(e){} }
+var _studSnap = null;
+function _studSnapRefresh(){
+  try{ _studSnap = {}; (DB.students||[]).forEach(function(st){ if(st && st.id) _studSnap[st.id] = (st.name||'')+' ['+(st.sid||'')+']'; }); }
+  catch(e){ _studSnap = null; }
+}
+function _auditStudentsDiff(){
+  if(!_studSnap || !DB || !Array.isArray(DB.students) || !ME) return;
+  var cur = {}; DB.students.forEach(function(st){ if(st && st.id) cur[st.id] = true; });
+  Object.keys(_studSnap).forEach(function(id){
+    if(!cur[id]) auditLog('student-removed', _studSnap[id]+' no longer in the student list');
+  });
+  _studSnapRefresh();
+}
 function _auditMarksDiff(){
   if(!_marksSnap || !DB || !DB.marks || !ME) return;
   var cur=DB.marks, ch=[];
@@ -4271,6 +4640,43 @@ function _auditMarksDiff(){
   }
   _marksSnap = Object.assign({}, cur);
 }
+// ── Automatic daily snapshots (last 10 days) ──
+async function showAutoSnapshots(){
+  if(!isAdmin() || !CURRENT_SCHOOL_ID) return;
+  var days=[]; for(var i=0;i<10;i++) days.push(new Date(Date.now()-i*864e5).toISOString().slice(0,10));
+  var pre='epaza_snap_'+CURRENT_SCHOOL_ID+'_';
+  var have={};
+  try{
+    var r=await supabaseClient.from('epaza_data').select('id').in('id', days.map(function(d){ return pre+d; }));
+    ((r&&r.data)||[]).forEach(function(x){ have[x.id]=1; });
+  }catch(e){ alert('Could not load snapshots. Check your connection.'); return; }
+  var list=days.filter(function(d){ return have[pre+d]; });
+  var old=document.getElementById('snapOverlay'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='snapOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:1.2rem;max-width:420px;width:100%;max-height:80vh;overflow:auto;">'
+    +'<div style="font-weight:700;font-size:1rem;margin-bottom:.4rem;">🕒 Automatic Snapshots</div>'
+    +'<div style="font-size:.78rem;color:var(--ink3);line-height:1.6;margin-bottom:.8rem;">The system saves a copy of your school data once a day and keeps it for 10 days. Download one, then use <strong>Merge Backup (keep new changes)</strong> to bring back anything that was lost.</div>'
+    +(list.length?list.map(function(d){ return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--bd);"><span style="font-size:.85rem;">'+d+'</span><button class="btn" onclick="downloadSnapshot(\''+d+'\')" style="padding:6px 14px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;">⬇️ Download</button></div>'; }).join('')
+      :'<div style="font-size:.85rem;color:var(--ink3);padding:.6rem 0;">No snapshots yet. The first one is created the next time data is saved.</div>')
+    +'<button class="btn" onclick="document.getElementById(\'snapOverlay\').remove()" style="margin-top:1rem;width:100%;padding:9px;border-radius:9px;font-weight:700;cursor:pointer;">Close</button></div>';
+  document.body.appendChild(ov);
+}
+async function downloadSnapshot(day){
+  try{
+    var r=await supabaseClient.from('epaza_data').select('data').eq('id','epaza_snap_'+CURRENT_SCHOOL_ID+'_'+day).maybeSingle();
+    var doc=r&&r.data&&r.data.data;
+    if(!doc){ alert('Snapshot not found.'); return; }
+    var copy=JSON.parse(JSON.stringify(doc));
+    ['users','teachers','parents'].forEach(function(k){ (copy[k]||[]).forEach(function(x){ if(x && x.password) x.password='[hidden]'; }); });
+    var out={_backup_info:{school:(copy.settings&&copy.settings.schoolName)||'', generated:new Date().toISOString(), source:'auto-snapshot '+day}, data:copy};
+    var blob=new Blob([JSON.stringify(out)],{type:'application/json'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='scorix_snapshot_'+day+'.json'; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1000);
+  }catch(e){ alert('Could not download the snapshot.'); }
+}
+
 function showAuditLog(){
   if(!isAdmin()){ return; }
   var arr=(_auditStore()||[]).slice().sort(function(a,b){ return a.t<b.t?1:-1; });
@@ -4376,26 +4782,29 @@ function _mergeRemoteIntoLocal(local, remote, nested){
   });
 }
 async function _reconcileBeforeWrite(key, data){
-  try{
-    var r = await _withTimeout(supabaseClient.from('epaza_data').select('rev:data->_rev').eq('id',key).maybeSingle(), 4000);
-    if(r && r.error) throw r.error;
-    var remoteRev = Number(r && r.data && r.data.rev) || 0;
-    var localBase = Number(data._rev) || 0;
-    if(remoteRev > localBase){
-      var full = await _withTimeout(supabaseClient.from('epaza_data').select('data').eq('id',key).single(), 8000);
-      var rd = full && full.data && full.data.data;
-      if(rd){
-        _mergeRemoteIntoLocal(data, rd, false);
-        data.audit = _unionById(data.audit, rd.audit);
-        remoteRev = Math.max(remoteRev, Number(rd._rev)||0);
-        _secToast('Another user saved changes at the same time. Their changes were merged with yours.');
-        try{ _silentRerender(); }catch(e){}
-      }
-    }
-    data._rev = Math.max(remoteRev, localBase) + 1;
-  }catch(e){
-    data._rev = (Number(data._rev)||0) + 1;
+  var remoteRev = 0, rd = null;
+  // 1) Ask the server what version it has. If this fails we must NOT overwrite the server
+  //    with a possibly-old local copy — throw so the save is queued and retried.
+  var r = await _withTimeout(supabaseClient.from('epaza_data').select('rev:data->_rev').eq('id',key).maybeSingle(), 10000);
+  if(r && r.error) throw r.error;
+  remoteRev = Number(r && r.data && r.data.rev) || 0;
+  var localBase = Number(data._rev) || 0;
+  if(remoteRev > localBase){
+    var full = await _withTimeout(supabaseClient.from('epaza_data').select('data').eq('id',key).single(), 15000);
+    if(full && full.error) throw full.error;
+    rd = full && full.data && full.data.data;
   }
+  // 2) Merge newer server data into ours (never lets this step block a save)
+  try{
+    if(rd){
+      _mergeRemoteIntoLocal(data, rd, false);
+      data.audit = _unionById(data.audit, rd.audit);
+      remoteRev = Math.max(remoteRev, Number(rd._rev)||0);
+      _secToast('Another user saved changes at the same time. Their changes were merged with yours.');
+      try{ _silentRerender(); }catch(e){}
+    }
+  }catch(e){}
+  data._rev = Math.max(remoteRev, localBase) + 1;
   return data;
 }
 
@@ -4514,7 +4923,48 @@ async function _syncUserIndexEntry(schoolId, users){
   _scheduleWrite('epaza_users', merged);
 }
 
+var _HANDLED_KEYS = {users:1,teachers:1,classes:1,subjects:1,students:1,marks:1,settings:1,activity:1,terms:1,approvals:1,subApprovals:1,attendance:1,remarks:1,quizYears:1,termYears:1,parents:1,messages:1,parentChats:1,quizVisibility:1,_rev:1};
+// Loads a school; when the school is already open, unsaved local edits are merged back in (never discarded)
 async function supabaseLoad(sid){
+  var key = schoolDbKey(sid);
+  var had = (_dbKeyLoaded===key) && !!_syncBase[key];
+  var localBefore = had ? _clone(DB) : null;
+  _rawFresh[key] = false;
+  var res = await _supabaseLoadRaw(sid);
+  try{
+    var fresh = !!_rawFresh[key]; _rawFresh[key] = false;
+    var raw = _rawSnap[key] || null;
+    if(had){
+      var afterRaw = _clone(DB);
+      if(fresh && raw){
+        var remoteNow = _clone(DB);
+        Object.keys(raw).forEach(function(k){ if(!_HANDLED_KEYS[k]) remoteNow[k]=_clone(raw[k]); });
+        var merged = _merge3(_syncBase[key], localBefore, remoteNow);
+        _applyMerged(DB, afterRaw, merged);
+        _syncBase[key] = raw;
+        DB._rev = Number(raw._rev)||0;
+        _persistBase(key, raw, true);
+        try{ localStorage.setItem(key, JSON.stringify(DB)); }catch(e){}
+      } else {
+        _applyMerged(DB, afterRaw, localBefore);   // nothing new from the server: keep exactly what we had
+      }
+    } else {
+      DB.audit = Array.isArray(raw && raw.audit) ? _clone(raw.audit) : [];
+      if(raw){
+        Object.keys(raw).forEach(function(k){ if(!_HANDLED_KEYS[k]) DB[k]=_clone(raw[k]); });
+        DB._rev = Number(raw._rev)||0;
+        _syncBase[key] = raw;
+      } else {
+        _syncBase[key] = {};
+        DB._rev = 0;
+      }
+      _dbKeyLoaded = key;
+      _persistBase(key, _syncBase[key], true);
+    }
+  }catch(e){ console.warn('[SCORIX] sync base error', e); }
+  return res;
+}
+async function _supabaseLoadRaw(sid){
   var key = schoolDbKey(sid);
   var d = await _resilientRead(key, 4000);
   if(d){
@@ -4678,6 +5128,7 @@ function purgeOldParentMessages(){
 function dbSave(){
   if(!CURRENT_SCHOOL_ID) return;
   try{ _auditMarksDiff(); }catch(e){}
+  try{ _auditStudentsDiff(); }catch(e){}
   // Block saves if school is paused (except superadmin)
   if(isSuperAdmin()) { _doSave(); return; }
   var school=SUPERDB.schools.find(function(s){return s.id===CURRENT_SCHOOL_ID;});
@@ -4974,6 +5425,8 @@ async function doParentSignup(){
     await _parentFreshLoad(schoolId);
     var student = DB.students.find(function(s){ return String(s.sid||'').toUpperCase() === code; });
     if(!student){ pErr('Student code "'+code+'" not found in the selected school. Check the code on the report card.'); return; }
+    var _shared={}; DB.students.forEach(function(x){ if(_normSid(x.sid)===code) _shared[_normName(x.name)]=1; });
+    if(Object.keys(_shared).length>1){ pErr('This academic code is used by more than one student. Please contact the school to correct it.'); return; }
 
     var existing = DB.parents.find(function(p){ return p.email === email; });
     if(existing && existing.studentCodes && existing.studentCodes.indexOf(code) >= 0){
@@ -5619,6 +6072,8 @@ async function showAddChildModal(){
   if(!Array.isArray(dbPar.studentCodes)) dbPar.studentCodes = [];
   var student = DB.students.find(function(s){ return String(s.sid||'').toUpperCase()===code; });
   if(!student){ alert('❌ Student code "'+code+'" not found. Check the code on the report card.'); return; }
+  var _shared={}; DB.students.forEach(function(x){ if(_normSid(x.sid)===code) _shared[_normName(x.name)]=1; });
+  if(Object.keys(_shared).length>1){ alert('❌ This academic code is used by more than one student. Please contact the school to correct it.'); return; }
   if(dbPar.studentCodes.indexOf(code)>=0){ alert('This student is already linked to your account.'); return; }
   var owner = _parentOwningCode(code, dbPar.id);
   if(owner){ alert('❌ '+_parentTakenMsg(owner, student.name)); return; }
@@ -5962,6 +6417,8 @@ function enterApp(){
 }
 
 function doLogout(){
+  try{ _flushOnClose(); }catch(e){}   // upload anything still waiting before we clear the screen
+  _dbKeyLoaded = null;
   stopLiveSync();        // stops realtime subscription + poll
   stopParentLiveSync();  // stops parent realtime + poll
   // Clear all in-memory caches
@@ -8424,6 +8881,54 @@ function openEditStudent(id){
   var phEl=document.getElementById('mestpphone'); if(phEl) phEl.value=s.parentPhone||'';
   document.getElementById('mest').classList.add('open');
 }
+// ── Academic codes: every student has their own code ──
+function _normSid(x){ return String(x==null?'':x).trim().toUpperCase(); }
+function _normName(x){ return String(x==null?'':x).replace(/\s+/g,' ').trim().toLowerCase(); }
+// A code may be reused only by the SAME student in another academic year (promotion).
+function _sidConflict(sid, exceptId, termYearId, name){
+  var n=_normSid(sid); if(!n) return null;
+  var nm=_normName(name), ty=termYearId||null;
+  for(var i=0;i<DB.students.length;i++){
+    var s=DB.students[i];
+    if(!s || s.id===exceptId) continue;
+    if(_normSid(s.sid)!==n) continue;
+    if((s.termYearId||null)===ty) return s;      // same year: code already used
+    if(_normName(s.name)!==nm) return s;         // other year: code belongs to a different student
+  }
+  return null;
+}
+function _nextFreeSid(){
+  var used={}; DB.students.forEach(function(s){ used[_normSid(s.sid)]=1; });
+  var n=DB.students.length+1;
+  while(used[String(n)]) n++;
+  return String(n);
+}
+function _findDuplicateSids(){
+  var g={};
+  (DB.students||[]).forEach(function(s){ var k=_normSid(s.sid); if(!k) return; (g[k]=g[k]||[]).push(s); });
+  var out=[];
+  Object.keys(g).forEach(function(k){
+    var names={}, years={}, bad=false;
+    g[k].forEach(function(s){ names[_normName(s.name)]=1; var y=s.termYearId||''; if(years[y]) bad=true; years[y]=1; });
+    if(Object.keys(names).length>1 || bad) out.push({code:k, students:g[k]});
+  });
+  return out;
+}
+var _dupSigWarned = '';
+function _warnDuplicateSids(){
+  try{
+    if(typeof isAdmin!=='function' || !ME || !isAdmin()) return;
+    var d=_findDuplicateSids(); if(!d.length) return;
+    var sig=d.map(function(g){ return g.code+':'+g.students.map(function(s){return s.id;}).join(','); }).join('|');
+    if(sig===_dupSigWarned) return;
+    _dupSigWarned=sig;
+    var msg='⚠️ Duplicate academic codes found:\n\n'
+      +d.slice(0,8).map(function(g){ return '• '+g.code+' → '+g.students.map(function(s){ return s.name; }).join(' / '); }).join('\n')
+      +(d.length>8?'\n…and '+(d.length-8)+' more':'')
+      +'\n\nEvery student must have a different code. Go to Students → ✏️ and change the code of the wrong student.';
+    setTimeout(function(){ alert(msg); }, 400);
+  }catch(e){}
+}
 function saveEditStudent(){
   if(!isAdmin()){alert("Only the director can edit student details. You can only update parent phone numbers.");return;}
   var id=document.getElementById('mestid').value;
@@ -8432,7 +8937,18 @@ function saveEditStudent(){
   var sid=document.getElementById('mestnum').value.trim();
   var cid=document.getElementById('mestcls').value;
   if(!name||!cid){alert('Name and class are required.');return;}
-  s.name=name; s.sid=sid||s.sid; s.classId=cid;
+  var _newSid = sid||s.sid;
+  var _cf = _sidConflict(_newSid, s.id, s.termYearId, name);
+  if(_cf){ alert('❌ The academic code "'+_newSid+'" is already used by "'+_cf.name+'".\n\nEvery student must have a different code.'); return; }
+  var _oldSid = s.sid;
+  s.name=name; s.sid=_newSid; s.classId=cid;
+  if(_normSid(_oldSid)!==_normSid(_newSid)){
+    // keep registered parents linked when a code is changed
+    var _stillUsed = DB.students.some(function(x){ return x.id!==s.id && _normSid(x.sid)===_normSid(_oldSid); });
+    if(!_stillUsed) (DB.parents||[]).forEach(function(par){
+      par.studentCodes = (par.studentCodes||[]).map(function(c){ return _normSid(c)===_normSid(_oldSid) ? _normSid(_newSid) : c; });
+    });
+  }
   s.dob=(document.getElementById('mestdob')||{}).value||s.dob||'';
   s.gender=(document.getElementById('mestgender')||{}).value||s.gender||'';
   s.parentName=((document.getElementById('mestparent')||{}).value||'').trim()||s.parentName||'';
@@ -8454,8 +8970,16 @@ function addStudent(){
     alert('🔒 The current academic year "'+_aty.label+'" is closed.\n\nYou cannot add students to a locked year.\n\nPlease create a new academic year or ask the administrator to unlock it.');
     return;
   }
-  var sid=document.getElementById('mstnum').value.trim()||String(DB.students.length+1);
   name = name.replace(/\s+/g,' ').trim(); // normalize whitespace
+  var _sidIn=document.getElementById('mstnum').value.trim();
+  var sid;
+  if(_sidIn){
+    var _cf=_sidConflict(_sidIn, null, CURRENT_TERM_YEAR_ID, name);
+    if(_cf){ alert('❌ The academic code "'+_sidIn+'" is already used by "'+_cf.name+'".\n\nEvery student must have a different code. Choose another code, or leave it empty to get one automatically.'); return; }
+    sid=_sidIn;
+  } else {
+    sid=_nextFreeSid();
+  }
   DB.students.push({
     id:'ST'+Date.now(),
     name:name,
@@ -9719,11 +10243,11 @@ function _splitCsvLine(line, sep){
 
 // ── Core import logic — used by both old and new UI ──
 function _doImportRows(rows){
-  var added=0, skipped=0;
+  var added=0, skipped=0, conflicts=[];
   rows.forEach(function(p){
     var name = (p[0]||'').trim();
     if(!name){ skipped++; return; }
-    var sid   = (p[1]||'').trim() || String(DB.students.length+added+1);
+    var sid   = (p[1]||'').trim() || _nextFreeSid();
     var cname = (p[2]||'').trim();
     var gender= (p[3]||'').trim();
     var dob   = (p[4]||'').trim();
@@ -9733,7 +10257,8 @@ function _doImportRows(rows){
       if(!cls){cls={id:'C'+Date.now()+Math.random(),name:cname,level:cname};DB.classes.push(cls);}
       classId=cls.id;
     }
-    if(DB.students.find(function(s){return s.sid===sid&&(s.termYearId||null)===(CURRENT_TERM_YEAR_ID||null);})){skipped++;return;}
+    var _cf=_sidConflict(sid, null, CURRENT_TERM_YEAR_ID, name);
+    if(_cf){ skipped++; conflicts.push(name+' (code '+sid+' is used by '+_cf.name+')'); return; }
     var st={id:'ST'+Date.now()+Math.random(),name:name,sid:sid,classId:classId,termYearId:CURRENT_TERM_YEAR_ID||null};
     if(gender) st.gender=gender;
     if(dob)    st.dob=dob;
@@ -9741,7 +10266,7 @@ function _doImportRows(rows){
     added++;
   });
   if(added){ addLog('Imported '+added+' students'); dbSave(); renderStudents(); renderClasses(); syncAll(); }
-  return {added:added, skipped:skipped};
+  return {added:added, skipped:skipped, conflicts:conflicts};
 }
 
 // ══════════════════════════════════════════
@@ -9827,7 +10352,7 @@ function previewStudentImport(){
   var rows=_parseImportText(text);
   if(!rows.length){ msgEl.innerHTML='<div class="al err">⚠️ Could not parse any rows. Check your file format.</div>'; preEl.innerHTML=''; return; }
   // Build preview table
-  var willAdd=0,willSkip=0;
+  var willAdd=0,willSkip=0,_seen={};
   var tBody=rows.map(function(p,i){
     var name=(p[0]||'').trim();
     var sid=(p[1]||'').trim()||'—';
@@ -9835,7 +10360,12 @@ function previewStudentImport(){
     var gender=(p[3]||'').trim()||'—';
     var dob=(p[4]||'').trim()||'—';
     if(!name){willSkip++;return '';}
-    var exists=DB.students.find(function(s){return s.sid===sid&&sid!=='—'&&(s.termYearId||null)===(CURRENT_TERM_YEAR_ID||null);});
+    var _ns=_normSid(sid==='—'?'':sid);
+    var exists=null;
+    if(_ns){
+      exists=_sidConflict(sid,null,CURRENT_TERM_YEAR_ID,name);
+      if(!exists){ if(_seen[_ns]) exists={name:'a row above'}; else _seen[_ns]=1; }
+    }
     if(exists){willSkip++;
       return '<tr style="opacity:.45;">'
         +'<td style="color:var(--red);">⚠️ dup</td>'
@@ -9863,7 +10393,8 @@ function confirmStudentImport(){
   var rows=_parseImportText(text);
   var res=_doImportRows(rows);
   document.getElementById('stImportPreview').innerHTML='';
-  document.getElementById('stImportMsg').innerHTML='<div class="al ok">✅ Imported <strong>'+res.added+'</strong> student'+(res.added!==1?'s':'')+'. ('+res.skipped+' skipped)</div>';
+  document.getElementById('stImportMsg').innerHTML='<div class="al ok">✅ Imported <strong>'+res.added+'</strong> student'+(res.added!==1?'s':'')+'. ('+res.skipped+' skipped)'
+    +(res.conflicts&&res.conflicts.length?'<br><span style="font-size:.78rem;">Skipped because the academic code is already used:<br>'+res.conflicts.slice(0,6).map(esc).join('<br>')+(res.conflicts.length>6?'<br>…':'')+'</span>':'')+'</div>';
   document.getElementById('stImportPaste').value='';
 }
 
@@ -12490,6 +13021,7 @@ var _liveSyncRunning = false;
 
 function startLiveSync(){
   stopLiveSync();
+  setTimeout(function(){ try{ _warnDuplicateSids(); }catch(e){} }, 3000);
   // 1. Subscribe to realtime push — instant multi-user updates
   _startRealtimeSubscription();
   // 2. Fallback poll every 8s (catches anything missed by realtime)
@@ -12504,6 +13036,7 @@ function stopLiveSync(){
 
 async function _liveSyncTick(){
   if(_liveSyncRunning || !CURRENT_SCHOOL_ID || !ME) return;
+  _pullRemoteIfNewer(false);   // cheap revision check every ~25s, even if realtime looks healthy
   // Skip poll if realtime channel is healthy (connected)
   if(_realtimeChannel && _realtimeChannel.state === 'joined') return;
   _liveSyncRunning = true;
@@ -12538,6 +13071,7 @@ function stopParentLiveSync(){
 
 async function _parentLiveSyncTick(){
   if(!CURRENT_SCHOOL_ID || !PARENT_USER) return;
+  _pullRemoteIfNewer(false);
   // Skip if realtime is healthy
   if(_parentRealtimeChannel && _parentRealtimeChannel.state === 'joined') return;
   try {
@@ -12857,8 +13391,8 @@ function loadBackup(e){
       restorePw(src.parents,  DB.parents,  ['email','username']);
 
       Object.keys(src).forEach(function(k){ DB[k]=src[k]; });
-      // Newer revision number so the cloud does not merge older/newer remote data back over the restore
-      DB._rev=Math.max(Number(DB._rev)||0, Date.now());
+      // A full restore must replace what is on the server (not be merged with it)
+      _forceOverwrite = true;
 
       dbSave();
       // Push to the cloud NOW (saving is normally delayed, and reloading would cancel it)
@@ -12946,7 +13480,6 @@ function mergeBackup(e){
       if(!confirm(msg)){ inp.value=''; return; }
 
       Object.keys(copy).forEach(function(k){ DB[k]=copy[k]; });
-      DB._rev=Math.max(Number(DB._rev)||0, Date.now());
       try{ auditLog('backup-merge', keys.map(function(k){ return k+':'+stats[k]; }).join(', ')); }catch(_){}
       dbSave();
       var pk=Object.keys(_pendingWrites);
@@ -15338,7 +15871,7 @@ function saveSchool(){
 async function initApp(){
   // Load any queued writes from previous sessions (offline work)
   _loadOfflineQueue();
-  if(_isOnline && _offlineQueue.length) _drainQueue();
+  var _qDrain = (_isOnline && _offlineQueue.length) ? _drainQueue() : null;
 
   var overlay=document.createElement('div');
   overlay.id='loadOverlay';
@@ -15348,6 +15881,8 @@ async function initApp(){
     +'<div style="width:48px;height:4px;background:var(--s3);border-radius:4px;overflow:hidden;"><div id="loadBar" style="height:100%;width:0%;background:var(--gold);border-radius:4px;transition:width .3s;"></div></div>';
   document.body.appendChild(overlay);
   document.getElementById('loadBar').style.width='20%';
+  // Upload any changes saved locally before the last tab close, before loading fresh data
+  if(_qDrain){ try{ await _qDrain; }catch(e){} }
 
   // ── STEP 1: Instant boot from localStorage (zero network, ~0ms) ──
   try{
