@@ -2134,7 +2134,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
             </div>
           </div>
           <div class="al info" style="margin-bottom:1rem;">
-            🌅 <strong>Morning Quiz</strong> — Weekly quiz marks out of 20 per subject. Independent from terms. Used to track daily student progress only.
+            🌅 <strong>Morning Quiz</strong> — Weekly quiz marks out of 20 per subject (P6: every 4th week of a term is a Monthly Test out of 100). Independent from terms. Used to track daily student progress only.
             <div style="margin-top:.55rem;display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.72rem;color:var(--ink3);">
               <span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(0,214,143,.2);border:1.5px solid rgba(0,214,143,.45);font-size:.65rem;margin-right:4px;">👪</span>Parent registered — click 💬 to chat</span>
               <span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);font-size:.65rem;margin-right:4px;opacity:.4;">👤</span>No parent registered yet</span>
@@ -5842,6 +5842,7 @@ function renderParentPortal(){
   var sel = window._parSel || (window._parSel = {});
   var selStudent = foundStudents.find(function(s){ return s.sid.toUpperCase()===String(sel.code||'').toUpperCase(); }) || foundStudents[0] || null;
   sel.code = selStudent ? selStudent.sid : null;
+  var selCls = selStudent ? DB.classes.find(function(c){ return c.id===selStudent.classId; }) : null;
   var yearsWithWeeks = (DB.quizYears||[]).filter(function(y){ return y.weeks && y.weeks.length; });
   var selYear = yearsWithWeeks.find(function(y){ return y.id===sel.yearId; }) || yearsWithWeeks[yearsWithWeeks.length-1] || null;
   sel.yearId = selYear ? selYear.id : null;
@@ -5904,7 +5905,7 @@ function renderParentPortal(){
       + '</select></div>'
       + '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">Week</label>'
       + '<select style="'+_selStyle+'" onchange="parSelChange(\'week\',this.value)">'
-      + termWeeks.map(function(w){ return '<option value="'+_q(w.id)+'"'+(w.id===selWeekId?' selected':'')+'>'+w.label+'</option>'; }).join('')
+      + termWeeks.map(function(w){ return '<option value="'+_q(w.id)+'"'+(w.id===selWeekId?' selected':'')+'>'+quizWeekName(selCls,selYear,w)+'</option>'; }).join('')
       + '<option value="all"'+(selWeekId==='all'?' selected':'')+'>All weeks in this term</option>'
       + '</select></div>';
   }
@@ -5938,15 +5939,16 @@ function renderParentPortal(){
         var yearHtml = '';
 
         yr.weeks.forEach(function(wk){
+          var MX = quizMaxFor(cls, yr, wk.id), isMT = isMonthlyTest(cls, yr, wk.id), wkName = quizWeekName(cls, yr, wk);
           if(selWeekId==='all'){ if(_weekTerm(wk)!==selTerm) return; } else if(wk.id!==selWeekId) return;
           // Gather this student's marks for this week
           var subResults = quizSubs.map(function(sub){
             var key = 'qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+wk.id;
             var v = DB.marks[key];
             var val = (v!==undefined && v!=='' && !isNaN(parseFloat(v))) ? parseFloat(v) : null;
-            var pct = val!==null ? (val/20)*100 : null;
+            var pct = val!==null ? (val/MX)*100 : null;
             var col = pct===null ? 'var(--ink3)' : pct>=80 ? 'var(--green)' : pct>=60 ? 'var(--blue)' : pct>=40 ? 'var(--gold)' : 'var(--red)';
-            return { name: sub.name, id: sub.id, val: val, col: col };
+            return { name: sub.name, id: sub.id, val: val, col: col, pct: pct };
           });
           var hasMarks = subResults.some(function(c){ return c.val!==null; });
           if(!hasMarks) return;
@@ -5955,7 +5957,7 @@ function renderParentPortal(){
           // ── Only show this week's marks if the class teacher has released them ──
           if(!cls || !quizWeekVisible(cls.id, wk.id)){
             yearHtml += '<div style="border:1px dashed var(--bd);border-radius:10px;padding:.8rem 1rem;margin-bottom:.7rem;background:var(--s2);text-align:center;">'
-              + '<div style="font-size:.78rem;color:var(--ink3);">🔒 <strong>'+wk.label+'</strong> — results not yet released by the teacher.</div>'
+              + '<div style="font-size:.78rem;color:var(--ink3);">🔒 <strong>'+wkName+'</strong> — results not yet released by the teacher.</div>'
               + '</div>';
             return;
           }
@@ -5963,7 +5965,7 @@ function renderParentPortal(){
           // Compute this student's total and average
           var myTotal = 0; var myCnt = 0;
           subResults.forEach(function(c){ if(c.val!==null){myTotal+=c.val;myCnt++;} });
-          var myAvgPct = myCnt>0 ? (myTotal/(myCnt*20))*100 : null;
+          var myAvgPct = myCnt>0 ? (myTotal/(myCnt*MX))*100 : null;
 
           // Compute class rank: compare against all classmates in same year/week
           var classStudents = cls ? DB.students.filter(function(s){return s.classId===cls.id;}) : [];
@@ -5995,7 +5997,7 @@ function renderParentPortal(){
           yearHtml += '<div style="border:1px solid var(--bd);border-radius:10px;padding:.9rem 1rem;margin-bottom:.7rem;background:var(--s2);">'
             // Week label + rank row
             + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem;">'
-            + '<div style="font-size:.82rem;font-weight:700;color:var(--ink2);">'+wk.label+'</div>'
+            + '<div style="font-size:.82rem;font-weight:700;color:var(--ink2);">'+(isMT?'📝 ':'')+wkName+(isMT?' <span style="font-size:.62rem;font-weight:700;color:var(--gold);background:rgba(246,201,14,.14);border:1px solid rgba(208,144,16,.4);border-radius:10px;padding:1px 8px;margin-left:4px;">out of 100</span>':'')+'</div>'
             + '<div style="display:flex;align-items:center;gap:8px;">'
             // Rank circle
             + (myRank!==null?'<div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;flex-shrink:0;'+rankCircStyle+'">'+myRank+'</div>':'')
@@ -6016,7 +6018,8 @@ function renderParentPortal(){
                 return '<div style="text-align:center;min-width:56px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:6px 6px 4px;">'
                   + '<div style="font-size:.58rem;color:var(--ink3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;">'+c.name+'</div>'
                   + '<div style="font-size:.95rem;font-weight:700;color:'+c.col+';">'+(c.val!==null ? c.val.toFixed(0) : '—')+'</div>'
-                  + '<div style="font-size:.55rem;color:var(--ink3);">/20</div>'
+                  + '<div style="font-size:.55rem;color:var(--ink3);">/'+MX+'</div>'
+                  + (isMT && c.pct!==null ? '<div style="font-size:.6rem;font-weight:700;color:'+c.col+';margin-top:1px;">'+c.pct.toFixed(0)+'%</div>' : '')
                   + '</div>';
               }).join('')
             + '</div>'
@@ -6035,6 +6038,9 @@ function renderParentPortal(){
         html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No marks recorded yet for the selected week.</div>';
       }
     }
+
+    // ── P6 ONLY: progress graph (weeks → current week) + Monthly Test % per subject ──
+    if(isP6Class(cls)) html += p6ParentProgress(student, cls, sel);
 
     // ── TEACHER-PARENT CHAT ──
     html += '<div style="padding:.8rem 1.2rem 1rem;" id="par-chat-section-'+student.id+'"><div style="font-size:.75rem;color:var(--ink3);text-align:center;padding:.5rem;">Loading chat…</div></div>';
@@ -14005,6 +14011,7 @@ function _fillQuizSelects(prefix, yr){
           : '<option value="" disabled>— No weeks — ask director —</option>');
     if(curWeek && list.some(function(w){ return w.id===curWeek; })) wEl.value = curWeek;
   }
+  _p6DecorateWeekOptions(prefix);
 }
 function quizTermPick(prefix){
   var tEl=document.getElementById(prefix+'Term'), wEl=document.getElementById(prefix+'Week');
@@ -14815,6 +14822,240 @@ function renderTermYearsList(){
 // ██████████████████████████████████████████████████████████████████
 // ═══════════════════════════════════════
 
+
+// ══════════════════════════════════════════════════════════════════
+// ██  P6 MONTHLY TEST
+// ██  In class P6, every 4th week of a term (4, 8, 12 …) is a "Monthly
+// ██  Test": all subjects are marked out of 100 (other weeks stay /20).
+// ██  Analysis + the parent progress graph use Monthly Tests only/normalised %.
+// ══════════════════════════════════════════════════════════════════
+function isP6Class(cls){
+  if(!cls) return false;
+  return /^\s*(p|primary)\.?\s*-?\s*6(?!\d)/i.test(String(cls.name||''));
+}
+function p6WeekInfo(yr, weekId){
+  var none={monthly:false,pos:0,n:0,term:'Term 1',termNum:1};
+  if(!yr||!yr.weeks) return none;
+  var w=yr.weeks.find(function(x){return x.id===weekId;});
+  if(!w) return none;
+  var t=_weekTerm(w);
+  var list=_wkSorted(yr).filter(function(x){return _weekTerm(x)===t;});
+  var pos=list.findIndex(function(x){return x.id===weekId;})+1;
+  return {monthly:pos>0&&pos%4===0, pos:pos, n:Math.floor(pos/4), term:t, termNum:_termNum(t)};
+}
+function isMonthlyTest(cls, yr, weekId){ return isP6Class(cls) && p6WeekInfo(yr,weekId).monthly; }
+function quizMaxFor(cls, yr, weekId){ return isMonthlyTest(cls,yr,weekId) ? 100 : 20; }
+// Name shown to teachers/parents: "Monthly Test 1" instead of "Week 4" for P6
+function quizWeekName(cls, yr, w){
+  if(!w) return '';
+  if(isMonthlyTest(cls,yr,w.id)) return 'Monthly Test '+p6WeekInfo(yr,w.id).n;
+  return w.label;
+}
+function _subPassPct(sub){
+  var sc=parseFloat(sub&&sub.scale), pp=parseFloat(sub&&sub.pass);
+  return (sc>0 && pp>0 && pp<=sc) ? (pp/sc)*100 : 50;
+}
+function _pctCol(p){ return p===null||p===undefined ? 'var(--ink3)' : p>=80?'var(--green)':p>=60?'var(--blue)':p>=40?'var(--gold)':'var(--red)'; }
+// Teacher week drop-downs: tag the monthly-test weeks when a P6 class is selected
+function _p6DecorateWeekOptions(prefix){
+  try{
+    var cEl=document.getElementById(prefix==='qz'?'qzCls':'qpCls'), wEl=document.getElementById(prefix+'Week');
+    var yr=getActiveQuizYear(); if(!cEl||!wEl||!yr) return;
+    var cls=DB.classes.find(function(c){return c.id===cEl.value;});
+    Array.prototype.forEach.call(wEl.options,function(o){
+      if(!o.value) return;
+      var w=(yr.weeks||[]).find(function(x){return x.id===o.value;}); if(!w) return;
+      o.textContent = isMonthlyTest(cls,yr,w.id) ? (w.label+' — 📝 Monthly Test (/100)') : w.label;
+    });
+  }catch(e){}
+}
+
+
+// ── Proclamation block: how many students fall in each score range, per subject (Monthly Test only) ──
+var P6_BANDS=[{lbl:'90-100',min:90},{lbl:'80-89',min:80},{lbl:'70-79',min:70},{lbl:'60-69',min:60},{lbl:'50-59',min:50},{lbl:'40-49',min:40},{lbl:'0-39',min:0}];
+function p6BandsHtml(cid, weekId){
+  var cls=DB.classes.find(function(c){return c.id===cid;});
+  var yr=getActiveQuizYear();
+  if(!isMonthlyTest(cls,yr,weekId)) return '';
+  var students=yearStudents().filter(function(s){return s.classId===cid;});
+  var subjects=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
+  var wk=(yr.weeks||[]).find(function(w){return w.id===weekId;});
+  var bandCol=['var(--green)','var(--green)','var(--blue)','var(--blue)','var(--gold)','var(--gold)','var(--red)'];
+  function bandIdx(p){ for(var i=0;i<P6_BANDS.length;i++){ if(p>=P6_BANDS[i].min) return i; } return P6_BANDS.length-1; }
+  function rowFor(label, pcts, passPct, bold){
+    var counts=P6_BANDS.map(function(){return 0;});
+    pcts.forEach(function(p){ counts[bandIdx(p)]++; });
+    var n=pcts.length;
+    var avg=n?pcts.reduce(function(a,b){return a+b;},0)/n:null;
+    var passed=pcts.filter(function(p){return p>=passPct;}).length;
+    var td='padding:5px 6px;text-align:center;border-bottom:1px solid var(--bd);';
+    return '<tr'+(bold?' style="background:var(--s3);font-weight:800;"':'')+'><td style="'+td+'text-align:left;font-weight:700;">'+esc(label)+'</td>'
+      +counts.map(function(c,i){return '<td style="'+td+'font-weight:'+(c?'800':'400')+';color:'+(c?bandCol[i]:'var(--ink3)')+';">'+c+'</td>';}).join('')
+      +'<td style="'+td+'">'+n+'</td>'
+      +'<td style="'+td+'font-weight:700;color:'+_pctCol(avg)+';">'+(avg!==null?avg.toFixed(1)+'%':'—')+'</td>'
+      +'<td style="'+td+'font-weight:700;color:'+_pctCol(n?(passed/n)*100:null)+';">'+(n?((passed/n)*100).toFixed(0)+'%':'—')+'</td></tr>';
+  }
+  var rows='', stuAvg={};
+  subjects.forEach(function(sub){
+    var pcts=[], pp=_subPassPct(sub);
+    students.forEach(function(st){
+      var v=DB.marks[quizMarkKey(st.id,sub.id,weekId)];
+      if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){
+        var p=parseFloat(v); pcts.push(p);
+        (stuAvg[st.id]=stuAvg[st.id]||[]).push(p);
+      }
+    });
+    rows+=rowFor(sub.name,pcts,pp,false);
+  });
+  var overall=Object.keys(stuAvg).map(function(k){var a=stuAvg[k];return a.reduce(function(x,y){return x+y;},0)/a.length;});
+  rows+=rowFor('ALL SUBJECTS (student average)',overall,50,true);
+  var th='padding:6px 6px;text-align:center;font-size:.72rem;font-weight:800;border-bottom:2px solid var(--bd);white-space:nowrap;';
+  return '<div class="card p6mt" style="margin-top:.8rem;overflow-x:auto;border:2px solid rgba(208,144,16,.55);">'
+    +'<div class="p6mt-title" style="font-weight:800;font-size:1rem;margin-bottom:.15rem;">📝 '+esc(quizWeekName(cls,yr,wk))+' Analysis — number of students per score range</div>'
+    +'<div style="font-size:.68rem;color:var(--ink3);margin-bottom:.6rem;">Marks out of 100 · % Succeeded = students who reached the subject pass mark (50% if none set)</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:.85rem;"><thead><tr style="background:var(--s3);">'
+    +'<th style="'+th+'text-align:left;">Subject</th>'
+    +P6_BANDS.map(function(b){return '<th style="'+th+'">'+b.lbl+'</th>';}).join('')
+    +'<th style="'+th+'">Students</th><th style="'+th+'">Avg %</th><th style="'+th+'">% Succeeded</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+// ── Teacher analysis: per-subject success on MONTHLY TESTS only (weekly /20 quizzes are excluded) ──
+function p6MonthlyAnalysisHtml(cid, selWeek){
+  var cls=DB.classes.find(function(c){return c.id===cid;});
+  var yr=getActiveQuizYear();
+  if(!isP6Class(cls)||!yr) return '';
+  var students=yearStudents().filter(function(s){return s.classId===cid;});
+  var subjects=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
+  var tests=_wkSorted(yr).filter(function(w){return p6WeekInfo(yr,w.id).monthly;});
+  var head='<div class="card" style="margin-top:1rem;"><div class="ctitle">📈 Monthly Tests — progress across the year</div>'
+    +'<div style="font-size:.74rem;color:var(--ink3);margin-bottom:.8rem;">Only Monthly Tests (out of 100) are analysed here — weekly /20 quizzes are not included. '
+    +'“Succeeded” = students who reached the subject pass mark (50% when none is set).</div>';
+  function stats(weekId, sub){
+    var arr=[];
+    students.forEach(function(st){
+      var v=DB.marks[quizMarkKey(st.id,sub.id,weekId)];
+      if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))) arr.push(parseFloat(v));
+    });
+    if(!arr.length) return null;
+    var pp=_subPassPct(sub), passed=arr.filter(function(v){return v>=pp;}).length;
+    return {n:arr.length, avg:arr.reduce(function(a,b){return a+b;},0)/arr.length, passed:passed,
+            pass:(passed/arr.length)*100, hi:Math.max.apply(null,arr), lo:Math.min.apply(null,arr)};
+  }
+  if(!tests.length) return head+'<div class="empty"><p>No Monthly Test weeks yet — they appear automatically as week 4, 8, 12… of each term.</p></div></div>';
+  var html=head;
+  // (b) all monthly tests – class average % / % succeeded per subject
+  var th=tests.map(function(w){var i=p6WeekInfo(yr,w.id);return '<th style="text-align:center;font-size:.68rem;">T'+i.termNum+' · MT'+i.n+'</th>';}).join('');
+  var rows2=subjects.map(function(sub){
+    var cells=tests.map(function(w){
+      var st=stats(w.id,sub);
+      return st ? '<td style="text-align:center;"><div style="font-weight:700;color:'+_pctCol(st.avg)+';">'+st.avg.toFixed(0)+'%</div><div style="font-size:.62rem;color:var(--ink3);">'+st.pass.toFixed(0)+'% passed</div></td>'
+                : '<td style="text-align:center;color:var(--ink3);">—</td>';
+    }).join('');
+    return '<tr><td><strong>'+esc(sub.name)+'</strong></td>'+cells+'</tr>';
+  }).join('');
+  html+='<div style="font-size:.8rem;font-weight:700;margin:1rem 0 .4rem;">All Monthly Tests this year — class average % (and % of students who succeeded)</div>'
+    +'<div class="tw"><table><thead><tr><th>Subject</th>'+th+'</tr></thead><tbody>'+rows2+'</tbody></table></div></div>';
+  return html;
+}
+
+// ── Parent portal (P6 only): progress graph from the chosen week up to the latest released week ──
+function p6ChartChange(kind,val){
+  var s=window._parSel||(window._parSel={});
+  if(kind==='from') s.p6From=val; else if(kind==='subj') s.p6Subj=val; else s.p6Mode=val;
+  renderParentPortal();
+}
+function p6ParentProgress(student, cls, sel){
+  var yr=(DB.quizYears||[]).find(function(y){return y.id===sel.yearId;});
+  if(!yr||!cls) return '';
+  var subs=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
+  var all=[];
+  _wkSorted(yr).forEach(function(w){
+    if(!quizWeekVisible(cls.id,w.id)) return;                    // only weeks released by the teacher
+    var info=p6WeekInfo(yr,w.id), MX=info.monthly?100:20, per={}, tot=0, cnt=0;
+    subs.forEach(function(sub){
+      var v=DB.marks['qz_'+student.id+'_'+sub.id+'_'+yr.id+'_'+w.id];
+      if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){ per[sub.id]=(parseFloat(v)/MX)*100; tot+=parseFloat(v); cnt++; }
+    });
+    if(!cnt) return;
+    all.push({id:w.id, label:w.label, monthly:info.monthly, n:info.n, pos:info.pos, termNum:info.termNum, per:per, avg:(tot/(cnt*MX))*100});
+  });
+  var box='<div style="margin:.2rem 1.2rem 1.2rem;border:1px solid var(--bd);border-radius:12px;background:var(--s2);padding:1rem;">'
+    +'<div style="font-size:.95rem;font-weight:700;margin-bottom:.15rem;">📈 My Child\'s Progress</div>';
+  if(!all.length) return box+'<div style="font-size:.8rem;color:var(--ink3);">The graph will appear once the teacher releases quiz results.</div></div>';
+
+  var fromId=all.some(function(p){return p.id===sel.p6From;}) ? sel.p6From : all[0].id;
+  var subj=(sel.p6Subj==='all'||subs.some(function(x){return x.id===sel.p6Subj;})) ? (sel.p6Subj||'all') : 'all';
+  var mode=sel.p6Mode==='monthly' ? 'monthly' : 'all';
+  var startIdx=all.findIndex(function(p){return p.id===fromId;});
+  var pts=all.slice(startIdx).filter(function(p){ return (mode==='all'||p.monthly) && (subj==='all' || p.per[subj]!==undefined); })
+    .map(function(p){ return Object.assign({},p,{y: subj==='all'?p.avg:p.per[subj]}); });
+
+  var sS='padding:7px 9px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);color:inherit;font:inherit;font-size:.78rem;max-width:100%;';
+  var lS='display:block;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:3px;';
+  box+='<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.7rem;">Percentage per week, from the week you choose up to the latest week. Weekly quizzes (/20) and Monthly Tests (/100) are both shown as %.</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.8rem;">'
+    +'<div style="flex:1 1 130px;"><label style="'+lS+'">From</label><select style="'+sS+'width:100%;" onchange="p6ChartChange(\'from\',this.value)">'
+      +all.map(function(p){return '<option value="'+p.id+'"'+(p.id===fromId?' selected':'')+'>T'+p.termNum+' · '+esc(p.monthly?'Monthly Test '+p.n:p.label)+'</option>';}).join('')+'</select></div>'
+    +'<div style="flex:1 1 130px;"><label style="'+lS+'">Subject</label><select style="'+sS+'width:100%;" onchange="p6ChartChange(\'subj\',this.value)">'
+      +'<option value="all"'+(subj==='all'?' selected':'')+'>All subjects (average)</option>'
+      +subs.map(function(x){return '<option value="'+x.id+'"'+(x.id===subj?' selected':'')+'>'+esc(x.name)+'</option>';}).join('')+'</select></div>'
+    +'<div style="flex:1 1 130px;"><label style="'+lS+'">Show</label><select style="'+sS+'width:100%;" onchange="p6ChartChange(\'mode\',this.value)">'
+      +'<option value="all"'+(mode==='all'?' selected':'')+'>Every week</option>'
+      +'<option value="monthly"'+(mode==='monthly'?' selected':'')+'>Monthly Tests only</option></select></div></div>';
+
+  if(!pts.length){
+    box+='<div style="font-size:.8rem;color:var(--ink3);padding:.6rem 0;">No results to plot for this selection.</div>';
+  } else {
+    var W=640,H=280,L=40,R=16,T=22,B=52, iw=W-L-R, ih=H-T-B;
+    function X(i){ return pts.length===1 ? L+iw/2 : L+(iw*i)/(pts.length-1); }
+    function Y(v){ return T+ih-(Math.max(0,Math.min(100,v))/100)*ih; }
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;" role="img" aria-label="Progress graph">';
+    [0,25,50,75,100].forEach(function(g){
+      svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(g)+'" y2="'+Y(g)+'" style="stroke:var(--bd);stroke-width:1;'+(g===50?'stroke-dasharray:5 4;stroke-width:1.4;':'')+'"/>'
+        +'<text x="'+(L-6)+'" y="'+(Y(g)+3)+'" text-anchor="end" style="fill:var(--ink3);font-size:10px;">'+g+'%</text>';
+    });
+    if(pts.length>1){
+      svg+='<polyline fill="none" style="stroke:var(--blue);stroke-width:2.2;stroke-linejoin:round;" points="'+pts.map(function(p,i){return X(i).toFixed(1)+','+Y(p.y).toFixed(1);}).join(' ')+'"/>';
+    }
+    var step=pts.length>14?2:1;
+    pts.forEach(function(p,i){
+      var cx=X(i), cy=Y(p.y);
+      svg+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(p.monthly?6.5:4)+'" style="fill:'+(p.monthly?'var(--gold)':'var(--blue)')+';stroke:var(--s2);stroke-width:2;"/>';
+      if(p.monthly||pts.length<=10)
+        svg+='<text x="'+cx.toFixed(1)+'" y="'+(cy-(p.monthly?11:9)).toFixed(1)+'" text-anchor="middle" style="fill:'+_pctCol(p.y)+';font-size:'+(p.monthly?11:9.5)+'px;font-weight:700;">'+p.y.toFixed(0)+'%</text>';
+      if(i%step===0){
+        var lab='T'+p.termNum+(p.monthly?' MT'+p.n:' W'+p.pos);
+        svg+='<text x="'+cx.toFixed(1)+'" y="'+(H-B+16)+'" text-anchor="middle" style="fill:var(--ink3);font-size:9.5px;'+(p.monthly?'font-weight:700;':'')+'">'+lab+'</text>';
+      }
+    });
+    svg+='</svg>';
+    box+=svg
+      +'<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:.68rem;color:var(--ink3);margin-top:.3rem;">'
+      +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--blue);margin-right:4px;"></span>Weekly quiz (/20)</span>'
+      +'<span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--gold);margin-right:4px;"></span>Monthly Test (/100)</span>'
+      +'<span>- - - 50% line &nbsp;·&nbsp; T = term, W = week, MT = Monthly Test</span></div>';
+    var first=pts[0].y, last=pts[pts.length-1].y, d=last-first;
+    box+='<div style="margin-top:.7rem;font-size:.8rem;">Latest: <strong style="color:'+_pctCol(last)+';">'+last.toFixed(1)+'%</strong>'
+      +(pts.length>1?' &nbsp;·&nbsp; Change since start: <strong style="color:'+(d>=0?'var(--green)':'var(--red)')+';">'+(d>=0?'▲ +':'▼ ')+d.toFixed(1)+' pts</strong>':'')+'</div>';
+  }
+
+  // Monthly Test results per subject (% only)
+  var mts=all.filter(function(p){return p.monthly;});
+  if(mts.length){
+    box+='<div style="font-size:.78rem;font-weight:700;margin:1rem 0 .4rem;">📝 Monthly Tests — % per subject</div>'
+      +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.78rem;"><thead><tr><th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--bd);">Subject</th>'
+      +mts.map(function(m){return '<th style="text-align:center;padding:5px 6px;border-bottom:1px solid var(--bd);white-space:nowrap;">T'+m.termNum+' · MT'+m.n+'</th>';}).join('')+'</tr></thead><tbody>'
+      +subs.map(function(x){
+         return '<tr><td style="padding:5px 6px;border-bottom:1px solid var(--bd);">'+esc(x.name)+'</td>'
+           +mts.map(function(m){var v=m.per[x.id];return '<td style="text-align:center;padding:5px 6px;border-bottom:1px solid var(--bd);font-weight:700;color:'+_pctCol(v===undefined?null:v)+';">'+(v===undefined?'—':v.toFixed(0)+'%')+'</td>';}).join('')+'</tr>';
+       }).join('')
+      +'<tr><td style="padding:6px;font-weight:700;">Average</td>'
+      +mts.map(function(m){return '<td style="text-align:center;padding:6px;font-weight:800;color:'+_pctCol(m.avg)+';">'+m.avg.toFixed(1)+'%</td>';}).join('')+'</tr>'
+      +'</tbody></table></div>';
+  }
+  return box+'</div>';
+}
+
 // ── Parent visibility for a given class+week's morning-quiz marks ──
 // Controlled entirely by the class teacher's toggle button. This flag is
 // persisted in DB.quizVisibility and is NEVER cleared automatically —
@@ -14856,8 +15097,11 @@ function loadQuizTable(){
   if(!students.length){wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>';return;}
   var subjects=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
   if(!subjects.length){wrap.innerHTML='<div class="empty"><p>No subjects configured yet.</p></div>';return;}
+  var qCls=DB.classes.find(function(c){return c.id===cid;});
+  var MX=quizMaxFor(qCls,yr,week), isMT=isMonthlyTest(qCls,yr,week);
+  _p6DecorateWeekOptions('qz');
   var thead='<tr><th>#</th><th>Student</th>';
-  subjects.forEach(function(s){thead+='<th style="text-align:center;font-size:.72rem;">'+s.name+'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/20</div></th>';});
+  subjects.forEach(function(s){thead+='<th style="text-align:center;font-size:.72rem;">'+s.name+'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/'+MX+'</div></th>';});
   thead+='<th style="text-align:center;">Total</th><th style="text-align:center;">Avg%</th><th style="text-align:center;font-size:.65rem;">Parent</th></tr>';
   var subIdList=subjects.map(function(s){return s.id;}).join(',');
   var rows=students.map(function(st,i){
@@ -14886,11 +15130,11 @@ function loadQuizTable(){
       if(locked){
         row+='<td style="text-align:center;font-weight:600;color:var(--ink2);">'+(val!==''?parseFloat(val).toFixed(1):'—')+'</td>';
       } else {
-        row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="20" step="0.5" value="'+val+'" data-orig="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
+        row+='<td style="text-align:center;"><input class="mkin" type="number" id="qzk_'+st.id+'_'+sub.id+'" min="0" max="'+MX+'" step="0.5" value="'+val+'" data-orig="'+val+'" oninput="previewQuizRow(\''+st.id+'\',\''+subIdList+'\')"></td>';
       }
     });
-    row+='<td style="text-align:center;font-weight:700;color:var(--gold);" id="qztot_'+st.id+'">'+(cnt>0?tot.toFixed(1)+'/'+(cnt*20):'—')+'</td>';
-    row+='<td style="text-align:center;font-size:.82rem;color:var(--blue);" id="qzavg_'+st.id+'">'+(cnt>0?((tot/(cnt*20))*100).toFixed(1)+'%':'—')+'</td>';
+    row+='<td style="text-align:center;font-weight:700;color:var(--gold);" id="qztot_'+st.id+'">'+(cnt>0?tot.toFixed(1)+'/'+(cnt*MX):'—')+'</td>';
+    row+='<td style="text-align:center;font-size:.82rem;color:var(--blue);" id="qzavg_'+st.id+'">'+(cnt>0?((tot/(cnt*MX))*100).toFixed(1)+'%':'—')+'</td>';
     // Parent chat cell
     var parReg2 = !!(DB.parents && DB.parents.find(function(p){
       return p.studentCodes && p.studentCodes.indexOf(st.sid.toUpperCase())>=0;
@@ -14915,7 +15159,9 @@ function loadQuizTable(){
     +'<button class="btn sm '+(pv?'red':'green')+'" onclick="toggleQuizParentVisibility(\''+cid+'\',\''+week+'\')">'+(pv?'🔒 Hide from Parents':'🔓 Show to Parents')+'</button>'
     +'</div>';
 
-  wrap.innerHTML=visBanner+'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
+  var mtBanner = isMT ? '<div class="al info" style="margin-bottom:.8rem;">📝 <strong>Monthly Test</strong> — '+esc(qCls.name)+' · all subjects are marked <strong>out of 100</strong>. Parents will see this week as “Monthly Test”.</div>'
+    : (isP6Class(qCls) ? '<div style="margin-bottom:.8rem;font-size:.74rem;color:var(--ink3);">Weekly quiz — out of 20. (Every 4th week of a term is a Monthly Test out of 100.)</div>' : '');
+  wrap.innerHTML=mtBanner+visBanner+'<div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
     +(locked
       ? '<div class="al warn" style="margin-top:.9rem;">🔒 This academic year is closed. Quiz marks are read-only.</div>'
       : '<div style="margin-top:.9rem;display:flex;gap:8px;flex-wrap:wrap;">'
@@ -14927,24 +15173,26 @@ function loadQuizTable(){
 
 function previewQuizRow(stid,subIdsStr){
   var subIds=subIdsStr.split(',');
+  var _c=document.getElementById('qzCls'), _w=document.getElementById('qzWeek');
+  var MX=quizMaxFor(DB.classes.find(function(c){return _c&&c.id===_c.value;}),getActiveQuizYear(),_w?_w.value:'');
   var tot=0;var cnt=0;
   subIds.forEach(function(sid){
     var el=document.getElementById('qzk_'+stid+'_'+sid);
     if(!el||el.value==='') return;
     var v=parseFloat(el.value);
     if(isNaN(v)) return;
-    // Clamp to max 20 and snap the field back
-    if(v>20){
-      el.value='20';
+    // Clamp to the max (20, or 100 on a P6 Monthly Test) and snap the field back
+    if(v>MX){
+      el.value=String(MX);
       el.style.borderColor='var(--gold)';
       setTimeout(function(){el.style.borderColor='';},1200);
-      v=20;
+      v=MX;
     } else if(v<0){
       el.value='0'; v=0;
     }
     tot+=v; cnt++;
   });
-  var maxT=cnt*20;
+  var maxT=cnt*MX;
   var te=document.getElementById('qztot_'+stid);
   var ae=document.getElementById('qzavg_'+stid);
   if(te) te.textContent=cnt>0?tot.toFixed(1)+'/'+maxT:'—';
@@ -14972,6 +15220,7 @@ function saveQuizMarks(){
   if(!cid||!week){alert('Select a class and week first.');return;}
   var students=yearStudents().filter(function(s){return s.classId===cid;});
   var subjects=levelSubjects().filter(function(s){return s.scale!=='letter' && !s.universal;});
+  var MX=quizMaxFor(DB.classes.find(function(c){return c.id===cid;}),yr,week);
   var cnt=0, cleared=0;
   students.forEach(function(st){
     subjects.forEach(function(sub){
@@ -14981,7 +15230,7 @@ function saveQuizMarks(){
       if(el.value!==''){
         var n=parseFloat(el.value);
         if(isNaN(n)) return;
-        var v=Math.max(0,Math.min(n,20));
+        var v=Math.max(0,Math.min(n,MX));
         DB.marks[key]=String(v);cnt++;
       } else {
         // Blank cell = vacant subject. If a mark was recorded when the table loaded
@@ -15069,18 +15318,20 @@ function genQuizProcl(){
   var cls=DB.classes.find(function(c){return c.id===cid;});
   var yr=getActiveQuizYear();
   var weekObj=yr&&yr.weeks?yr.weeks.find(function(w){return w.id===week;}):null;
-  var weekLabel=weekObj?weekObj.label:week;
+  var MX=quizMaxFor(cls,yr,week), isMT=isMonthlyTest(cls,yr,week);
+  _p6DecorateWeekOptions('qp');
+  var weekLabel=weekObj?quizWeekName(cls,yr,weekObj):week;
   var ranges=getQuizRanges();
   if(!students.length){out.innerHTML='<div class="empty"><p>No students.</p></div>';return;}
   if(!subjects.length){out.innerHTML='<div class="empty"><p>No subjects configured.</p></div>';return;}
-  var maxTotal=subjects.length*20;
+  var maxTotal=subjects.length*MX;
   var ranked=students.map(function(st){
     var tot=0;var cnt=0;
     subjects.forEach(function(sub){
       var v=DB.marks[quizMarkKey(st.id,sub.id,week)];
       if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
     });
-    return Object.assign({},st,{quizTotal:cnt>0?tot:null,quizCnt:cnt,quizPct:cnt>0?(tot/(cnt*20))*100:null});
+    return Object.assign({},st,{quizTotal:cnt>0?tot:null,quizCnt:cnt,quizPct:cnt>0?(tot/(cnt*MX))*100:null});
   }).filter(function(s){return s.quizTotal!==null;}).sort(function(a,b){return b.quizPct-a.quizPct;});
   if(!ranked.length){out.innerHTML='<div class="empty"><div class="ei">🌅</div><p>No quiz marks recorded for '+weekLabel+' yet.</p></div>';return;}
   function getRangeLabel(pct){
@@ -15099,7 +15350,7 @@ function genQuizProcl(){
         ? '<img src="'+logoSrc+'" style="height:90px;margin-bottom:.4rem;">'
         : '<div style="width:80px;height:80px;margin:0 auto .4rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.7rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
     +(schoolName?'<div style="font-size:1.3rem;color:var(--ink2);font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.3rem;">'+esc(schoolName)+'</div>':'')
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:2rem;font-weight:800;line-height:1.15;">🌅 Morning Quiz — Proclamation List</div>'
+    +'<div style="font-family:\'Playfair Display\',serif;font-size:2rem;font-weight:800;line-height:1.15;">'+(isMT?'📝 Monthly Test':'🌅 Morning Quiz')+' — Proclamation List</div>'
     +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.15);border:2px solid rgba(208,144,16,.55);border-radius:30px;padding:4px 32px;">'
     +'<span style="font-size:2.3rem;font-weight:900;color:var(--gold);letter-spacing:.03em;">'+(cls?esc(cls.name):'—')+'</span>'
     +'</div>'
@@ -15115,7 +15366,7 @@ function genQuizProcl(){
     +'<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Rank</th>'
     +'<th style="padding:8px 8px;text-align:left;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Student</th>';
   subjects.forEach(function(s){
-    html+='<th title="'+esc(s.name)+'" style="padding:8px 4px;text-align:center;font-size:1rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--bd);white-space:nowrap;">'+esc(_quizAbbr(s.name))+'<br><span style="font-weight:500;font-size:.7rem;color:var(--ink3);">/20</span></th>';
+    html+='<th title="'+esc(s.name)+'" style="padding:8px 4px;text-align:center;font-size:1rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--bd);white-space:nowrap;">'+esc(_quizAbbr(s.name))+'<br><span style="font-weight:500;font-size:.7rem;color:var(--ink3);">/'+MX+'</span></th>';
   });
   html+='<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Total</th>'
     +'<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Avg %</th>'
@@ -15134,17 +15385,17 @@ function genQuizProcl(){
     subjects.forEach(function(sub){
       var v=DB.marks[quizMarkKey(s.id,sub.id,week)];
       var val=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):null;
-      var pct=val!==null?(val/20)*100:null;
+      var pct=val!==null?(val/MX)*100:null;
       var col=pct===null?'var(--ink3)':pct>=80?'var(--green)':pct>=60?'var(--blue)':pct>=40?'var(--gold)':'var(--red)';
       html+='<td style="padding:6px 4px;text-align:center;font-weight:900;font-size:1.35rem;color:'+col+';">'+(val!==null?val.toFixed(1):'<span style="color:var(--ink3);">—</span>')+'</td>';
     });
-    html+='<td style="padding:6px 8px;text-align:center;font-size:1.3rem;font-weight:900;color:var(--gold);">'+s.quizTotal.toFixed(1)+'/'+(s.quizCnt*20)+'</td>'
+    html+='<td style="padding:6px 8px;text-align:center;font-size:1.3rem;font-weight:900;color:var(--gold);">'+s.quizTotal.toFixed(1)+'/'+(s.quizCnt*MX)+'</td>'
       +'<td style="padding:6px 8px;text-align:center;font-size:1.15rem;font-weight:800;color:var(--blue);">'+s.quizPct.toFixed(1)+'%</td>'
       +'<td style="padding:6px 8px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:.85rem;font-weight:700;background:'+r.color+'22;color:'+r.color+';border:1px solid '+r.color+'44;">'+esc(r.label)+'</span></td>'
       +'</tr>';
   });
-  html+='</tbody></table></div></div>';
-  out.innerHTML=html;
+  html+='</tbody></table></div>' + p6BandsHtml(cid,week) + '</div>';
+  out.innerHTML=html + p6MonthlyAnalysisHtml(cid,week);
   genQuizBreakdown(students,subjects,cid,week,maxTotal,ranges);
 }
 
@@ -15172,7 +15423,8 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
   var cls = DB.classes.find(function(c){return c.id===cid;});
   var yr = getActiveQuizYear();
   var weekObj = yr&&yr.weeks ? yr.weeks.find(function(w){return w.id===week;}) : null;
-  var weekLabel = weekObj ? weekObj.label : week;
+  var MX = quizMaxFor(cls,yr,week);
+  var weekLabel = weekObj ? quizWeekName(cls,yr,weekObj) : week;
 
   // Build ranked list for position column
   var ranked = students.map(function(st){
@@ -15197,7 +15449,7 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
     +'<th>Student</th>';
   subjects.forEach(function(s){
     thead += '<th style="text-align:center;font-size:.68rem;white-space:nowrap;">'+s.name
-      +'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/20</div></th>';
+      +'<div style="font-size:.6rem;color:var(--ink3);font-weight:400;">/'+MX+'</div></th>';
   });
   thead += '<th style="text-align:center;font-size:.68rem;">Total</th>'
     +'<th style="text-align:center;font-size:.68rem;">Avg%</th>'
@@ -15211,12 +15463,12 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
       var v = DB.marks[quizMarkKey(st.id,sub.id,week)];
       var val = (v!==undefined&&v!==''&&!isNaN(parseFloat(v))) ? parseFloat(v) : null;
       if(val!==null){tot+=val;cnt++;}
-      var pct = val!==null ? (val/20)*100 : null;
+      var pct = val!==null ? (val/MX)*100 : null;
       var color = pct===null?'var(--ink3)':pct>=80?'var(--green)':pct>=60?'var(--blue)':pct>=40?'var(--gold)':'var(--red)';
       return '<td style="text-align:center;font-size:.84rem;font-weight:'+(val!==null?'600':'400')+';color:'+color+';">'
         +(val!==null?val.toFixed(1):'<span style=\'color:var(--ink3);\'>—</span>')+'</td>';
     }).join('');
-    var avg = cnt>0 ? ((tot/(cnt*20))*100) : null;
+    var avg = cnt>0 ? ((tot/(cnt*MX))*100) : null;
     var rank = rankMap[st.id];
     var rankStr = rank ? (rank===1?'&#129351;':rank===2?'&#129352;':rank===3?'&#129353;':'<strong>'+rank+'</strong>') : '—';
     var rangeObj = avg!==null ? (function(){ for(var i=0;i<ranges.length;i++){if(avg>=ranges[i].min&&avg<=ranges[i].max)return ranges[i];} return{label:'—',color:'#888'}; })() : {label:'—',color:'#888'};
@@ -15225,7 +15477,7 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
       +'<td style="text-align:center;font-size:.8rem;color:var(--ink3);">'+(i+1)+'</td>'
       +'<td><strong style="font-size:.88rem;">'+st.name+'</strong><div style="font-size:.68rem;color:var(--ink3);">'+st.sid+'</div></td>'
       +cells
-      +'<td style="text-align:center;font-weight:700;color:var(--gold);">'+(cnt>0?tot.toFixed(1)+'/'+(cnt*20):'—')+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:var(--gold);">'+(cnt>0?tot.toFixed(1)+'/'+(cnt*MX):'—')+'</td>'
       +'<td style="text-align:center;font-weight:700;color:var(--blue);">'+(avg!==null?avg.toFixed(1)+'%':'—')+'</td>'
       +'<td style="text-align:center;font-size:.95rem;">'+rankStr+'</td>'
       +'<td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;background:'+rangeObj.color+'22;color:'+rangeObj.color+';border:1px solid '+rangeObj.color+'44;">'+rangeObj.label+'</span></td>'
@@ -16562,6 +16814,8 @@ function printQuizProcl(){
   // Print whichever view is currently active
   var activeEl = (_quizView==='breakdown' && bd && bd.style.display!=='none') ? bd : out;
   var content  = activeEl ? activeEl.innerHTML : '';
+  var _pt = (activeEl===out) ? document.getElementById('qpProclTable') : null;
+  if(_pt) content = _pt.outerHTML;   // print the proclamation (rankings + Monthly Test analysis) only
   if(!content.trim() || content.indexOf('class="empty"')>=0){
     alert('Nothing to print yet. Select class and week first.');
     return;
@@ -16600,9 +16854,35 @@ function printQuizProcl(){
     +'.r3{background:#cd7f32;color:#fff;}'
     +'.rn{background:#e8ecf7;color:#2a2f4e;}'
     +'#qpProclTable{width:100%!important;}'
+    +'.p6mt th:first-child,.p6mt td:first-child{width:24%!important;text-align:left!important;}'
+    +'.p6mt th:nth-child(2),.p6mt td:nth-child(2){width:auto!important;text-align:center!important;}'
+    +'.p6mt .p6mt-title{display:block!important;}'
     +'#qpProclTable > div:first-child{padding:calc(var(--pxp) * 1.4) calc(var(--pxp) * 2)!important;margin-bottom:calc(var(--pxp) * 1.4)!important;}'
     +'.ctitle{font-size:calc(var(--pxf) * 1.2)!important;margin-bottom:var(--pxp)!important;}'
     +'</style>';
+  // ── P6 Monthly Test: no squeeze-to-one-page. Rankings print at a readable size
+  // (may run to 2-3 pages) and the score-range analysis starts on its own page. ──
+  if(content.indexOf('p6mt')>=0){
+    var mtStyles = '<style>'
+      +'html{font-size:12px;}'
+      +'@page{size:A4 portrait;margin:8mm;}'
+      +'html,body{padding:0!important;margin:0!important;height:auto!important;max-height:none!important;overflow:visible!important;}'
+      +'table{border-collapse:collapse;width:100%;}'
+      +'th,td{border:1px solid #c0c8e0;padding:5px 6px!important;}'
+      +'thead{display:table-header-group;}'
+      +'tr{page-break-inside:avoid;}'
+      +'thead tr{background:#e8ecf7!important;}'
+      +'.card{overflow:visible!important;}'
+      +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.95rem;}'
+      +'.r1{background:#f6c90e;color:#1a1200;}.r2{background:#b0bec5;color:#1a1200;}.r3{background:#cd7f32;color:#fff;}.rn{background:#e8ecf7;color:#2a2f4e;}'
+      +'.ctitle{margin-bottom:6px;}'
+      +'.p6mt{page-break-before:always;break-before:page;margin-top:0!important;}'
+      +'.p6mt th,.p6mt td{font-size:1.15rem!important;padding:9px 8px!important;}'
+      +'.p6mt .p6mt-title{font-size:1.5rem!important;margin-bottom:6px!important;}'
+      +'</style>';
+    _openPrintWindow(mtStyles + '<div>' + _resolveCssVars(content) + '</div>', false, quizProclTitle, null);
+    return;
+  }
   var fitBody = printStyles + '<div id="fitWrap">' + _resolveCssVars(content) + '</div>';
   _openPrintWindow(fitBody, false, quizProclTitle, {
     pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 11, basePadPx: 4, minFontPx: 6, maxFontPx: 16, stretchRows: true
