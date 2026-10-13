@@ -2213,6 +2213,10 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
                 <option value="">— Select Week —</option>
               </select>
             </div>
+            <div class="fg">
+              <label>Week starts (Monday)</label>
+              <input type="date" id="qpWeekStart" onchange="qpSetWeekStart(this.value)">
+            </div>
           </div>
         </div>
         <div id="qpOut"><div class="empty"><div class="ei">&#127749;</div><p>Select class and week to view quiz rankings.</p></div></div>
@@ -12647,13 +12651,13 @@ function genProcl(){
 
   out.innerHTML=
     // ── HEADER ──
-    '<div style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
-    +(schoolName?'<div style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(schoolName)+'</div>':'')
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🏆 Proclamation List</div>'
-    +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
-    +'<span style="font-size:.9rem;font-weight:700;color:var(--gold);">'+esc(cn)+'</span>'
+    '<div class="qph-banner" style="text-align:center;padding:1.4rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;">'
+    +(schoolName?'<div class="qph-school" style="font-size:.82rem;color:var(--ink3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.4rem;">'+esc(schoolName)+'</div>':'')
+    +'<div class="qph-title" style="font-family:\'Playfair Display\',serif;font-size:1.35rem;font-weight:700;">🏆 Proclamation List</div>'
+    +'<div class="qph-pill" style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.12);border:1px solid rgba(246,201,14,.3);border-radius:20px;padding:3px 16px;">'
+    +'<span class="qph-class" style="font-size:.9rem;font-weight:700;color:var(--gold);">'+esc(cn)+'</span>'
     +'</div>'
-    +'<div style="font-size:.78rem;color:var(--ink2);margin-top:.45rem;">'+esc(tl)+'</div>'
+    +'<div class="qph-date" style="font-size:.78rem;color:var(--ink2);margin-top:.45rem;">'+esc(tl)+'</div>'
     +'</div>'
 
     // ── FULL PROCLAMATION TABLE ──
@@ -15304,6 +15308,26 @@ function _quizAbbr(name){
   return n.toUpperCase().slice(0,4);
 }
 
+// ── Week dates: each quiz week can carry a Monday start date (w.start, "YYYY-MM-DD") ──
+function _isoLocal(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function _mondayOf(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); var wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); return x; }
+function _qpWeekRange(w){
+  var mon;
+  if(w && w.start && /^\d{4}-\d{2}-\d{2}$/.test(w.start)){ var p=w.start.split('-'); mon=_mondayOf(new Date(+p[0],+p[1]-1,+p[2])); }
+  else mon=_mondayOf(new Date());
+  var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4);
+  function f(d){ return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+  return {iso:_isoLocal(mon), text:f(mon)+'  –  '+f(fri)};
+}
+function qpSetWeekStart(v){
+  var yr=getActiveQuizYear(), wk=document.getElementById('qpWeek').value;
+  var w=yr&&yr.weeks?yr.weeks.find(function(x){return x.id===wk;}):null;
+  if(!w||!v){ return; }
+  if(yr.locked){ alert('This academic year is locked.'); genQuizProcl(); return; }
+  var p=v.split('-'); w.start=_isoLocal(_mondayOf(new Date(+p[0],+p[1]-1,+p[2])));
+  try{ dbSave(); }catch(e){}
+  genQuizProcl();
+}
 function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
@@ -15344,17 +15368,24 @@ function genQuizProcl(){
   var schoolName = (DB.settings&&DB.settings.schoolName)||'';
   var logoSrc = DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
   var html = '<div id="qpProclTable">';
-  // Header banner (printable) — enlarged for readability
-  html += '<div style="text-align:center;padding:1rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:.8rem;">'
+  // Header banner (printable) — compact header, LARGE class / week / dates
+  var _rng = _qpWeekRange(weekObj);
+  var _ctU = cls ? (DB.users||[]).find(function(u){return u.role==='teacher' && u.classTeacher===cls.id;}) : null;
+  var _ctName = _ctU ? _ctU.name : '';
+  var _stIn = document.getElementById('qpWeekStart'); if(_stIn) _stIn.value = _rng.iso;
+  html += '<div class="qph-banner" style="text-align:center;padding:.6rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:.8rem;">'
     +(logoSrc
-        ? '<img src="'+logoSrc+'" style="height:90px;margin-bottom:.4rem;">'
-        : '<div style="width:80px;height:80px;margin:0 auto .4rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.7rem;text-align:center;line-height:1.2;">School<br>Logo</div>')
-    +(schoolName?'<div style="font-size:1.3rem;color:var(--ink2);font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.3rem;">'+esc(schoolName)+'</div>':'')
-    +'<div style="font-family:\'Playfair Display\',serif;font-size:2rem;font-weight:800;line-height:1.15;">'+(isMT?'📝 Monthly Test':'🌅 Morning Quiz')+' — Proclamation List</div>'
-    +'<div style="margin-top:.5rem;display:inline-block;background:rgba(246,201,14,.15);border:2px solid rgba(208,144,16,.55);border-radius:30px;padding:4px 32px;">'
-    +'<span style="font-size:2.3rem;font-weight:900;color:var(--gold);letter-spacing:.03em;">'+(cls?esc(cls.name):'—')+'</span>'
+        ? '<img class="qph-logo" src="'+logoSrc+'" style="height:44px;margin-bottom:.2rem;">'
+        : '<div class="qph-logo" style="width:44px;height:44px;margin:0 auto .2rem;border:1.5px dashed var(--bd);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.55rem;text-align:center;line-height:1.1;">School<br>Logo</div>')
+    +(schoolName?'<div class="qph-school" style="font-size:.95rem;color:var(--ink2);font-weight:800;letter-spacing:.04em;text-transform:uppercase;">'+esc(schoolName)+'</div>':'')
+    +'<div class="qph-title" style="font-family:\'Playfair Display\',serif;font-size:1.1rem;font-weight:800;line-height:1.15;">'+(isMT?'📝 Monthly Test':'🌅 Morning Quiz')+' — Proclamation List</div>'
+    +'<div class="qph-meta" style="margin-top:.4rem;">'
+    +'<span class="qph-pill" style="display:inline-block;background:rgba(246,201,14,.15);border:2px solid rgba(208,144,16,.55);border-radius:30px;padding:2px 26px;margin:0 6px;">'
+    +'<span class="qph-class" style="font-size:2.3rem;font-weight:900;color:var(--gold);letter-spacing:.03em;">'+(cls?esc(cls.name):'—')+'</span></span>'
+    +'<span class="qph-week" style="display:inline-block;font-size:2.3rem;font-weight:900;color:var(--ink);margin:0 6px;">'+esc(weekLabel)+'</span>'
     +'</div>'
-    +'<div style="font-size:1.15rem;color:var(--ink2);margin-top:.4rem;font-weight:700;">'+(yr?esc(yr.label):'?')+' &nbsp;·&nbsp; '+esc(weekLabel)+'</div>'
+    +'<div class="qph-date" style="font-size:1.35rem;color:var(--ink);margin-top:.25rem;font-weight:800;">'+esc(_rng.text)+'</div>'
+    +'<div class="qph-year" style="font-size:.8rem;color:var(--ink3);font-weight:600;">'+(yr?esc(yr.label):'')+'</div>'
     +'</div>';
 
   // Table
@@ -15389,12 +15420,14 @@ function genQuizProcl(){
       var col=pct===null?'var(--ink3)':pct>=80?'var(--green)':pct>=60?'var(--blue)':pct>=40?'var(--gold)':'var(--red)';
       html+='<td style="padding:6px 4px;text-align:center;font-weight:900;font-size:1.35rem;color:'+col+';">'+(val!==null?val.toFixed(1):'<span style="color:var(--ink3);">—</span>')+'</td>';
     });
-    html+='<td style="padding:6px 8px;text-align:center;font-size:1.3rem;font-weight:900;color:var(--gold);">'+s.quizTotal.toFixed(1)+'/'+(s.quizCnt*MX)+'</td>'
+    html+='<td style="padding:6px 8px;text-align:center;font-size:1.3rem;font-weight:900;color:var(--gold);">'+s.quizTotal.toFixed(1)+'<div class="qp-tmax" style="font-size:.6em;font-weight:700;opacity:.85;line-height:1.1;">/'+(s.quizCnt*MX)+'</div></td>'
       +'<td style="padding:6px 8px;text-align:center;font-size:1.15rem;font-weight:800;color:var(--blue);">'+s.quizPct.toFixed(1)+'%</td>'
       +'<td style="padding:6px 8px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:.85rem;font-weight:700;background:'+r.color+'22;color:'+r.color+';border:1px solid '+r.color+'44;">'+esc(r.label)+'</span></td>'
       +'</tr>';
   });
-  html+='</tbody></table></div>' + p6BandsHtml(cid,week) + '</div>';
+  html+='</tbody></table></div>' + p6BandsHtml(cid,week)
+    +'<div class="qp-doneby" style="text-align:right;margin-top:14px;padding-right:6px;font-size:1.2rem;font-weight:800;color:var(--ink);">Done by: <span style="display:inline-block;min-width:170px;border-bottom:2px solid var(--ink);padding:0 8px;">'+esc(_ctName)+'</span></div>'
+    +'</div>';
   out.innerHTML=html + p6MonthlyAnalysisHtml(cid,week);
   genQuizBreakdown(students,subjects,cid,week,maxTotal,ranges);
 }
@@ -16583,10 +16616,18 @@ function _resolveCssVars(html){
 // window.open() and silently fall back to printing the current page — that
 // fallback used to skip sizing entirely, which is why fitting could fail.
 function _fitThenPrint(doc, win, autofit, afterPrint){
+  var printed=false, wd=null;
   function doPrint(){
-    try{ win.print(); }catch(e){}
+    if(printed) return; printed=true;
+    if(wd) clearTimeout(wd);
+    try{ win.focus(); }catch(e){}
+    try{ win.print(); }catch(e){
+      try{ alert('Could not open the print dialog automatically. Use the browser menu \u2192 Print.'); }catch(_){}
+    }
     if(afterPrint) afterPrint();
   }
+  // Watchdog: if anything in the fit pass stalls, still print instead of doing nothing
+  wd = setTimeout(doPrint, 10000);
   if(!autofit || !autofit.pageHeightPx){ setTimeout(doPrint, 450); return; }
   var ph=autofit.pageHeightPx, bf=autofit.baseFontPx||13, bp=autofit.basePadPx||5,
       mnf=autofit.minFontPx||7, mxf=autofit.maxFontPx||18, pw=autofit.pageWidthPx||0;
@@ -16660,12 +16701,33 @@ function _fitThenPrint(doc, win, autofit, afterPrint){
         }
       }, 80);
     }
+    // Freeze column widths at their normal (base-size) layout BEFORE enlarging text,
+    // so bigger names/marks never change the cell widths.
+    if(autofit.lockColumns){
+      apply();
+      try{
+        wrap.querySelectorAll('table').forEach(function(tb){
+          var ths = tb.querySelectorAll('thead tr:first-child th');
+          if(!ths.length) return;
+          var ws = [].map.call(ths, function(th){ return th.getBoundingClientRect().width; });
+          var tot = ws.reduce(function(a,b){ return a+b; }, 0) || 1;
+          var cg = doc.createElement('colgroup');
+          ws.forEach(function(w){ var c=doc.createElement('col'); c.style.width=(w/tot*100)+'%'; cg.appendChild(c); });
+          tb.insertBefore(cg, tb.firstChild);
+          tb.style.tableLayout = 'fixed';
+          tb.style.width = '100%';
+        });
+      }catch(e){}
+    }
     step();
   }
+  var started=false;
+  function startOnce(){ if(started) return; started=true; try{ go(); }catch(e){ doPrint(); } }
   try{
-    if(doc.fonts && doc.fonts.ready){ doc.fonts.ready.then(function(){ setTimeout(go, 200); }); }
-    else{ setTimeout(go, 400); }
-  }catch(e){ setTimeout(go, 400); }
+    if(doc.fonts && doc.fonts.ready){ doc.fonts.ready.then(function(){ setTimeout(startOnce, 200); }); }
+    else{ setTimeout(startOnce, 400); }
+  }catch(e){ setTimeout(startOnce, 400); }
+  setTimeout(startOnce, 1500);   // never wait on web fonts (offline / slow network)
 }
 
 function _openPrintWindow(bodyHtml, isT3Card, printTitle, autofit){
@@ -16675,7 +16737,7 @@ function _openPrintWindow(bodyHtml, isT3Card, printTitle, autofit){
   var docTitle   = (printTitle || 'Report Card') + ' — SCORIX';
   var fullHtml = '<!DOCTYPE html><html><head>'
     +'<meta charset="UTF-8">'
-    +'<meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<meta name="viewport" content="'+((autofit&&autofit.viewportW)?('width='+autofit.viewportW):'width=device-width,initial-scale=1')+'">'
     +'<title>'+docTitle+'</title>'
     +'<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">'
     +'<style>'
@@ -16702,26 +16764,38 @@ function _openPrintWindow(bodyHtml, isT3Card, printTitle, autofit){
     + bodyHtml
     +'</body></html>';
 
-  var win = window.open('','_blank');
-  if(win){
-    win.document.open();
-    win.document.write(fullHtml);
-    win.document.close();
-    // Force title immediately so Android Chrome uses it as the PDF save name
-    win.document.title = docTitle;
-    _fitThenPrint(win.document, win, autofit);
-  } else {
-    // Popup blocked — fallback to print-area method on the current page.
-    // #print-area is display:none on screen (only shown via @media print),
-    // so it must be forced visible — off-screen — while we measure it,
-    // otherwise scrollHeight reads 0 and the fit pass can't work at all.
-    var pa = document.getElementById('print-area');
-    pa.innerHTML = '<div style="background:#fff;color:#1a1d2e;font-family:Outfit,Arial,sans-serif;">' + bodyHtml + '</div>';
-    pa.style.cssText = 'display:block;position:fixed;left:-9999px;top:0;background:#fff;';
+  var win = null;
+  try{ win = window.open('','_blank'); }catch(e){ win = null; }
+  var usedPopup = false;
+  if(win && !win.closed){
+    try{
+      win.document.open();
+      win.document.write(fullHtml);
+      win.document.close();
+      win.document.title = docTitle;   // Android Chrome uses it as the PDF name
+      usedPopup = true;
+      _fitThenPrint(win.document, win, autofit);
+    }catch(e){ usedPopup = false; try{ win.close(); }catch(_){} }
+  }
+  if(!usedPopup){
+    // Popup blocked/failed — print from an isolated hidden iframe (own styles, own layout,
+    // never touches the app page, and still measured so the fit works).
+    var old = document.getElementById('_printFrame');
+    if(old) old.parentNode.removeChild(old);
+    var fr = document.createElement('iframe');
+    fr.id = '_printFrame';
+    fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:820px;height:1200px;border:0;visibility:hidden;';
+    document.body.appendChild(fr);
+    var idoc = fr.contentWindow.document;
+    idoc.open(); idoc.write(fullHtml); idoc.close();
     var _prevTitle = document.title;
     document.title = docTitle;
-    _fitThenPrint(document, window, autofit, function(){
-      setTimeout(function(){ pa.innerHTML=''; pa.style.cssText='display:none;'; document.title = _prevTitle; }, 2500);
+    _fitThenPrint(idoc, fr.contentWindow, autofit, function(){
+      setTimeout(function(){
+        document.title = _prevTitle;
+        var f = document.getElementById('_printFrame');
+        if(f && f.parentNode) f.parentNode.removeChild(f);
+      }, 60000);
     });
   }
 }
@@ -16775,7 +16849,7 @@ function _doPrint(sourceId){
         existing.approved=true;
         DB.approvals[cid2+'_'+tid2]=existing;
         addLog('🖨️ Director printed report cards — '+cid2+' / '+tid2+' — LOCKED');
-        dbSave();
+        try{ dbSave(); }catch(e){ console.warn('dbSave before print failed', e); }
       }
     }
   }
@@ -16795,18 +16869,38 @@ function printProcl(){
   var clsName = clsSel && clsSel.options[clsSel.selectedIndex] ? clsSel.options[clsSel.selectedIndex].text.trim() : '';
   var trmName = trmSel && trmSel.options[trmSel.selectedIndex] ? trmSel.options[trmSel.selectedIndex].text.trim() : '';
   var proclTitle = 'Proclamation List' + (clsName ? ' — ' + clsName : '') + (trmName ? ' — ' + trmName : '');
+  var COMPACT_HDR = '<style>'
+    +'.qph-banner{padding:4px 10px!important;margin-bottom:5px!important;border-radius:6px!important;display:flex!important;flex-wrap:wrap;align-items:center;justify-content:center;column-gap:12px;row-gap:0;}'
+    +'.qph-logo{height:34px!important;width:34px!important;margin:0!important;border-width:0!important;font-size:0!important;object-fit:contain;}'
+    +'.qph-school{font-size:.85rem!important;margin:0!important;letter-spacing:.03em!important;}'
+    +'.qph-title{font-size:1.05rem!important;margin:0!important;line-height:1.2!important;}'
+    +'.qph-pill{margin:0!important;padding:0 12px!important;border-width:1.5px!important;}'
+    +'.qph-class{font-size:1rem!important;}'
+    +'.qph-date{display:inline-block!important;font-size:.78rem!important;margin:0!important;}'
+    +'</style>';
+  var PAGE_W_PX = 728, PAGE_H_PX = 935;   // A4 portrait, safe for Letter too
   var printStyles = '<style>'
-    +'table{border-collapse:collapse;width:100%;font-size:.8rem;}'
-    +'th,td{border:1px solid #c0c8e0;padding:6px 8px;}'
+    +':root{--pxf:11px;--pxp:4px;--pxv:0px;}'
+    +'@page{size:A4 portrait;margin:8mm;}'
+    +'html,body{padding:0!important;margin:0!important;}'
+    +'@media print{html,body{height:250mm!important;max-height:250mm!important;overflow:hidden!important;}}'
+    +'#fitWrap{width:'+PAGE_W_PX+'px;margin:0 auto;}'
+    +'.card{overflow:visible!important;margin-bottom:calc(var(--pxp) * 2)!important;}'
+    +'.tw{overflow:visible!important;}'
+    +'table{border-collapse:collapse;width:100%;table-layout:auto;font-size:var(--pxf);}'
+    +'th,td{border:1px solid #c0c8e0;padding:calc(var(--pxp) + var(--pxv)) calc(var(--pxp) * 1.15)!important;min-width:0!important;overflow-wrap:break-word;}'
     +'thead tr{background:#e8ecf7!important;}'
     +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
-    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.8rem;}'
-    +'.r1{background:#f6c90e;color:#1a1200;}'
-    +'.r2{background:#b0bec5;color:#1a1200;}'
-    +'.r3{background:#cd7f32;color:#fff;}'
-    +'.rn{background:#e8ecf7;color:#2a2f4e;}'
+    +'.ctitle{font-size:calc(var(--pxf) * 1.2)!important;margin-bottom:var(--pxp)!important;}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--pxf) * 1.85);height:calc(var(--pxf) * 1.85);border-radius:50%;font-weight:700;font-size:calc(var(--pxf) * .92);}'
+    +'.r1{background:#f6c90e;color:#1a1200;}.r2{background:#b0bec5;color:#1a1200;}.r3{background:#cd7f32;color:#fff;}.rn{background:#e8ecf7;color:#2a2f4e;}'
+    +'tbody td{font-size:calc(var(--pxf) * 1.8)!important;font-weight:700!important;}'
+    +'tbody td strong{font-size:calc(var(--pxf) * 1.9)!important;font-weight:700!important;line-height:1.15;}'
+    +'tbody td div{font-size:calc(var(--pxf) * 1)!important;font-weight:400!important;}'
     +'</style>';
-  _openPrintWindow(printStyles + _resolveCssVars(src.innerHTML), false, proclTitle);
+  _openPrintWindow(printStyles + COMPACT_HDR + '<div id="fitWrap">' + _resolveCssVars(src.innerHTML) + '</div>', false, proclTitle, {
+    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 11, basePadPx: 4, minFontPx: 6, maxFontPx: 22, stretchRows: true, lockColumns: true
+  });
 }
 function printQuizProcl(){
   var out = document.getElementById('qpOut');
@@ -16831,22 +16925,53 @@ function printQuizProcl(){
   // measuring the rendered table, so the list always fills exactly one A4
   // landscape page — never spilling to a 2nd/3rd sheet, and never left tiny
   // on an otherwise-empty page for small classes.
-  var PAGE_W_PX = 728;  // A4 PORTRAIT, 8mm margins, 96dpi (194mm)
-  var PAGE_H_PX = 935;  // safe for BOTH Letter (996px usable) and A4 (1062px usable) — phones often default to Letter
+  var COMPACT_HDR = '<style>'
+    +'.qph-banner{padding:2px 10px!important;margin-bottom:4px!important;border-radius:6px!important;text-align:center;}'
+    +'.qph-logo{height:62px!important;width:62px!important;margin:0 10px 0 0!important;border-width:0!important;font-size:0!important;object-fit:contain;display:inline-block!important;vertical-align:middle;}'
+    +'.qph-school{font-size:16px!important;margin:0 10px 0 0!important;letter-spacing:.03em!important;display:inline-block!important;vertical-align:middle;}'
+    +'.qph-title{font-size:18px!important;margin:0!important;line-height:1.2!important;display:inline-block!important;vertical-align:middle;}'
+    +'.qph-meta{display:block!important;margin:2px 0 0!important;}'
+    +'.qph-pill{margin:0 8px!important;padding:0 20px!important;border-width:2px!important;}'
+    +'.qph-class{font-size:34px!important;font-weight:900!important;line-height:1.1!important;}'
+    +'.qph-week{font-size:34px!important;font-weight:900!important;line-height:1.1!important;margin:0 8px!important;}'
+    +'.qph-date{display:block!important;font-size:19px!important;font-weight:800!important;margin:1px 0 0!important;line-height:1.2!important;}'
+    +'.qph-year{display:block!important;font-size:11px!important;margin:0!important;line-height:1.2!important;}'
+    +'.qp-doneby{text-align:right!important;font-size:18px!important;font-weight:800!important;margin-top:8px!important;color:#000!important;}'
+    +'.qp-doneby span{border-bottom:2px solid #000!important;color:#000!important;min-width:200px!important;}'
+    +'</style>';
+  var PAGE_W_PX = 754;  // Letter portrait, 8mm side margins (199.9mm) at 96dpi — fills the full width
+  var PAGE_H_PX = 954;  // Letter 279.4mm minus 8mm top and 17mm bottom margin (>1.5cm) = 254mm usable
   var printStyles = '<style>'
     +':root{--pxf:11px;--pxp:4px;--pxv:0px;}'
-    +'@page{size:A4 portrait;margin:8mm;}'
+    +'@page{size:Letter portrait;margin:8mm 8mm 17mm 8mm;}'
+    +'html{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important;}'
     +'html,body{padding:0!important;margin:0!important;}'
-    +'@media print{html,body{height:250mm!important;max-height:250mm!important;overflow:hidden!important;}}'
+    +'@media print{html,body{height:253mm!important;max-height:253mm!important;overflow:hidden!important;}}'
     +'body{width:100%;}'
     +'#fitWrap{width:'+PAGE_W_PX+'px;margin:0 auto;}'
+    // Print-only safety net: whatever the measured height was, the list itself must fill the whole
+    // page (rows stretch, "Done by" stays on the bottom line, inside the 17mm bottom margin).
+    +'@media print{#fitWrap{min-height:253mm;display:flex;flex-direction:column;}'
+    +'#fitWrap>#qpProclTable{flex:1 1 auto;display:flex;flex-direction:column;}'
+    +'#qpProclTable>.card{flex:1 1 auto;display:flex;flex-direction:column;}'
+    +'#qpProclTable>.card>table{flex:1 1 auto;}}'
     +'.card{overflow:visible!important;}'
     +'table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:var(--pxf);}'
     +'th,td{border:1px solid #c0c8e0;padding:calc(var(--pxp) + var(--pxv)) calc(var(--pxp) * 1.15)!important;white-space:normal!important;word-wrap:break-word;overflow-wrap:break-word;}'
     +'thead tr{background:#e8ecf7!important;}'
     +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
     +'th:first-child,td:first-child{width:5%;}'
-    +'th:nth-child(2),td:nth-child(2){width:19%;text-align:left;}'
+    +'th:nth-child(2),td:nth-child(2){width:20%;text-align:left;}'
+    +'#qpProclTable th:first-child,#qpProclTable td:first-child{width:4.5%!important;}'
+    +'#qpProclTable th:nth-last-child(3),#qpProclTable td:nth-last-child(3){width:8.5%!important;}'
+    +'#qpProclTable th:nth-last-child(2),#qpProclTable td:nth-last-child(2){width:8%!important;}'
+    +'#qpProclTable th:last-child,#qpProclTable td:last-child{width:5.5%!important;}'
+    +'#qpProclTable tbody td{font-size:1.35rem!important;font-weight:900!important;white-space:nowrap!important;padding-left:2px!important;padding-right:2px!important;overflow:hidden;}'
+    +'#qpProclTable tbody td:nth-last-child(3){font-size:1.25rem!important;}'
+    +'#qpProclTable tbody td:nth-last-child(2){font-size:1.1rem!important;}'
+    +'#qpProclTable tbody td:nth-child(2){white-space:normal!important;padding-left:5px!important;}'
+    +'#qpProclTable tbody td:nth-child(2) div{font-size:1.3rem!important;font-weight:800!important;line-height:1.15!important;}'
+    +'#qpProclTable thead th{font-size:.9rem!important;padding-left:1px!important;padding-right:1px!important;}'
     +'.ctitle{display:none!important;}'
     +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--pxf) * 1.85);height:calc(var(--pxf) * 1.85);border-radius:50%;font-weight:700;font-size:calc(var(--pxf) * .92);}'
     +'.r1{background:#f6c90e;color:#1a1200;}'
@@ -16857,7 +16982,6 @@ function printQuizProcl(){
     +'.p6mt th:first-child,.p6mt td:first-child{width:24%!important;text-align:left!important;}'
     +'.p6mt th:nth-child(2),.p6mt td:nth-child(2){width:auto!important;text-align:center!important;}'
     +'.p6mt .p6mt-title{display:block!important;}'
-    +'#qpProclTable > div:first-child{padding:calc(var(--pxp) * 1.4) calc(var(--pxp) * 2)!important;margin-bottom:calc(var(--pxp) * 1.4)!important;}'
     +'.ctitle{font-size:calc(var(--pxf) * 1.2)!important;margin-bottom:var(--pxp)!important;}'
     +'</style>';
   // ── P6 Monthly Test: no squeeze-to-one-page. Rankings print at a readable size
@@ -16865,10 +16989,10 @@ function printQuizProcl(){
   if(content.indexOf('p6mt')>=0){
     var mtStyles = '<style>'
       +'html{font-size:12px;}'
-      +'@page{size:A4 portrait;margin:8mm;}'
+      +'@page{size:Letter portrait;margin:8mm 8mm 17mm 8mm;}'
       +'html,body{padding:0!important;margin:0!important;height:auto!important;max-height:none!important;overflow:visible!important;}'
       +'table{border-collapse:collapse;width:100%;}'
-      +'th,td{border:1px solid #c0c8e0;padding:5px 6px!important;}'
+      +'th,td{border:1px solid #c0c8e0;padding:4px 6px!important;}'
       +'thead{display:table-header-group;}'
       +'tr{page-break-inside:avoid;}'
       +'thead tr{background:#e8ecf7!important;}'
@@ -16876,16 +17000,16 @@ function printQuizProcl(){
       +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.95rem;}'
       +'.r1{background:#f6c90e;color:#1a1200;}.r2{background:#b0bec5;color:#1a1200;}.r3{background:#cd7f32;color:#fff;}.rn{background:#e8ecf7;color:#2a2f4e;}'
       +'.ctitle{margin-bottom:6px;}'
-      +'.p6mt{page-break-before:always;break-before:page;margin-top:0!important;}'
-      +'.p6mt th,.p6mt td{font-size:1.15rem!important;padding:9px 8px!important;}'
-      +'.p6mt .p6mt-title{font-size:1.5rem!important;margin-bottom:6px!important;}'
+      +'.p6mt{page-break-inside:avoid;break-inside:avoid;margin-top:8px!important;}'
+      +'.p6mt th,.p6mt td{font-size:1.05rem!important;padding:6px 8px!important;}'
+      +'.p6mt .p6mt-title{font-size:1.3rem!important;margin-bottom:4px!important;}'
       +'</style>';
-    _openPrintWindow(mtStyles + '<div>' + _resolveCssVars(content) + '</div>', false, quizProclTitle, null);
+    _openPrintWindow(mtStyles + COMPACT_HDR + '<div>' + _resolveCssVars(content) + '</div>', false, quizProclTitle, null);
     return;
   }
-  var fitBody = printStyles + '<div id="fitWrap">' + _resolveCssVars(content) + '</div>';
+  var fitBody = printStyles + COMPACT_HDR + '<div id="fitWrap">' + _resolveCssVars(content) + '</div>';
   _openPrintWindow(fitBody, false, quizProclTitle, {
-    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 11, basePadPx: 4, minFontPx: 6, maxFontPx: 16, stretchRows: true
+    pageHeightPx: PAGE_H_PX, pageWidthPx: PAGE_W_PX, baseFontPx: 11, basePadPx: 4, minFontPx: 6, maxFontPx: 12.5, stretchRows: true, viewportW: PAGE_W_PX + 32
   });
 }
 
