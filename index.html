@@ -5909,7 +5909,7 @@ function renderParentPortal(){
       + '</select></div>'
       + '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">Week</label>'
       + '<select style="'+_selStyle+'" onchange="parSelChange(\'week\',this.value)">'
-      + termWeeks.map(function(w){ return '<option value="'+_q(w.id)+'"'+(w.id===selWeekId?' selected':'')+'>'+quizWeekName(selCls,selYear,w)+'</option>'; }).join('')
+      + termWeeks.map(function(w){ return '<option value="'+_q(w.id)+'"'+(w.id===selWeekId?' selected':'')+'>'+quizWeekName(selCls,selYear,w)+(quizWeekWhen(selCls,selYear,w)?' ('+quizWeekWhen(selCls,selYear,w)+')':'')+'</option>'; }).join('')
       + '<option value="all"'+(selWeekId==='all'?' selected':'')+'>All weeks in this term</option>'
       + '</select></div>';
   }
@@ -5961,7 +5961,7 @@ function renderParentPortal(){
           // ── Only show this week's marks if the class teacher has released them ──
           if(!cls || !quizWeekVisible(cls.id, wk.id)){
             yearHtml += '<div style="border:1px dashed var(--bd);border-radius:10px;padding:.8rem 1rem;margin-bottom:.7rem;background:var(--s2);text-align:center;">'
-              + '<div style="font-size:.78rem;color:var(--ink3);">🔒 <strong>'+wkName+'</strong> — results not yet released by the teacher.</div>'
+              + '<div style="font-size:.78rem;color:var(--ink3);">🔒 <strong>'+wkName+'</strong>'+(quizWeekWhen(cls,yr,wk)?' <span style="opacity:.85;">('+quizWeekWhen(cls,yr,wk)+')</span>':'')+' — results not yet released by the teacher.</div>'
               + '</div>';
             return;
           }
@@ -6001,7 +6001,7 @@ function renderParentPortal(){
           yearHtml += '<div style="border:1px solid var(--bd);border-radius:10px;padding:.9rem 1rem;margin-bottom:.7rem;background:var(--s2);">'
             // Week label + rank row
             + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem;">'
-            + '<div style="font-size:.82rem;font-weight:700;color:var(--ink2);">'+(isMT?'📝 ':'')+wkName+(isMT?' <span style="font-size:.62rem;font-weight:700;color:var(--gold);background:rgba(246,201,14,.14);border:1px solid rgba(208,144,16,.4);border-radius:10px;padding:1px 8px;margin-left:4px;">out of 100</span>':'')+'</div>'
+            + '<div style="font-size:.82rem;font-weight:700;color:var(--ink2);">'+(isMT?'📝 ':'')+wkName+(isMT?' <span style="font-size:.62rem;font-weight:700;color:var(--gold);background:rgba(246,201,14,.14);border:1px solid rgba(208,144,16,.4);border-radius:10px;padding:1px 8px;margin-left:4px;">out of 100</span>':'')+(quizWeekWhen(cls,yr,wk)?'<div style="font-size:.72rem;font-weight:600;color:var(--ink3);margin-top:3px;">📅 '+quizWeekWhen(cls,yr,wk)+'</div>':'')+'</div>'
             + '<div style="display:flex;align-items:center;gap:8px;">'
             // Rank circle
             + (myRank!==null?'<div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;flex-shrink:0;'+rankCircStyle+'">'+myRank+'</div>':'')
@@ -15319,6 +15319,31 @@ function _qpWeekRange(w){
   function f(d){ return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
   return {iso:_isoLocal(mon), text:f(mon)+'  –  '+f(fri)};
 }
+// ── Parent-facing + monthly-test date text ──
+// Monthly Test  -> month name only (e.g. "October")
+// Morning Quiz  -> the Monday–Friday range the teacher set
+// Returns '' when the teacher has not set a start date (parents never see a guessed date).
+function _qWeekStartDate(w){
+  if(w && w.start && /^\d{4}-\d{2}-\d{2}$/.test(w.start)){ var p=w.start.split('-'); return _mondayOf(new Date(+p[0],+p[1]-1,+p[2])); }
+  return null;
+}
+function _qLocale(){ try{ return (typeof APP_LANG!=='undefined' && APP_LANG==='fr') ? 'fr-FR' : 'en-GB'; }catch(e){ return 'en-GB'; } }
+function _qpWeekMonth(w, fallbackToday){
+  var mon=_qWeekStartDate(w); if(!mon && fallbackToday) mon=_mondayOf(new Date()); if(!mon) return '';
+  var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4);
+  // a week that runs into the next month is named after the month most of its school days fall in
+  var ref=(mon.getMonth()!==fri.getMonth() && fri.getDate()>=3) ? fri : mon;
+  return ref.toLocaleDateString(_qLocale(),{month:'long'});
+}
+function quizWeekWhen(cls, yr, w, forceShort){
+  if(!w) return '';
+  var mon=_qWeekStartDate(w); if(!mon) return '';
+  if(isMonthlyTest(cls,yr,w.id)) return _qpWeekMonth(w,false);
+  var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4), L=_qLocale();
+  var a=mon.toLocaleDateString(L,{weekday:'short',day:'numeric',month:'short'});
+  var b=fri.toLocaleDateString(L,{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  return a+' – '+b;
+}
 function qpSetWeekStart(v){
   var yr=getActiveQuizYear(), wk=document.getElementById('qpWeek').value;
   var w=yr&&yr.weeks?yr.weeks.find(function(x){return x.id===wk;}):null;
@@ -15384,7 +15409,7 @@ function genQuizProcl(){
     +'<span class="qph-class" style="font-size:2.3rem;font-weight:900;color:var(--gold);letter-spacing:.03em;">'+(cls?esc(cls.name):'—')+'</span></span>'
     +'<span class="qph-week" style="display:inline-block;font-size:2.3rem;font-weight:900;color:var(--ink);margin:0 6px;">'+esc(weekLabel)+'</span>'
     +'</div>'
-    +'<div class="qph-date" style="font-size:1.35rem;color:var(--ink);margin-top:.25rem;font-weight:800;">'+esc(_rng.text)+'</div>'
+    +'<div class="qph-date" style="font-size:1.35rem;color:var(--ink);margin-top:.25rem;font-weight:800;">'+esc(isMT ? _qpWeekMonth(weekObj,true) : _rng.text)+'</div>'
     +'<div class="qph-year" style="font-size:.8rem;color:var(--ink3);font-weight:600;">'+(yr?esc(yr.label):'')+'</div>'
     +'</div>';
 
