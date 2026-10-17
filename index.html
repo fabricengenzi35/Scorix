@@ -1667,20 +1667,24 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
   <div style="height:54px;background:var(--s1);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;position:sticky;top:0;z-index:100;">
     <div>
       <div id="parent-portal-logo" style="font-family:'Playfair Display',serif;font-size:1.15rem;">SC<span style="color:var(--gold)">ORIX</span></div>
-      <div style="font-size:.62rem;color:var(--ink3);">Academic Results Portal</div>
+      <div id="par-sub-lbl" style="font-size:.62rem;color:var(--ink3);">Academic Results Portal</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
+      <div id="par-lang-switch" title="Language / Ururimi" style="display:flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;">
+        <button id="par-lang-en" onclick="setParLang('en')" style="border:none;background:none;color:var(--ink2);padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇬🇧 EN</button>
+        <button id="par-lang-rw" onclick="setParLang('rw')" style="border:none;background:none;color:var(--ink2);padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇷🇼 RW</button>
+      </div>
       <button class="theme-toggle" onclick="toggleTheme()" style="font-size:.8rem;"><span class="tt-icon">🌙</span></button>
       <div style="display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:4px 10px 4px 4px;">
         <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--green),#1a7a4a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;" id="parent-avatar">P</div>
         <span style="font-size:.8rem;font-weight:500;" id="parent-name-display">Parent</span>
-        <span style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 6px;border-radius:10px;background:rgba(62,207,142,.15);color:var(--green);">Parent</span>
+        <span style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 6px;border-radius:10px;background:rgba(62,207,142,.15);color:var(--green);" id="par-role-badge">Parent</span>
       </div>
       <button id="parent-inbox-btn" onclick="parentShowInbox()" style="background:none;border:1px solid var(--bd);border-radius:6px;color:var(--ink2);padding:5px 10px;font-size:.77rem;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;position:relative;" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--ink2)'">
-        ✉️ Inbox
+        <span id="par-inbox-lbl">✉️ Inbox</span>
         <span id="parent-inbox-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:10px;padding:1px 5px;font-size:.58rem;font-weight:700;min-width:16px;text-align:center;"></span>
       </button>
-      <button onclick="doParentLogout()" style="background:none;border:1px solid var(--bd);border-radius:6px;color:var(--ink3);padding:5px 10px;font-size:.77rem;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--ink3)'">⏻ Sign Out</button>
+      <button onclick="doParentLogout()" style="background:none;border:1px solid var(--bd);border-radius:6px;color:var(--ink3);padding:5px 10px;font-size:.77rem;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--ink3)'"><span id="par-signout-lbl">⏻ Sign Out</span></button>
     </div>
   </div>
   <!-- Content -->
@@ -5570,6 +5574,7 @@ function enterParentPortal(){
 
   var wrap = document.getElementById('parentPortalWrap');
   wrap.style.display = 'block';
+  applyParLang();
   renderParentPortal();
   setTimeout(parentUpdateBadge, 600);
   // Start background live-sync for parent portal (realtime + 8s fallback)
@@ -5594,8 +5599,8 @@ function _buildParentAttendance(student, cls){
 
   if(!allDates.length){
     return '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;margin-bottom:1.8rem;overflow:hidden;">'
-      +'<div style="padding:.8rem 1.2rem;border-bottom:1px solid var(--bd);font-size:.8rem;font-weight:700;color:var(--ink);">📅 Attendance</div>'
-      +'<div style="padding:1rem 1.2rem;font-size:.82rem;color:var(--ink3);">No attendance records yet.</div>'
+      +'<div style="padding:.8rem 1.2rem;border-bottom:1px solid var(--bd);font-size:.8rem;font-weight:700;color:var(--ink);">'+PT('📅 Attendance')+'</div>'
+      +'<div style="padding:1rem 1.2rem;font-size:.82rem;color:var(--ink3);">'+PT('No attendance records yet.')+'</div>'
       +'</div>';
   }
 
@@ -5618,10 +5623,10 @@ function _buildParentAttendance(student, cls){
 
   // Status config
   var STATUS = {
-    present: { label:'Present',  icon:'✓', short:'P', color:'var(--green)', bg:'rgba(62,207,142,.15)',  border:'rgba(62,207,142,.35)'  },
-    absent:  { label:'Absent',   icon:'✗', short:'A', color:'var(--red)',   bg:'rgba(224,82,82,.13)',   border:'rgba(224,82,82,.35)'   },
-    late:    { label:'Late',     icon:'⏰', short:'L', color:'var(--gold)',  bg:'rgba(240,180,41,.13)',  border:'rgba(240,180,41,.35)'  },
-    excused: { label:'Excused',  icon:'📋', short:'E', color:'var(--blue)', bg:'rgba(74,143,255,.13)',  border:'rgba(74,143,255,.35)'  },
+    present: { label:PT('Present'),  icon:'✓', short:'P', color:'var(--green)', bg:'rgba(62,207,142,.15)',  border:'rgba(62,207,142,.35)'  },
+    absent:  { label:PT('Absent'),   icon:'✗', short:'A', color:'var(--red)',   bg:'rgba(224,82,82,.13)',   border:'rgba(224,82,82,.35)'   },
+    late:    { label:PT('Late'),     icon:'⏰', short:'L', color:'var(--gold)',  bg:'rgba(240,180,41,.13)',  border:'rgba(240,180,41,.35)'  },
+    excused: { label:PT('Excused'),  icon:'📋', short:'E', color:'var(--blue)', bg:'rgba(74,143,255,.13)',  border:'rgba(74,143,255,.35)'  },
   };
 
   // Build day rows
@@ -5635,7 +5640,7 @@ function _buildParentAttendance(student, cls){
 
     var parts = d.split('-');
     var dObj  = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    var dayLabel   = dObj.toLocaleDateString('en-GB',{weekday:'short'});
+    var dayLabel   = PAR_LANG==='rw' ? PAR_RW_DAYS_SHORT[dObj.getDay()] : dObj.toLocaleDateString('en-GB',{weekday:'short'});
     var dateLabel  = dObj.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
     var cfg = STATUS[v] || STATUS.present;
     var isToday = (d === getTodayKey());
@@ -5645,46 +5650,46 @@ function _buildParentAttendance(student, cls){
       +'<div style="width:34px;text-align:center;flex-shrink:0;">'
         +'<div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--ink3);">'+dayLabel+'</div>'
         +'<div style="font-size:.72rem;font-weight:700;color:var(--ink);">'+parts[2]+'</div>'
-        +'<div style="font-size:.55rem;color:var(--ink3);">'+dObj.toLocaleDateString('en-GB',{month:'short'})+'</div>'
+        +'<div style="font-size:.55rem;color:var(--ink3);">'+(PAR_LANG==='rw' ? PAR_RW_MONTHS[dObj.getMonth()].slice(0,3) : dObj.toLocaleDateString('en-GB',{month:'short'}))+'</div>'
       +'</div>'
       // Status pill
       +'<div style="flex:1;display:flex;align-items:center;gap:8px;">'
         +'<div style="padding:4px 12px;border-radius:20px;background:'+cfg.bg+';border:1px solid '+cfg.border+';color:'+cfg.color+';font-size:.75rem;font-weight:700;white-space:nowrap;">'
           +cfg.icon+' '+cfg.label
         +'</div>'
-        +(isToday?'<span style="font-size:.62rem;background:rgba(62,207,142,.15);color:var(--green);border-radius:8px;padding:1px 7px;font-weight:700;">TODAY</span>':'')
+        +(isToday?'<span style="font-size:.62rem;background:rgba(62,207,142,.15);color:var(--green);border-radius:8px;padding:1px 7px;font-weight:700;">'+PT('TODAY')+'</span>':'')
       +'</div>'
     +'</div>';
   });
 
   if(!shownDays){
-    dayRows = '<div style="padding:1rem 1.2rem;font-size:.82rem;color:var(--ink3);">No attendance recorded for this student yet.</div>';
+    dayRows = '<div style="padding:1rem 1.2rem;font-size:.82rem;color:var(--ink3);">'+PT('No attendance recorded for this student yet.')+'</div>';
   }
 
   return '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;margin-bottom:1.8rem;overflow:hidden;">'
 
     // Header
     +'<div style="padding:.85rem 1.2rem;background:linear-gradient(135deg,rgba(74,143,255,.1),rgba(74,143,255,.03));border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">'
-      +'<div style="font-weight:700;font-size:.92rem;color:var(--ink);">📅 Attendance Record</div>'
+      +'<div style="font-weight:700;font-size:.92rem;color:var(--ink);">'+PT('📅 Attendance Record')+'</div>'
       +(attendPct!==null
-        ?'<div style="font-size:.8rem;font-weight:700;color:'+pctColor+';">'+attendPct.toFixed(1)+'% Attendance Rate</div>'
+        ?'<div style="font-size:.8rem;font-weight:700;color:'+pctColor+';">'+attendPct.toFixed(1)+'% '+PT('Attendance Rate')+'</div>'
         :'')
     +'</div>'
 
     // Summary pills
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;padding:.7rem 1.2rem;border-bottom:1px solid var(--bd);">'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(62,207,142,.13);color:var(--green);font-size:.7rem;font-weight:700;border:1px solid rgba(62,207,142,.3);">✓ Present: '+totP+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(224,82,82,.11);color:var(--red);font-size:.7rem;font-weight:700;border:1px solid rgba(224,82,82,.25);">✗ Absent: '+totA+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(240,180,41,.11);color:var(--gold);font-size:.7rem;font-weight:700;border:1px solid rgba(240,180,41,.3);">⏰ Late: '+totL+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(74,143,255,.11);color:var(--blue);font-size:.7rem;font-weight:700;border:1px solid rgba(74,143,255,.25);">📋 Excused: '+totE+'</span>'
-      +'<span style="padding:3px 10px;border-radius:12px;background:var(--s3);color:var(--ink3);font-size:.7rem;font-weight:700;">Days recorded: '+totDays+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(62,207,142,.13);color:var(--green);font-size:.7rem;font-weight:700;border:1px solid rgba(62,207,142,.3);">✓ '+PT('Present')+': '+totP+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(224,82,82,.11);color:var(--red);font-size:.7rem;font-weight:700;border:1px solid rgba(224,82,82,.25);">✗ '+PT('Absent')+': '+totA+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(240,180,41,.11);color:var(--gold);font-size:.7rem;font-weight:700;border:1px solid rgba(240,180,41,.3);">⏰ '+PT('Late')+': '+totL+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:rgba(74,143,255,.11);color:var(--blue);font-size:.7rem;font-weight:700;border:1px solid rgba(74,143,255,.25);">📋 '+PT('Excused')+': '+totE+'</span>'
+      +'<span style="padding:3px 10px;border-radius:12px;background:var(--s3);color:var(--ink3);font-size:.7rem;font-weight:700;">'+PT('Days recorded')+': '+totDays+'</span>'
     +'</div>'
 
     // Attendance rate bar
     +(attendPct!==null
       ?'<div style="padding:.5rem 1.2rem;border-bottom:1px solid var(--bd);">'
         +'<div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--ink3);margin-bottom:3px;">'
-          +'<span>Attendance Rate</span>'
+          +'<span>'+PT('Attendance Rate')+'</span>'
           +'<span style="font-weight:700;color:'+pctColor+';">'+attendPct.toFixed(1)+'%</span>'
         +'</div>'
         +'<div style="height:6px;border-radius:3px;background:var(--s3);overflow:hidden;">'
@@ -5699,7 +5704,7 @@ function _buildParentAttendance(student, cls){
     +'</div>'
 
     // Footer legend
-    +'<div style="padding:.5rem 1.2rem;font-size:.62rem;color:var(--ink3);border-top:1px solid var(--bd);">Showing all '+shownDays+' recorded days &nbsp;·&nbsp; Newest first</div>'
+    +'<div style="padding:.5rem 1.2rem;font-size:.62rem;color:var(--ink3);border-top:1px solid var(--bd);">'+(PAR_LANG==='rw' ? PT('Showing all')+' '+shownDays+' &nbsp;·&nbsp; '+PT('Newest first') : 'Showing all '+shownDays+' recorded days &nbsp;·&nbsp; Newest first')+'</div>'
     +'</div>';
 }
 
@@ -5821,8 +5826,8 @@ function renderParentPortal(){
 
   var codes = PARENT_USER.studentCodes || [];
   if(!codes.length){
-    content.innerHTML = '<div style="text-align:center;padding:3rem;"><div style="font-size:2.5rem;margin-bottom:1rem;">👪</div><div style="font-size:1rem;color:var(--ink2);">No students linked yet. Link your child with the academic code from the report card.</div>'
-      + '<button onclick="showAddChildModal()" style="margin-top:1rem;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--green);border-radius:9px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;">+ Link a Child</button></div>';
+    content.innerHTML = '<div style="text-align:center;padding:3rem;"><div style="font-size:2.5rem;margin-bottom:1rem;">👪</div><div style="font-size:1rem;color:var(--ink2);">'+PT('No students linked yet. Link your child with the academic code from the report card.')+'</div>'
+      + '<button onclick="showAddChildModal()" style="margin-top:1rem;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--green);border-radius:9px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;">'+PT('+ Link a Child')+'</button></div>';
     return;
   }
 
@@ -5831,8 +5836,8 @@ function renderParentPortal(){
 
   // Page title
   html += '<div style="margin-bottom:1.5rem;">'
-    + '<div style="font-family:Playfair Display,serif;font-size:1.4rem;margin-bottom:.3rem;">🌅 My Child\'s Quiz Results</div>'
-    + '<div style="font-size:.78rem;color:var(--ink3);">Position, marks per subject and average percentage — your child only.</div>'
+    + '<div style="font-family:Playfair Display,serif;font-size:1.4rem;margin-bottom:.3rem;">'+PT('🌅 My Child\'s Quiz Results')+'</div>'
+    + '<div style="font-size:.78rem;color:var(--ink3);">'+PT('Position, marks per subject and average percentage — your child only.')+'</div>'
     + '</div>';
 
   // ── Selection state: child / term (year) / week ──
@@ -5884,33 +5889,33 @@ function renderParentPortal(){
   }
 
   if(missingCodes.length){
-    html += '<div style="padding:.7rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;color:var(--ink3);font-size:.8rem;">⚠️ Student with code <strong>'+missingCodes.join(', ')+'</strong> not found in current data.</div>';
+    html += '<div style="padding:.7rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:1rem;color:var(--ink3);font-size:.8rem;">⚠️ '+PT('Student with code')+' <strong>'+missingCodes.join(', ')+'</strong> '+PT('not found in current data.')+'</div>';
   }
 
   var _selStyle = 'width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--bd);background:var(--s2);color:inherit;font:inherit;font-size:.88rem;';
   var _lblStyle = 'display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:4px;';
   html += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1.2rem;">';
   if(foundStudents.length){
-    html += '<div style="flex:1 1 100%;"><label style="'+_lblStyle+'">Child</label>'
+    html += '<div style="flex:1 1 100%;"><label style="'+_lblStyle+'">'+PT('Child')+'</label>'
       + '<select style="'+_selStyle+'" onchange="parSelChange(\'child\',this.value)">'
       + foundStudents.map(function(st){ return '<option value="'+_q(st.sid)+'"'+(selStudent && st.id===selStudent.id?' selected':'')+'>'+st.name+'</option>'; }).join('')
       + '</select></div>';
   }
   if(selYear){
     {
-      html += '<div style="flex:1 1 100%;"><label style="'+_lblStyle+'">Academic year</label>'
+      html += '<div style="flex:1 1 100%;"><label style="'+_lblStyle+'">'+PT('Academic year')+'</label>'
         + '<select style="'+_selStyle+'" onchange="parSelChange(\'year\',this.value)">'
         + yearsWithWeeks.slice().reverse().map(function(y){ return '<option value="'+_q(y.id)+'"'+(y.id===selYearId?' selected':'')+'>'+y.label+'</option>'; }).join('')
         + '</select></div>';
     }
-    html += '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">Term</label>'
+    html += '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">'+PT('Term')+'</label>'
       + '<select style="'+_selStyle+'" onchange="parSelChange(\'term\',this.value)">'
-      + termsInYear.map(function(t){ return '<option value="'+_q(t)+'"'+(t===selTerm?' selected':'')+'>'+t+'</option>'; }).join('')
+      + termsInYear.map(function(t){ return '<option value="'+_q(t)+'"'+(t===selTerm?' selected':'')+'>'+parTermName(t)+'</option>'; }).join('')
       + '</select></div>'
-      + '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">Week</label>'
+      + '<div style="flex:1 1 140px;"><label style="'+_lblStyle+'">'+PT('Week')+'</label>'
       + '<select style="'+_selStyle+'" onchange="parSelChange(\'week\',this.value)">'
-      + termWeeks.map(function(w){ return '<option value="'+_q(w.id)+'"'+(w.id===selWeekId?' selected':'')+'>'+quizWeekName(selCls,selYear,w)+(quizWeekWhen(selCls,selYear,w)?' ('+quizWeekWhen(selCls,selYear,w)+')':'')+'</option>'; }).join('')
-      + '<option value="all"'+(selWeekId==='all'?' selected':'')+'>All weeks in this term</option>'
+      + termWeeks.map(function(w){ return '<option value="'+_q(w.id)+'"'+(w.id===selWeekId?' selected':'')+'>'+parWeekName(selCls,selYear,w)+(quizWeekWhen(selCls,selYear,w)?' ('+quizWeekWhen(selCls,selYear,w)+')':'')+'</option>'; }).join('')
+      + '<option value="all"'+(selWeekId==='all'?' selected':'')+'>'+PT('All weeks in this term')+'</option>'
       + '</select></div>';
   }
   html += '</div>';
@@ -5927,13 +5932,13 @@ function renderParentPortal(){
     html += '<div style="padding:1rem 1.2rem;background:linear-gradient(135deg,rgba(62,207,142,.12),rgba(62,207,142,.04));border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;">'
       + '<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--green),#1a7a4a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;flex-shrink:0;">'+student.name.slice(0,2).toUpperCase()+'</div>'
       + '<div><div style="font-weight:700;font-size:1rem;">'+student.name+'</div>'
-      + '<div style="font-size:.72rem;color:var(--ink3);">Code: <strong style="color:var(--green);">'+student.sid+'</strong>'+(cls?' &nbsp;·&nbsp; Class: <strong>'+cls.name+'</strong>':'')+'</div></div>'
-      + '<button data-code="'+_q(student.sid)+'" onclick="parentRemoveStudent(this.getAttribute(\'data-code\'))" title="Remove this student from my email" style="margin-left:auto;background:none;border:1px solid rgba(224,82,82,.4);color:var(--red);border-radius:8px;padding:6px 11px;font-size:.74rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;white-space:nowrap;transition:all .15s;" onmouseover="this.style.background=\'rgba(224,82,82,.12)\'" onmouseout="this.style.background=\'none\'">🗑 Remove</button>'
+      + '<div style="font-size:.72rem;color:var(--ink3);">'+PT('Code:')+' <strong style="color:var(--green);">'+student.sid+'</strong>'+(cls?' &nbsp;·&nbsp; '+PT('Class:')+' <strong>'+cls.name+'</strong>':'')+(parClassTeacherName(cls)?' &nbsp;·&nbsp; '+PT('Class teacher')+': <strong>'+esc(parClassTeacherName(cls))+'</strong>':'')+'</div></div>'
+      + '<button data-code="'+_q(student.sid)+'" onclick="parentRemoveStudent(this.getAttribute(\'data-code\'))" title="'+PT('Remove this student from my email')+'" style="margin-left:auto;background:none;border:1px solid rgba(224,82,82,.4);color:var(--red);border-radius:8px;padding:6px 11px;font-size:.74rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;white-space:nowrap;transition:all .15s;" onmouseover="this.style.background=\'rgba(224,82,82,.12)\'" onmouseout="this.style.background=\'none\'">'+PT('🗑 Remove')+'</button>'
       + '</div>';
 
     // Morning quiz data
     if(!DB.quizYears || !DB.quizYears.length){
-      html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No quiz data available yet.</div>';
+      html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">'+PT('No quiz data available yet.')+'</div>';
     } else {
       var hasAnyQuizData = false;
 
@@ -5943,7 +5948,7 @@ function renderParentPortal(){
         var yearHtml = '';
 
         yr.weeks.forEach(function(wk){
-          var MX = quizMaxFor(cls, yr, wk.id), isMT = isMonthlyTest(cls, yr, wk.id), wkName = quizWeekName(cls, yr, wk);
+          var MX = quizMaxFor(cls, yr, wk.id), isMT = isMonthlyTest(cls, yr, wk.id), wkName = parWeekName(cls, yr, wk);
           if(selWeekId==='all'){ if(_weekTerm(wk)!==selTerm) return; } else if(wk.id!==selWeekId) return;
           // Gather this student's marks for this week
           var subResults = quizSubs.map(function(sub){
@@ -5961,7 +5966,7 @@ function renderParentPortal(){
           // ── Only show this week's marks if the class teacher has released them ──
           if(!cls || !quizWeekVisible(cls.id, wk.id)){
             yearHtml += '<div style="border:1px dashed var(--bd);border-radius:10px;padding:.8rem 1rem;margin-bottom:.7rem;background:var(--s2);text-align:center;">'
-              + '<div style="font-size:.78rem;color:var(--ink3);">🔒 <strong>'+wkName+'</strong>'+(quizWeekWhen(cls,yr,wk)?' <span style="opacity:.85;">('+quizWeekWhen(cls,yr,wk)+')</span>':'')+' — results not yet released by the teacher.</div>'
+              + '<div style="font-size:.78rem;color:var(--ink3);">🔒 <strong>'+wkName+'</strong>'+(quizWeekWhen(cls,yr,wk)?' <span style="opacity:.85;">('+quizWeekWhen(cls,yr,wk)+')</span>':'')+' — '+PT('results not yet released by the teacher.')+'</div>'
               + '</div>';
             return;
           }
@@ -6001,17 +6006,17 @@ function renderParentPortal(){
           yearHtml += '<div style="border:1px solid var(--bd);border-radius:10px;padding:.9rem 1rem;margin-bottom:.7rem;background:var(--s2);">'
             // Week label + rank row
             + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem;">'
-            + '<div style="font-size:.82rem;font-weight:700;color:var(--ink2);">'+(isMT?'📝 ':'')+wkName+(isMT?' <span style="font-size:.62rem;font-weight:700;color:var(--gold);background:rgba(246,201,14,.14);border:1px solid rgba(208,144,16,.4);border-radius:10px;padding:1px 8px;margin-left:4px;">out of 100</span>':'')+(quizWeekWhen(cls,yr,wk)?'<div style="font-size:.72rem;font-weight:600;color:var(--ink3);margin-top:3px;">📅 '+quizWeekWhen(cls,yr,wk)+'</div>':'')+'</div>'
+            + '<div style="font-size:.82rem;font-weight:700;color:var(--ink2);">'+(isMT?'📝 ':'')+wkName+(isMT?' <span style="font-size:.62rem;font-weight:700;color:var(--gold);background:rgba(246,201,14,.14);border:1px solid rgba(208,144,16,.4);border-radius:10px;padding:1px 8px;margin-left:4px;">'+PT('out of 100')+'</span>':'')+(quizWeekWhen(cls,yr,wk)?'<div style="font-size:.72rem;font-weight:600;color:var(--ink3);margin-top:3px;">📅 '+quizWeekWhen(cls,yr,wk)+'</div>':'')+'</div>'
             + '<div style="display:flex;align-items:center;gap:8px;">'
             // Rank circle
             + (myRank!==null?'<div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;flex-shrink:0;'+rankCircStyle+'">'+myRank+'</div>':'')
-            + (myRank!==null?'<div style="font-size:.72rem;color:var(--ink3);"><span style="font-weight:700;color:var(--ink);font-size:.85rem;">Position '+myRank+'</span><br>out of '+totalInClass+' student'+(totalInClass!==1?'s':'')+'</div>':'')
+            + (myRank!==null?'<div style="font-size:.72rem;color:var(--ink3);"><span style="font-weight:700;color:var(--ink);font-size:.85rem;">'+PT('Position')+' '+myRank+'</span><br>'+PT('out of')+' '+totalInClass+' '+PT(totalInClass!==1?'students':'student')+'</div>':'')
             + '</div></div>'
             // Average bar
             + (myAvgPct!==null
               ? '<div style="margin-bottom:.8rem;">'
                 + '<div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink3);margin-bottom:3px;">'
-                + '<span>Average</span><span style="font-weight:700;color:'+(myAvgPct>=80?'var(--green)':myAvgPct>=60?'var(--blue)':myAvgPct>=40?'var(--gold)':'var(--red)')+';font-size:.82rem;">'+myAvgPct.toFixed(1)+'%</span></div>'
+                + '<span>'+PT('Average')+'</span><span style="font-weight:700;color:'+(myAvgPct>=80?'var(--green)':myAvgPct>=60?'var(--blue)':myAvgPct>=40?'var(--gold)':'var(--red)')+';font-size:.82rem;">'+myAvgPct.toFixed(1)+'%</span></div>'
                 + '<div style="height:7px;border-radius:4px;background:var(--s3);overflow:hidden;">'
                 + '<div style="height:100%;border-radius:4px;width:'+Math.min(myAvgPct,100).toFixed(1)+'%;background:'+(myAvgPct>=80?'var(--green)':myAvgPct>=60?'var(--blue)':myAvgPct>=40?'var(--gold)':'var(--red)')+';transition:width .5s;"></div>'
                 + '</div></div>'
@@ -6039,7 +6044,7 @@ function renderParentPortal(){
       });
 
       if(!hasAnyQuizData){
-        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">No marks recorded yet for the selected week.</div>';
+        html += '<div style="padding:1.2rem;font-size:.85rem;color:var(--ink3);">'+PT('No marks recorded yet for the selected week.')+'</div>';
       }
     }
 
@@ -6047,7 +6052,7 @@ function renderParentPortal(){
     if(isP6Class(cls)) html += p6ParentProgress(student, cls, sel);
 
     // ── TEACHER-PARENT CHAT ──
-    html += '<div style="padding:.8rem 1.2rem 1rem;" id="par-chat-section-'+student.id+'"><div style="font-size:.75rem;color:var(--ink3);text-align:center;padding:.5rem;">Loading chat…</div></div>';
+    html += '<div style="padding:.8rem 1.2rem 1rem;" id="par-chat-section-'+student.id+'"><div style="font-size:.75rem;color:var(--ink3);text-align:center;padding:.5rem;">'+PT('Loading chat…')+'</div></div>';
 
     html += '</div>'; // end student card
 
@@ -6057,7 +6062,7 @@ function renderParentPortal(){
 
   // Add another child button
   html += '<div style="text-align:center;margin-top:1rem;">'
-    + '<button onclick="showAddChildModal()" style="background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--green);border-radius:9px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;transition:all .15s;" onmouseover="this.style.background=\'rgba(62,207,142,.18)\'" onmouseout="this.style.background=\'rgba(62,207,142,.1)\'">+ Link Another Child</button>'
+    + '<button onclick="showAddChildModal()" style="background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--green);border-radius:9px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;transition:all .15s;" onmouseover="this.style.background=\'rgba(62,207,142,.18)\'" onmouseout="this.style.background=\'rgba(62,207,142,.1)\'">'+PT('+ Link Another Child')+'</button>'
     + '</div>';
 
   content.innerHTML = html;
@@ -6072,7 +6077,7 @@ function renderParentPortal(){
 }
 
 async function showAddChildModal(){
-  var code = prompt('Enter the student academic code from the report card:');
+  var code = prompt(PT('Enter the student academic code from the report card:'));
   if(!code||!code.trim()) return;
   code = code.trim().toUpperCase();
   try{ await _parentFreshLoad(CURRENT_SCHOOL_ID); }catch(e){ alert('❌ Could not reach the server. Please check your connection and try again.'); return; }
@@ -6147,12 +6152,12 @@ function parentShowInbox(){
   var uid  = 'parent_' + PARENT_USER.id;
 
   var html = '<div style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">'
-    + '<div style="font-family:Playfair Display,serif;font-size:1.3rem;">✉️ Inbox</div>'
-    + '<button class="btn ghost" onclick="renderParentPortal()" style="font-size:.8rem;">← Back to Results</button>'
+    + '<div style="font-family:Playfair Display,serif;font-size:1.3rem;">'+PT('✉️ Inbox')+'</div>'
+    + '<button class="btn ghost" onclick="renderParentPortal()" style="font-size:.8rem;">'+PT('← Back to Results')+'</button>'
     + '</div>';
 
   if(!msgs.length){
-    html += '<div style="text-align:center;padding:3rem;color:var(--ink3);"><div style="font-size:2.5rem;margin-bottom:.7rem;">✉️</div><p>No messages from the director yet.</p></div>';
+    html += '<div style="text-align:center;padding:3rem;color:var(--ink3);"><div style="font-size:2.5rem;margin-bottom:.7rem;">✉️</div><p>'+PT('No messages from the director yet.')+'</p></div>';
   } else {
     msgs.forEach(function(m){
       var isUnread = !(m.readBy && m.readBy.indexOf(uid) >= 0);
@@ -6163,7 +6168,7 @@ function parentShowInbox(){
         + '<div style="font-size:.92rem;font-weight:' + (isUnread ? '700' : '500') + ';color:var(--ink);flex:1;">' + esc(m.subject) + '</div>'
         + '<div style="font-size:.68rem;color:var(--ink3);white-space:nowrap;">' + dateStr + '</div>'
         + '</div>'
-        + '<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.6rem;">From: ' + esc(m.fromName) + '</div>'
+        + '<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.6rem;">'+PT('From:')+' ' + esc(m.fromName) + '</div>'
         + '<div style="font-size:.85rem;color:var(--ink);line-height:1.7;white-space:pre-wrap;">' + esc(m.body) + '</div>'
         + '</div>';
       // Mark as read
@@ -15319,6 +15324,104 @@ function _qpWeekRange(w){
   function f(d){ return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
   return {iso:_isoLocal(mon), text:f(mon)+'  –  '+f(fri)};
 }
+// ══════════════════════════════════════════════════════════════
+//  PARENT PORTAL — language (English / Kinyarwanda) + class teacher
+// ══════════════════════════════════════════════════════════════
+var PAR_LANG = (function(){
+  try{ var v=localStorage.getItem('scorix_par_lang'); if(v==='rw'||v==='en') return v; return localStorage.getItem('scorix_lang')==='rw'?'rw':'en'; }catch(e){ return 'en'; }
+})();
+var PAR_RW = {
+  'Academic Results Portal':"Urubuga rw'Amanota y'Abanyeshuri",
+  '✉️ Inbox':'✉️ Ubutumwa','⏻ Sign Out':'⏻ Sohoka','Parent':'Umubyeyi',
+  "🌅 My Child's Quiz Results":"🌅 Amanota y'umwana wanjye mu kizamini cya mu gitondo",
+  'Position, marks per subject and average percentage — your child only.':"Umwanya, amanota kuri buri somo n'impuzandengo y'ijanisha — ay'umwana wawe gusa.",
+  'Child':'Umwana','Academic year':"Umwaka w'amashuri",'Term':'Igihembwe','Week':'Icyumweru',
+  'All weeks in this term':"Ibyumweru byose by'iki gihembwe",
+  'Code:':'Kode:','Class:':'Ishuri:','🗑 Remove':'🗑 Kuvanaho','Remove this student from my email':"Kuvana uyu munyeshuri kuri imeri yanjye",
+  'No quiz data available yet.':"Nta makuru y'ibizamini arahari.",
+  'results not yet released by the teacher.':'amanota ntaratangazwa n\'umwarimu.',
+  'out of 100':'kuri 100','Position':'Umwanya','out of':'muri','student':'umunyeshuri','students':'abanyeshuri',
+  'Average':'Impuzandengo','No marks recorded yet for the selected week.':'Nta manota aranditswe kuri iki cyumweru wahisemo.',
+  'Monthly Test':"Ikizamini cy'ukwezi",
+  '💬 Chat with Teacher':"💬 Ganira n'umwarimu",'Chat with':'Ganira na','Performance conversations':'Ibiganiro ku myigire',
+  'Write a message…':'Andika ubutumwa…','Loading chat…':'Biraje…','No messages yet.':'Nta butumwa burahari.',
+  'Say hello to the teacher!':'Muramutse umwarimu!','Say hello to':'Muramutse','You':'Wowe','Teacher':'Umwarimu','Class teacher':"Umwarimu w'ishuri",
+  'No students linked yet. Link your child with the academic code from the report card.':"Nta munyeshuri uraba uhujwe. Huza umwana wawe ukoresheje kode iri ku ikarita y'amanota.",
+  '+ Link a Child':'+ Huza umwana','+ Link Another Child':'+ Huza undi mwana',
+  'Student with code':'Umunyeshuri ufite kode','not found in current data.':'ntabonetse mu makuru ariho.',
+  '📅 Attendance':'📅 Kwitabira ishuri','No attendance records yet.':'Nta makuru yo kwitabira ishuri arandikwa.',
+  '📅 Attendance Record':'📅 Raporo yo kwitabira ishuri','Attendance Rate':'Ijanisha ryo kwitabira',
+  'Present':'Yaje','Absent':'Ntiyaje','Late':'Yatinze','Excused':'Yahawe uruhushya','Days recorded':'Iminsi yanditswe',
+  'TODAY':'UYU MUNSI','No attendance recorded for this student yet.':"Nta makuru yo kwitabira ishuri y'uyu munyeshuri arandikwa.",
+  'Showing all':'Iminsi yose yanditswe:','recorded days':'','Newest first':'Iya vuba ibanza',
+  '✉️ Inbox ':'✉️ Ubutumwa ','← Back to Results':'← Subira ku manota','No messages from the director yet.':'Nta butumwa buturuka ku muyobozi burahari.','From:':'Uvuye kuri:',
+  'The graph will appear once the teacher releases quiz results.':"Igishushanyo kizagaragara umwarimu namara gutangaza amanota y'ibizamini.",
+  'From':'Kuva','Subject':'Isomo','Show':'Erekana','All subjects (average)':'Amasomo yose (impuzandengo)','Every week':'Buri cyumweru','Monthly Tests only':"Ibizamini by'ukwezi gusa",
+  'Weekly quiz (/20)':'Ikizamini cy\'icyumweru (/20)','Monthly Test (/100)':"Ikizamini cy'ukwezi (/100)",
+  'No results to plot for this selection.':'Nta manota yo kwerekana kuri ubu buryo wahisemo.',
+  '📝 Monthly Tests — % per subject':"📝 Ibizamini by'ukwezi — % kuri buri somo",
+  'Latest:':'Aheruka:','Change since start:':'Impinduka kuva mu itangiriro:',
+  'Percentage per week, from the week you choose up to the latest week. Weekly quizzes (/20) and Monthly Tests (/100) are both shown as %.':"Ijanisha kuri buri cyumweru, kuva ku cyumweru uhisemo kugeza ku cya vuba. Ibizamini by'icyumweru (/20) n'iby'ukwezi (/100) byerekanwa nk'ijanisha (%).",
+  '❌ Could not reach the server. Please check your connection and try again.':'❌ Seriveri ntibashije kuboneka. Reba interineti yawe ukongere ugerageze.',
+  'Enter the student academic code from the report card:':"Andika kode y'umunyeshuri iri ku ikarita y'amanota:",
+  'This student is already linked to your account.':"Uyu munyeshuri asanzwe ahujwe n'konti yawe.",
+  'Please enter 1, 2 or 3.':'Andika 1, 2 cyangwa 3.',
+  'Month':'Ukwezi',
+  'Week of':'Icyumweru cya'
+};
+var PAR_RW_MONTHS=['Mutarama','Gashyantare','Werurwe','Mata','Gicurasi','Kamena','Nyakanga','Kanama','Nzeri','Ukwakira','Ugushyingo','Ukuboza'];
+var PAR_RW_DAYS=['Ku cyumweru','Kuwa mbere','Kuwa kabiri','Kuwa gatatu','Kuwa kane','Kuwa gatanu','Kuwa gatandatu'];
+var PAR_RW_DAYS_SHORT=['Cyu','Mbe','Kab','Gtu','Kan','Gtn','Gtd'];
+function PT(s){ if(PAR_LANG!=='rw') return s; var d=PAR_RW[s]; return d!==undefined?d:s; }
+function parWeekName(cls,yr,w){
+  var n=quizWeekName(cls,yr,w);
+  if(PAR_LANG!=='rw') return n;
+  var m=/^Monthly Test\s*(\d+)?$/i.exec(n); if(m) return PT('Monthly Test')+(m[1]?' '+m[1]:'');
+  return String(n).replace(/^Week\s*(\d+)/i,'Icyumweru $1');
+}
+function parTermName(t){ return PAR_LANG==='rw' ? String(t).replace(/^Term\s*(\d+)/i,'Igihembwe $1') : t; }
+function parClassTeacherName(cls){
+  if(!cls) return '';
+  try{
+    var u=(DB.users||[]).find(function(x){ return x.role==='teacher' && x.classTeacher===cls.id; });
+    if(!u) u=(DB.teachers||[]).find(function(x){ return x.classTeacher===cls.id; });
+    return u&&u.name ? String(u.name) : '';
+  }catch(e){ return ''; }
+}
+function parClassTeacherForStudent(studentId){
+  var st=(DB.students||[]).find(function(x){ return x.id===studentId; });
+  var cls=st?(DB.classes||[]).find(function(c){ return c.id===st.classId; }):null;
+  return parClassTeacherName(cls);
+}
+function _parChatTitle(studentId){
+  var n=parClassTeacherForStudent(studentId);
+  if(PAR_LANG==='rw') return "💬 Ganira n'umwarimu"+(n?' '+esc(n):'');
+  return '💬 Chat with Teacher'+(n?' '+esc(n):'');
+}
+function _parHello(studentId){
+  var n=parClassTeacherForStudent(studentId);
+  if(PAR_LANG==='rw') return 'Muramutse '+(n?esc(n):'umwarimu')+'!';
+  return 'Say hello to '+(n?esc(n):'the teacher')+'!';
+}
+function applyParLang(){
+  var set=function(id,t){ var e=document.getElementById(id); if(e) e.textContent=t; };
+  set('par-sub-lbl',PT('Academic Results Portal'));
+  set('par-inbox-lbl',PT('✉️ Inbox'));
+  set('par-signout-lbl',PT('⏻ Sign Out'));
+  set('par-role-badge',PT('Parent'));
+  ['en','rw'].forEach(function(l){
+    var b=document.getElementById('par-lang-'+l); if(!b) return;
+    var on=(l===PAR_LANG);
+    b.style.background=on?'var(--green)':'none'; b.style.color=on?'#fff':'var(--ink2)';
+  });
+}
+function setParLang(l){
+  PAR_LANG=(l==='rw')?'rw':'en';
+  try{ localStorage.setItem('scorix_par_lang',PAR_LANG); }catch(e){}
+  applyParLang();
+  if(typeof PARENT_USER!=='undefined' && PARENT_USER) renderParentPortal();
+}
+
 // ── Parent-facing + monthly-test date text ──
 // Monthly Test  -> month name only (e.g. "October")
 // Morning Quiz  -> the Monday–Friday range the teacher set
@@ -15328,18 +15431,23 @@ function _qWeekStartDate(w){
   return null;
 }
 function _qLocale(){ try{ return (typeof APP_LANG!=='undefined' && APP_LANG==='fr') ? 'fr-FR' : 'en-GB'; }catch(e){ return 'en-GB'; } }
+var _parWantRw=false;
 function _qpWeekMonth(w, fallbackToday){
   var mon=_qWeekStartDate(w); if(!mon && fallbackToday) mon=_mondayOf(new Date()); if(!mon) return '';
   var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4);
   // a week that runs into the next month is named after the month most of its school days fall in
   var ref=(mon.getMonth()!==fri.getMonth() && fri.getDate()>=3) ? fri : mon;
-  return ref.toLocaleDateString(_qLocale(),{month:'long'});
+  return (_parWantRw && PAR_LANG==='rw') ? PAR_RW_MONTHS[ref.getMonth()] : ref.toLocaleDateString(_qLocale(),{month:'long'});
 }
 function quizWeekWhen(cls, yr, w, forceShort){
   if(!w) return '';
   var mon=_qWeekStartDate(w); if(!mon) return '';
-  if(isMonthlyTest(cls,yr,w.id)) return _qpWeekMonth(w,false);
+  if(isMonthlyTest(cls,yr,w.id)){ _parWantRw=true; try{ return _qpWeekMonth(w,false); } finally { _parWantRw=false; } }
   var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4), L=_qLocale();
+  if(PAR_LANG==='rw'){
+    return PAR_RW_DAYS[mon.getDay()]+' '+mon.getDate()+' '+PAR_RW_MONTHS[mon.getMonth()]
+      +' – '+PAR_RW_DAYS[fri.getDay()]+' '+fri.getDate()+' '+PAR_RW_MONTHS[fri.getMonth()]+' '+fri.getFullYear();
+  }
   var a=mon.toLocaleDateString(L,{weekday:'short',day:'numeric',month:'short'});
   var b=fri.toLocaleDateString(L,{weekday:'short',day:'numeric',month:'short',year:'numeric'});
   return a+' – '+b;
@@ -17789,8 +17897,8 @@ function renderParentChatForStudent(studentId, containerEl){
 
     // Header
     + '<div style="padding:.7rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">'
-    + '<div style="font-size:.84rem;font-weight:700;color:var(--ink);">💬 Chat with Teacher</div>'
-    + '<div style="font-size:.68rem;color:var(--ink3);">Performance conversations</div>'
+    + '<div style="font-size:.84rem;font-weight:700;color:var(--ink);">'+_parChatTitle(studentId)+'</div>'
+    + '<div style="font-size:.68rem;color:var(--ink3);">'+PT('Performance conversations')+'</div>'
     + '</div>'
 
     // Messages thread — scrollable, grows to fill space
@@ -17807,7 +17915,7 @@ function renderParentChatForStudent(studentId, containerEl){
     + 'display:flex;gap:7px;align-items:flex-end;flex-shrink:0;'
     + 'background:var(--s1);position:sticky;bottom:0;">'
     + '<textarea id="par-chat-inp-'+studentId+'"'
-    + ' placeholder="Write a message…"'
+    + ' placeholder="'+PT('Write a message…')+'"'
     + ' rows="1"'
     + ' style="flex:1;padding:9px 12px;background:var(--s2);border:1.5px solid var(--bd);'
     + 'border-radius:22px;color:var(--ink);font-size:.88rem;outline:none;resize:none;'
@@ -17847,7 +17955,7 @@ function _buildParChatMessages(studentId, thread){
   if(!thread.length){
     return '<div style="text-align:center;padding:2rem 1rem;color:var(--ink3);font-size:.82rem;">'
       + '<div style="font-size:2.2rem;margin-bottom:.5rem;">💬</div>'
-      + 'No messages yet.<br><span style="font-size:.74rem;">Say hello to the teacher!</span>'
+      + PT('No messages yet.')+'<br><span style="font-size:.74rem;">'+_parHello(studentId)+'</span>'
       + '</div>';
   }
   return thread.map(function(m){
@@ -17863,7 +17971,7 @@ function _buildParChatMessages(studentId, thread){
     return '<div class="par-bubble-wrap '+(isMine?'right':'left')+'">'
       + '<div class="par-bubble '+(isMine?'from-parent':'from-teacher')+'">'+esc(m.text)+'</div>'
       + '<div class="par-bubble-meta" style="text-align:'+(isMine?'right':'left')+';display:flex;align-items:center;'+(isMine?'justify-content:flex-end;':'')+'gap:4px;">'
-        + '<strong style="color:'+(isMine?'var(--blue)':'var(--green)')+';">'+(isMine?'You':'👩‍🏫 '+esc(m.senderName||'Teacher'))+'</strong>'
+        + '<strong style="color:'+(isMine?'var(--blue)':'var(--green)')+';">'+(isMine?PT('You'):'👩‍🏫 '+esc(m.senderName||parClassTeacherForStudent(studentId)||PT('Teacher')))+'</strong>'
         + (timeStr?' · '+timeStr:'') + unread + delBtn
       + '</div>'
     + '</div>';
