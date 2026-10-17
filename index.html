@@ -2187,6 +2187,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           </div>
           <div class="phact" style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="btn ghost" onclick="printQuizProcl()">🖨️ Print</button>
+            <button class="btn gold admin-only" onclick="printAllQuizProcl()" title="Print the rankings of every class for the selected week (one page per class)">🖨️ Print All Classes</button>
             <button class="btn ghost" onclick="toggleQuizView()" id="qpViewToggleBtn">&#128202; Subject Breakdown</button>
           </div>
         </div>
@@ -2258,6 +2259,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
           <button class="btn ghost" onclick="switchTermYear()" title="Switch Academic Year" style="gap:5px;">📅 <span id="rp-year-label" style="font-size:.75rem;color:var(--gold);">Year</span></button>
           <button class="btn ghost" onclick="openReportSettings()">⚙️ Report Settings</button>
           <button class="btn ghost" onclick="printReport()">🖨️ Print</button>
+          <button class="btn gold" onclick="printAllReports()" title="Print every student's report card of the selected class (one A4 page each)">🖨️ Print All</button>
         </div>
         <div class="phact teacher-only">
           <button class="btn ghost" onclick="switchTermYear()" title="Switch Academic Year" style="gap:5px;">📅 <span id="rp-year-label-t" style="font-size:.75rem;color:var(--gold);">Year</span></button>
@@ -2860,6 +2862,14 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <div class="chk-list" id="mts-chk" style="max-height:130px;"></div>
       <select id="mts" multiple style="display:none;"></select>
     </div>
+    <div class="fg span2"><label>✍️ Signature <span style="color:var(--ink3);font-weight:400;">(shown under their name on reports &amp; proclamation lists)</span></label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input type="file" id="mtsig-file" accept="image/*" onchange="sigPick(this,'mtsig')" style="flex:1 1 180px;min-width:0;">
+        <img id="mtsig-prev" alt="Signature preview" style="display:none;height:44px;max-width:150px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:6px;padding:2px;">
+        <button type="button" id="mtsig-clear" onclick="sigClear('mtsig')" style="display:none;padding:5px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);cursor:pointer;font-size:.8rem;">Remove</button>
+      </div>
+      <input type="hidden" id="mtsig">
+    </div>
   </div>
   <button class="btn gold" onclick="addTeacher()">Add Teacher</button>
 </div></div>
@@ -2889,6 +2899,14 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     <div class="fg span2"><label>📚 Assigned Subjects <span style="color:var(--ink3);font-weight:400;">(subjects they teach)</span></label>
       <div class="chk-list" id="mets-chk" style="max-height:130px;"></div>
       <select id="mets" multiple style="display:none;"></select>
+    </div>
+    <div class="fg span2"><label>✍️ Signature <span style="color:var(--ink3);font-weight:400;">(shown under their name on reports &amp; proclamation lists)</span></label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input type="file" id="metsig-file" accept="image/*" onchange="sigPick(this,'metsig')" style="flex:1 1 180px;min-width:0;">
+        <img id="metsig-prev" alt="Signature preview" style="display:none;height:44px;max-width:150px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:6px;padding:2px;">
+        <button type="button" id="metsig-clear" onclick="sigClear('metsig')" style="display:none;padding:5px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);cursor:pointer;font-size:.8rem;">Remove</button>
+      </div>
+      <input type="hidden" id="metsig">
     </div>
   </div>
   <button class="btn gold" onclick="saveEditTeacher()">Save Changes</button>
@@ -6732,6 +6750,7 @@ function om(id){
     document.getElementById('mts').innerHTML=lvlSubs.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
     buildChkList('mtc-chk', lvlCls, [], 'classes');
     buildChkList('mts-chk', lvlSubs, [], 'subjects');
+    sigSet('mtsig','');
   }
   if(id==='mc'){
     var mcLvlEl2=document.getElementById('mc-level'); if(mcLvlEl2) mcLvlEl2.value=CURRENT_LEVEL;
@@ -8095,6 +8114,57 @@ function mySubjects(){
   });
   return assigned;
 }
+// ── Signature helpers (teacher / director uploads) ──
+function sigSet(prefix,data){
+  var h=document.getElementById(prefix); if(h) h.value=data||'';
+  var pv=document.getElementById(prefix+'-prev'); if(pv){ pv.src=data||''; pv.style.display=data?'inline-block':'none'; }
+  var cl=document.getElementById(prefix+'-clear'); if(cl) cl.style.display=data?'inline-block':'none';
+  var fi=document.getElementById(prefix+'-file'); if(fi&&!data) fi.value='';
+}
+function sigClear(prefix){ sigSet(prefix,''); }
+function sigPick(inp,prefix){
+  var f=inp.files&&inp.files[0]; if(!f) return;
+  if(!/^image\//.test(f.type)){ alert('Please choose an image file (PNG or JPG).'); inp.value=''; return; }
+  var rd=new FileReader();
+  rd.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      // Shrink to a small signature-sized image so the saved school data stays light
+      var sc=Math.min(1,360/img.width,140/img.height);
+      var w=Math.max(1,Math.round(img.width*sc)), h=Math.max(1,Math.round(img.height*sc));
+      var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      var out=cv.toDataURL('image/png');
+      if(out.length>150000){
+        var c2=document.createElement('canvas'); c2.width=w; c2.height=h;
+        var x2=c2.getContext('2d'); x2.fillStyle='#fff'; x2.fillRect(0,0,w,h); x2.drawImage(img,0,0,w,h);
+        out=c2.toDataURL('image/jpeg',0.82);
+      }
+      sigSet(prefix,out);
+    };
+    img.onerror=function(){ alert('Could not read that image. Try another file.'); inp.value=''; };
+    img.src=rd.result;
+  };
+  rd.readAsDataURL(f);
+}
+function _sigImg(src,h){
+  return src?'<img src="'+src+'" alt="" style="height:'+h+';max-width:180px;object-fit:contain;display:block;margin:0 auto 2px;position:relative;z-index:1;border:0;background:none;mix-blend-mode:multiply;">':'';
+}
+function _procSigBlock(cid){
+  var cls=DB.classes.find(function(c){return c.id===cid;});
+  var tu=cls?(DB.users||[]).find(function(u){return u.role==='teacher'&&u.classTeacher===cls.id;}):null;
+  var tn=tu?tu.name:'', ts=(tu&&tu.signature)||'';
+  var dn=(DB.settings&&DB.settings.directorName)||'', ds=(DB.settings&&DB.settings.directorSignature)||'';
+  function col(name,sig,label){
+    return '<div style="text-align:center;">'
+      +'<div style="font-size:1.05rem;font-weight:800;color:#1a237e;min-height:1.4rem;margin-bottom:2px;">'+(name?esc(name):'&nbsp;')+'</div>'
+      +_sigImg(sig,'92px')
+      +(sig?'':'<div style="border-top:2px solid #1a237e;width:170px;margin:0 auto 4px;padding-top:4px;"></div>')
+      +'<div style="font-size:.82rem;color:#1a237e;">'+label+'</div></div>';
+  }
+  return '<div style="display:flex;justify-content:space-between;margin-top:.6rem;padding-top:.5rem;border-top:1px solid #ddd;">'
+    +col(tn,ts,"Class Teacher's Signature")+col(dn,ds,"School Director's Signature")+'</div>';
+}
 function addTeacher(){
   var name=document.getElementById('mtn').value.trim();
   var uname=document.getElementById('mtu').value.trim();
@@ -8108,13 +8178,15 @@ function addTeacher(){
   var subs=getChkSelected('mts-chk');
   var classTeacher=document.getElementById('mtct').value;
   var teacherLevel=(document.getElementById('mt-level')||{}).value||CURRENT_LEVEL;
+  var teacherSig=(document.getElementById('mtsig')||{}).value||'';
   hashPw(pass).then(function(passHash){
-    DB.users.push({id:id,username:uname,password:passHash,role:'teacher',name:name,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel});
-    DB.teachers.push({id:id,name:name,username:uname,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel});
+    DB.users.push({id:id,username:uname,password:passHash,role:'teacher',name:name,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel,signature:teacherSig});
+    DB.teachers.push({id:id,name:name,username:uname,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel,signature:teacherSig});
     addLog('Added teacher: '+name); dbSave(); rebuildUserIndex(); renderTeachers(); cm('mt');
   });
   document.getElementById('mtn').value='';document.getElementById('mtu').value='';document.getElementById('mtp').value='';
   document.getElementById('mtct').value='';
+  sigSet('mtsig','');
   Array.from(clsEl.options).forEach(function(o){o.selected=false;});
   Array.from(subEl.options).forEach(function(o){o.selected=false;});
 }
@@ -8135,6 +8207,8 @@ function openEditTeacher(id){
   document.getElementById('mets').innerHTML=lvlSubs.map(function(s){return'<option value="'+s.id+'">'+s.name+'</option>';}).join('');
   buildChkList('metc-chk', lvlCls, t.classes||[], 'classes');
   buildChkList('mets-chk', lvlSubs, t.subjects||[], 'subjects');
+  var _eu=DB.users.find(function(x){return x.id===id;});
+  sigSet('metsig', t.signature||(_eu&&_eu.signature)||'');
   document.getElementById('met').classList.add('open');
 }
 function saveEditTeacher(){
@@ -8188,12 +8262,14 @@ function saveEditTeacher(){
 
   var newLevel=(document.getElementById('met-level')||{}).value||t.level||CURRENT_LEVEL;
   t.name=name;t.username=uname;t.classes=cls;t.subjects=subs;t.classTeacher=classTeacher;t.level=newLevel;
-  if(u){u.name=name;u.username=uname;u.classes=cls;u.subjects=subs;u.classTeacher=classTeacher;u.level=newLevel;}
+  var _newSig=(document.getElementById('metsig')||{}).value||'';
+  t.signature=_newSig;
+  if(u){u.name=name;u.username=uname;u.classes=cls;u.subjects=subs;u.classTeacher=classTeacher;u.level=newLevel;u.signature=_newSig;}
   var _finishEditTeacher=function(newPwHash){
     if(newPwHash && u) u.password=newPwHash;
     addLog('Updated teacher: '+name);dbSave();rebuildUserIndex();renderTeachers();cm('met');
     if(ME&&ME.id===id){
-      ME.name=name;ME.username=uname;ME.classes=cls;ME.subjects=subs;ME.classTeacher=classTeacher;
+      ME.name=name;ME.username=uname;ME.classes=cls;ME.subjects=subs;ME.classTeacher=classTeacher;ME.signature=_newSig;
       if(newPwHash) ME.password=newPwHash;
       document.getElementById('uname').textContent=name;
     }
@@ -10776,16 +10852,14 @@ function bulkPrintClass(classId, termId, clsName, termName){
   rpLoadStudents();
 
   var allHtml = '';
+  var _cards = [];
   students.forEach(function(st, idx){
     document.getElementById('rpSt').value = st.id;
     genReport();
     var rpOut = document.getElementById('rpOut');
     if(rpOut && rpOut.innerHTML && !rpOut.querySelector('.empty')){
       var card = rpOut.innerHTML;
-      // Add page break between cards
-      if(idx < students.length-1){
-        card += '<div style="page-break-after:always;height:0;"></div>';
-      }
+      _cards.push(_resolveCssVars(card));
       allHtml += card;
     }
   });
@@ -10816,15 +10890,8 @@ function bulkPrintClass(classId, termId, clsName, termName){
   renderApprovalDashboard();
   renderApprovalStatus();
 
-  // Open print window with all cards
-  var printStyles = '<style>@media print{'
-    +'body{margin:0;padding:0;}'
-    +'@page{margin:8mm;}'
-    +'div[style*="page-break-after"]{display:block!important;}'
-    +'table{page-break-inside:auto;}'
-    +'tr{page-break-inside:avoid;}'
-    +'}</style>';
-  _openPrintWindow(printStyles + _resolveCssVars(allHtml), false, 'Report Cards — '+clsName+' — '+termName);
+  // One A4 page per card
+  _printReportCards(_cards, 'Report Cards — '+clsName+' — '+termName);
 }
 
 function renderUnlockPanel(){
@@ -11783,12 +11850,11 @@ function genReport(){
   var studentGPA   = (DB.settings.gpaEnabled && stAvgPct!==null) ? pctToGPA(stAvgPct) : null;
 
   var logoSrc=DB.settings.schoolLogo||localStorage.getItem('scorix_logo')||'';
-  // T3 ET uses compact logo to fit one page
-  var _logoSize = isFinalTerm ? '72px' : '140px';
-  var _logoBorder = isFinalTerm ? '3px' : '4px';
+  // Logo shown as-is (no circle / frame). Sizing is handled by the one-page fit when printing.
+  var _logoH = isFinalTerm ? '78px' : '90px';
   var logoHtml=logoSrc
-    ?'<div style="width:'+_logoSize+';height:'+_logoSize+';border-radius:50%;overflow:hidden;border:'+_logoBorder+' solid #c8b020;background:#e8eaf6;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;"><img src="'+logoSrc+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
-    :'<div style="width:'+_logoSize+';height:'+_logoSize+';border-radius:50%;background:#e8eaf6;border:3px dashed #c8b88a;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:.6rem;color:#aaa;text-align:center;padding:6px;line-height:1.3;">SCHOOL<br>LOGO</div>';
+    ?'<img src="'+logoSrc+'" alt="" style="height:'+_logoH+';width:auto;max-width:30%;object-fit:contain;display:block;flex:none;margin:0;border:0;border-radius:0;background:none;box-shadow:none;">'
+    :'';
 
   // ── Classmates ──
   var classmates=cls?yearStudents().filter(function(s){return s.classId===st.classId;}):[st];
@@ -11912,39 +11978,38 @@ function genReport(){
   +'<div style="background:#ffffff;color:#1a1a2e;font-family:\'Outfit\',Arial,sans-serif;width:100%;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.15);border-radius:8px;">'
 
   // ── TOP ACCENT BAR ──
-  +'<div style="height:8px;background:linear-gradient(90deg,#1a237e,#283593,#1565c0,#0d47a1);"></div>'
+  +'<div style="height:5px;background:linear-gradient(90deg,#1a237e,#283593,#1565c0,#0d47a1);"></div>'
 
-  +'<div style="padding:'+(isFinalTerm?'.7rem 1.1rem .7rem':'1.4rem 1.8rem 1.4rem')+'">'
+  +'<div style="padding:'+(isFinalTerm?'.45rem .8rem .5rem':'.6rem 1rem .6rem')+'">'
 
-  // ── HEADER: logo + school name + title centered, contact info below ──
-  +'<div style="text-align:center;padding-bottom:'+(isFinalTerm?'.6rem':'1.2rem')+';margin-bottom:'+(isFinalTerm?'.6rem':'1.2rem')+';border-bottom:3px double #c8b020;">'
-  +'<div style="font-size:.62rem;font-weight:700;color:#1a237e;letter-spacing:.1em;text-transform:uppercase;line-height:1.7;margin-bottom:4px;">'
-  +'REPUBLIC OF RWANDA<br>'
-  +'EASTERN PROVINCE<br>'
-  +'NGOMA DISTRICT<br>'
-  +'ZAZA SECTOR'
-  +'</div>'
+  // ── HEADER (compact): logo on the left, text block centred beside it ──
+  +'<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding-bottom:.3rem;margin-bottom:.4rem;border-bottom:3px double #c8b020;">'
   +logoHtml
-  +'<div style="font-size:'+(isFinalTerm?'1rem':'1.15rem')+';font-weight:800;color:#1a237e;letter-spacing:.02em;font-family:\'Playfair Display\',Georgia,serif;line-height:1.3;margin-bottom:3px;">'+school+'</div>'
-  +'<div style="font-size:.68rem;font-weight:700;color:#1a237e;margin-bottom:4px;letter-spacing:.04em;">SCHOOL: '+(school||'............................................................')+'</div>'
-  +(DB.settings.schoolMotto?'<div style="font-size:.68rem;color:#b8920a;font-style:italic;margin-bottom:4px;letter-spacing:.03em;">"'+DB.settings.schoolMotto+'"</div>':'<div style="font-size:.65rem;color:#e05252;font-style:italic;margin-bottom:4px;">[Motto not set — tap ⚙️ Settings to add]</div>')
+  +'<div style="flex:1 1 auto;text-align:center;min-width:0;">'
+  +'<div style="font-size:.72rem;font-weight:700;color:#1a237e;letter-spacing:.08em;text-transform:uppercase;line-height:1.3;margin-bottom:2px;">'
+  +'REPUBLIC OF RWANDA &nbsp;·&nbsp; EASTERN PROVINCE &nbsp;·&nbsp; NGOMA DISTRICT &nbsp;·&nbsp; ZAZA SECTOR'
+  +'</div>'
+  +'<div style="font-size:'+(isFinalTerm?'1.55rem':'1.75rem')+';font-weight:800;color:#1a237e;letter-spacing:.02em;font-family:\'Playfair Display\',Georgia,serif;line-height:1.15;margin-bottom:1px;">'+school+'</div>'
+  +(DB.settings.schoolMotto?'<div style="font-size:.82rem;color:#b8920a;font-style:italic;line-height:1.2;margin-bottom:1px;letter-spacing:.03em;">"'+DB.settings.schoolMotto+'"</div>':'<div style="font-size:.8rem;color:#e05252;font-style:italic;line-height:1.2;margin-bottom:1px;">[Motto not set — tap ⚙️ Settings to add]</div>')
   +(DB.settings.schoolAddress||DB.settings.schoolPhone||DB.settings.schoolEmail
-    ?'<div style="font-size:.65rem;color:#555;margin-bottom:6px;">'
+    ?'<div style="font-size:.76rem;color:#555;line-height:1.25;margin-bottom:3px;">'
       +(DB.settings.schoolAddress?'📍 '+DB.settings.schoolAddress:'')
       +(DB.settings.schoolPhone?' &nbsp;|&nbsp; 📞 '+DB.settings.schoolPhone:'')
       +(DB.settings.schoolEmail?' &nbsp;|&nbsp; ✉️ '+DB.settings.schoolEmail:'')
     +'</div>'
-    :'<div style="font-size:.65rem;color:#e05252;margin-bottom:6px;">[Address/Phone/Email not set — tap ⚙️ Settings to add]</div>')
-  +'<div style="display:inline-block;margin-top:6px;padding:5px 20px;background:#1a237e;color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:20px;">'+reportTypeTitle+'</div>'
+    :'<div style="font-size:.76rem;color:#e05252;line-height:1.25;margin-bottom:3px;">[Address/Phone/Email not set — tap ⚙️ Settings to add]</div>')
+  +'<div style="display:inline-block;padding:3px 20px;background:#1a237e;color:#fff;font-size:.88rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:20px;line-height:1.3;">'+reportTypeTitle+'</div>'
+  +'</div>'
   +'</div>'
 
   // ── STUDENT INFO GRID ──
   var _gp = isFinalTerm ? '5px 10px' : '8px 14px';
-  var _gfl = isFinalTerm ? '.5rem' : '.55rem';
-  var _gfv = isFinalTerm ? '.8rem' : '.88rem';
+  var _gfl = isFinalTerm ? '.58rem' : '.64rem';
+  var _gfv = isFinalTerm ? '.92rem' : '1rem';
+  var _gfn = isFinalTerm ? '1.15rem' : '1.3rem';
   html+=
-  '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:2px solid #1a237e;border-radius:6px;overflow:hidden;margin-bottom:'+(isFinalTerm?'.7rem':'1.4rem')+'">'
-  +'<div style="padding:'+_gp+';background:#e8eaf6;border-right:1px solid #c5cae9;"><div style="font-size:'+_gfl+';font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Names</div><div style="font-size:'+_gfv+';font-weight:700;color:#1a237e;">'+st.name+'</div></div>'
+  '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:2px solid #1a237e;border-radius:6px;overflow:hidden;margin-bottom:'+(isFinalTerm?'.35rem':'.45rem')+'">'
+  +'<div style="padding:'+_gp+';background:#e8eaf6;border-right:1px solid #c5cae9;"><div style="font-size:'+_gfl+';font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Names</div><div style="font-size:'+_gfn+';font-weight:700;color:#1a237e;">'+st.name+'</div></div>'
   +'<div style="padding:'+_gp+';background:#fff;border-right:1px solid #c5cae9;"><div style="font-size:'+_gfl+';font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Academic Code</div><div style="font-size:'+_gfv+';font-weight:600;color:#1a237e;font-family:monospace;">'+st.sid+'</div></div>'
   +'<div style="padding:'+_gp+';background:#e8eaf6;"><div style="font-size:'+_gfl+';font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Class</div><div style="font-size:'+_gfv+';font-weight:700;color:#1a237e;">'+(cls?cls.name:'—')+'</div></div>'
   +'<div style="padding:'+_gp+';background:#fff;border-right:1px solid #c5cae9;border-top:1px solid #c5cae9;"><div style="font-size:'+_gfl+';font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5c6bc0;margin-bottom:2px;">Academic Year</div><div style="font-size:'+_gfv+';font-weight:600;color:#1a237e;">'+(academicYear||'—')+'</div></div>'
@@ -11981,8 +12046,8 @@ function genReport(){
   // ── Build academic year label for each term ──
   var acYear=DB.settings.academicYear||'';
 
-  html+='<div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#1a237e;margin-bottom:'+(isFinalTerm?'4px':'8px')+';padding-left:2px;">📊 Academic Performance</div>';
-  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin-bottom:'+(isFinalTerm?'.5rem':'1rem')+';font-size:'+(isFinalTerm?'.65rem':'.75rem')+';">';
+  html+='<div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#1a237e;margin-bottom:'+(isFinalTerm?'3px':'4px')+';padding-left:2px;">📊 Academic Performance</div>';
+  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin-bottom:'+(isFinalTerm?'.3rem':'.4rem')+';font-size:'+(isFinalTerm?'.65rem':'.75rem')+';">';
 
   // ── HEADER ROW 1: group spans ──
   // SUBJECT | MAXIMUM (EU ET TOT) | [Term N/year (EU ET TOT % GR)] x N | Total (TOT MAX % GR)
@@ -12384,7 +12449,7 @@ function genReport(){
   }
 
   // ── GRADE SCALE ──
-  html+='<div style="margin-bottom:'+(isFinalTerm?'.6rem':'1.2rem')+';padding:'+(isFinalTerm?'5px 10px':'8px 12px')+';background:#f5f3ec;border:1px solid #c5cae9;border-radius:6px;font-size:.68rem;color:#333;">'
+  html+='<div style="margin-bottom:'+(isFinalTerm?'.3rem':'.4rem')+';padding:'+(isFinalTerm?'5px 10px':'6px 12px')+';background:#f5f3ec;border:1px solid #c5cae9;border-radius:6px;font-size:.68rem;color:#333;">'
     +'<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px;">'
     +(DB.settings.gpaEnabled?'<strong style="color:#1a237e;margin-right:4px;">'+getAcadSystem().name+'</strong> &nbsp; ':'')
     +'<strong style="color:#1a237e;margin-right:4px;">Grade Scale:</strong>'
@@ -12403,7 +12468,7 @@ function genReport(){
     +'</div>';
 
   // ── ABBREVIATIONS KEY ──
-  html+='<div style="margin-bottom:'+(isFinalTerm?'.5rem':'1rem')+';padding:'+(isFinalTerm?'4px 10px':'6px 12px')+';background:#eef2ff;border:1px solid #c5cae9;border-radius:6px;font-size:.65rem;color:#333;">'
+  html+='<div style="margin-bottom:'+(isFinalTerm?'.3rem':'.4rem')+';padding:'+(isFinalTerm?'4px 10px':'5px 12px')+';background:#eef2ff;border:1px solid #c5cae9;border-radius:6px;font-size:.65rem;color:#333;">'
     +'<strong style="color:#1a237e;">Abbreviations: </strong>'
     +'<span><strong>EU</strong> = End of Unit &nbsp;|&nbsp;</span>'
     +'<span><strong>ET</strong> = End of Term &nbsp;|&nbsp;</span>'
@@ -12417,18 +12482,22 @@ function genReport(){
   var _dirName = (DB.settings && DB.settings.directorName) || (DB.users && DB.users.find(function(u){return u.role==='director'||u.role==='admin';})||{}).name || '';
   var _teacherObj = cls ? (DB.users && DB.users.find(function(u){return u.classTeacher===cls.id&&u.role==='teacher';})) : null;
   var _teacherName = _teacherObj ? _teacherObj.name : '';
-  html+='<div style="display:flex;justify-content:space-between;margin-top:'+(isFinalTerm?'.6rem':'1.3rem')+';padding-top:'+(isFinalTerm?'.5rem':'.9rem')+';border-top:1px solid #ddd4b8;">'
+  var _teacherSig = (_teacherObj && _teacherObj.signature) || '';
+  var _dirSig = (DB.settings && DB.settings.directorSignature) || '';
+  html+='<div style="display:flex;justify-content:space-between;margin-top:'+(isFinalTerm?'.3rem':'.5rem')+';padding-top:'+(isFinalTerm?'.3rem':'.5rem')+';border-top:1px solid #ddd4b8;">'
     +'<div style="text-align:center;">'
-    +'<div style="font-size:.68rem;font-weight:700;color:#1a237e;min-height:1.2rem;margin-bottom:2px;">'+(_teacherName?_teacherName:'&nbsp;')+'</div>'
-    +'<div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div>'
-    +'<div style="font-size:.7rem;color:#1a237e;">Class Teacher\'s Signature</div></div>'
+    +'<div style="font-size:1.05rem;font-weight:800;color:#1a237e;min-height:1.4rem;margin-bottom:2px;">'+(_teacherName?_teacherName:'&nbsp;')+'</div>'
+    +_sigImg(_teacherSig,'92px')
+    +(_teacherSig?'':'<div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div>')
+    +'<div style="font-size:.82rem;color:#1a237e;">Class Teacher\'s Signature</div></div>'
     +'<div style="text-align:center;">'
-    +'<div style="font-size:.68rem;font-weight:700;color:#1a237e;min-height:1.2rem;margin-bottom:2px;">'+(_dirName?_dirName:'&nbsp;')+'</div>'
-    +'<div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div>'
-    +'<div style="font-size:.7rem;color:#1a237e;">School Director\'s Signature</div></div>'
+    +'<div style="font-size:1.05rem;font-weight:800;color:#1a237e;min-height:1.4rem;margin-bottom:2px;">'+(_dirName?_dirName:'&nbsp;')+'</div>'
+    +_sigImg(_dirSig,'92px')
+    +(_dirSig?'':'<div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div>')
+    +'<div style="font-size:.82rem;color:#1a237e;">School Director\'s Signature</div></div>'
     +'</div>';
 
-  html+='</div><div style="height:8px;background:linear-gradient(90deg,#1a237e,#283593,#1565c0,#0d47a1);"></div></div>';
+  html+='</div><div style="height:5px;background:linear-gradient(90deg,#1a237e,#283593,#1565c0,#0d47a1);"></div></div>';
 
   out.innerHTML=html;
 }
@@ -12755,7 +12824,8 @@ function genProcl(){
         +'<td style="text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:10px;font-weight:700;font-size:.78rem;background:'+GC[grade]+'22;color:'+GC[grade]+';border:1px solid '+GC[grade]+'44;">'+grade+'</span></td>'
         +'</tr>';
     }).join('')
-    +'</tbody></table></div></div>';
+    +'</tbody></table></div></div>'
+    +_procSigBlock(cid);
 }
 
 // ██████████████████████████████████████████████████████████████████
@@ -15559,7 +15629,12 @@ function genQuizProcl(){
       +'</tr>';
   });
   html+='</tbody></table></div>' + p6BandsHtml(cid,week)
-    +'<div class="qp-doneby" style="text-align:right;margin-top:14px;padding-right:6px;font-size:1.2rem;font-weight:800;color:var(--ink);">Done by: <span style="display:inline-block;min-width:170px;border-bottom:2px solid var(--ink);padding:0 8px;">'+esc(_ctName)+'</span></div>'
+    +'<div class="qp-doneby" style="text-align:center;margin-top:10px;font-size:1.2rem;font-weight:800;color:var(--ink);">'
+    +'<div style="display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:2px 8px;">'
+    +'<span>Done by:</span>'
+    +'<span>'+esc(_ctName)+'</span>'
+    +((_ctU&&_ctU.signature)?'<img src="'+_ctU.signature+'" alt="" style="height:88px;max-width:260px;object-fit:contain;mix-blend-mode:multiply;border:0;background:none;">':'')
+    +'</div></div>'
     +'</div>';
   out.innerHTML=html + p6MonthlyAnalysisHtml(cid,week);
   genQuizBreakdown(students,subjects,cid,week,maxTotal,ranges);
@@ -16960,6 +17035,264 @@ function _isT3ETCard(){
   return !isMid;
 }
 
+// ══════════════════════════════════════════════════════════════
+//  REPORT CARDS — one A4 page per card, small margin, scaled to fill the page
+// ══════════════════════════════════════════════════════════════
+// Sheets are laid out at a fixed on-screen size (RC_W × RC_H, the *shortest* common paper shape),
+// the content is scaled to fill it, and in print the sheet becomes the real page box
+// (100% wide, 100vh tall) so it fills the whole page edge-to-edge on A4 or Letter alike.
+var RC_W = 740, RC_H = 968;     // report cards
+var QA_W = 740, QA_H = 940;     // quiz proclamation lists
+function _fitSheets(doc, sheetCls, fitCls, H){
+  var target=H-6;
+  [].forEach.call(doc.querySelectorAll('.'+sheetCls), function(sh){
+    var fit=sh.querySelector('.'+fitCls); if(!fit) return;
+    fit.style.height='auto'; fit.style.minHeight='0px';
+    var lo=0.3, hi=1.8, best=lo, i;
+    for(i=0;i<16;i++){
+      var mid=(lo+hi)/2;
+      fit.style.width=(100/mid)+'%';
+      fit.style.transform='scale('+mid+')';
+      if(fit.offsetHeight*mid<=target){ best=mid; lo=mid; } else { hi=mid; }
+    }
+    fit.style.width=(100/best)+'%';
+    fit.style.transform='scale('+best+')';
+    fit.style.height=(100/best)+'%';      // fills the whole sheet; leftover height is spread inside the card
+  });
+}
+function _rcFitAll(doc){ _fitSheets(doc,'rc-sheet','rc-fit',RC_H); }
+
+function _printFitted(cardsHtml, title, cfg){
+  if(!cardsHtml || !cardsHtml.length){ alert('Nothing to print yet.'); return; }
+  var docTitle=(title||'Print')+' — SCORIX';
+  var sheets=cardsHtml.map(function(h){ return '<div class="'+cfg.sheetCls+'"><div class="'+cfg.fitCls+'">'+h+'</div></div>'; }).join('');
+  var fullHtml='<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<meta name="viewport" content="width=820">'
+    +'<title>'+docTitle+'</title>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">'
+    +cfg.css
+    +'</head><body>'
+    +'<div class="no-print"><strong>📄 '+cfg.label(cardsHtml.length)+'</strong> &nbsp; Tap the menu (⋮) → <strong>Print</strong> or <strong>Share → Save as PDF</strong> &nbsp;'
+    +'<button onclick="window.print()" style="padding:6px 16px;background:#1a237e;color:#fff;border:none;border-radius:6px;font-size:.85rem;cursor:pointer;">🖨️ Print / Save PDF</button></div>'
+    +sheets+'</body></html>';
+
+  function run(doc, win, afterPrint){
+    var done=false;
+    function go(){
+      if(done) return; done=true;
+      try{ cfg.fit(doc); }catch(e){}
+      setTimeout(function(){
+        try{ win.focus(); }catch(e){}
+        try{ win.print(); }catch(e){ try{ alert('Could not open the print dialog automatically. Use the browser menu → Print.'); }catch(_){} }
+        if(afterPrint) afterPrint();
+      }, 250);
+    }
+    var imgs=[].slice.call(doc.images||[]), pending=imgs.filter(function(im){ return !im.complete; }).length;
+    function tick(){ if(--pending<=0) setTimeout(go,150); }
+    if(pending>0){ imgs.forEach(function(im){ if(!im.complete){ im.addEventListener('load',tick); im.addEventListener('error',tick); } }); }
+    try{ if(doc.fonts && doc.fonts.ready){ doc.fonts.ready.then(function(){ if(pending<=0) setTimeout(go,150); }); } }catch(e){}
+    setTimeout(go, pending>0 ? 2500 : 900);   // never wait forever on slow fonts / offline
+  }
+
+  var win=null;
+  try{ win=window.open('','_blank'); }catch(e){ win=null; }
+  if(win && !win.closed){
+    try{
+      win.document.open(); win.document.write(fullHtml); win.document.close();
+      win.document.title=docTitle;
+      run(win.document, win);
+      return;
+    }catch(e){ try{ win.close(); }catch(_){} }
+  }
+  // Popup blocked → isolated hidden iframe
+  var old=document.getElementById('_printFrame'); if(old) old.parentNode.removeChild(old);
+  var fr=document.createElement('iframe');
+  fr.id='_printFrame';
+  fr.style.cssText='position:fixed;left:-10000px;top:0;width:820px;height:1200px;border:0;visibility:hidden;';
+  document.body.appendChild(fr);
+  var idoc=fr.contentWindow.document;
+  idoc.open(); idoc.write(fullHtml); idoc.close();
+  var prevTitle=document.title; document.title=docTitle;
+  run(idoc, fr.contentWindow, function(){
+    setTimeout(function(){ document.title=prevTitle; var f=document.getElementById('_printFrame'); if(f&&f.parentNode) f.parentNode.removeChild(f); }, 60000);
+  });
+}
+
+function _printReportCards(cardsHtml, title){
+  _printFitted(cardsHtml, title, {
+    sheetCls:'rc-sheet', fitCls:'rc-fit', fit:_rcFitAll,
+    label:function(n){ return n>1 ? n+' report cards ready' : 'Report card ready'; },
+    css:'<style>'
+      +'*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'
+      +'html,body{margin:0;padding:0;background:#fff;font-family:Outfit,Arial,sans-serif;color:#1a1a2e;}'
+      +'@page{size:A4 portrait;margin:0;}'
+      +'.rc-sheet{width:'+RC_W+'px;height:'+RC_H+'px;margin:0 auto;overflow:hidden;position:relative;}'
+      +'.rc-fit{transform-origin:0 0;display:flex;flex-direction:column;}'
+      +'.rc-fit>div{flex:1 1 auto;display:flex!important;flex-direction:column;width:100%!important;box-shadow:none!important;border-radius:0!important;}'
+      +'.rc-fit>div>div:nth-child(2){flex:1 1 auto;display:flex;flex-direction:column;justify-content:flex-start;}'
+      +'.rc-fit>div>div:nth-child(2)>div[style*="overflow-x"]{flex:1 1 auto;display:flex;flex-direction:column;overflow:visible!important;}'
+      +'.rc-fit>div>div:nth-child(2)>div[style*="overflow-x"]>table{flex:1 1 auto;height:100%;}'
+      +'table{border-collapse:collapse;}'
+      +'.no-print{text-align:center;padding:10px;background:#f0f0f0;font-size:.85rem;color:#444;}'
+      +'@media print{.no-print{display:none!important;}'
+      +'html,body{height:100%!important;margin:0!important;padding:0!important;}'
+      +'.rc-sheet{width:100%!important;height:calc(100% - 1px)!important;max-height:calc(100% - 1px)!important;margin:0!important;overflow:hidden!important;page-break-inside:avoid;break-inside:avoid;page-break-after:always;break-after:page;}'
+      +'.rc-sheet:last-child{page-break-after:auto;break-after:auto;}}'
+      +'@media screen{.rc-sheet{border:1px solid #ddd;margin-bottom:12px;}}'
+      +'</style>'
+  });
+}
+
+// ── Quiz rankings: every class of the chosen week, one Letter page per class ──
+function _qaFitAll(doc){ _fitSheets(doc,'qa-sheet','qa-fit',QA_H); }
+function _qaCss(){
+  var COMPACT_HDR = '<style>'
+    +'.qph-banner{padding:2px 10px!important;margin-bottom:4px!important;border-radius:6px!important;text-align:center;}'
+    +'.qph-logo{height:62px!important;width:62px!important;margin:0 10px 0 0!important;border-width:0!important;font-size:0!important;object-fit:contain;display:inline-block!important;vertical-align:middle;}'
+    +'.qph-school{font-size:16px!important;margin:0 10px 0 0!important;letter-spacing:.03em!important;display:inline-block!important;vertical-align:middle;}'
+    +'.qph-title{font-size:18px!important;margin:0!important;line-height:1.2!important;display:inline-block!important;vertical-align:middle;}'
+    +'.qph-meta{display:block!important;margin:2px 0 0!important;}'
+    +'.qph-pill{margin:0 8px!important;padding:0 20px!important;border-width:2px!important;}'
+    +'.qph-class{font-size:34px!important;font-weight:900!important;line-height:1.1!important;}'
+    +'.qph-week{font-size:34px!important;font-weight:900!important;line-height:1.1!important;margin:0 8px!important;}'
+    +'.qph-date{display:block!important;font-size:19px!important;font-weight:800!important;margin:1px 0 0!important;line-height:1.2!important;}'
+    +'.qph-year{display:block!important;font-size:11px!important;margin:0!important;line-height:1.2!important;}'
+    +'.qp-doneby{text-align:center!important;font-size:18px!important;font-weight:800!important;margin-top:8px!important;color:#000!important;}'
+    +'.qp-doneby span{border-bottom:0!important;color:#000!important;}'
+    +'</style>';
+  var printStyles = '<style>'
+    +':root{--pxf:11px;--pxp:4px;--pxv:0px;}'
+    +'html{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important;}'
+    +'html,body{padding:0!important;margin:0!important;}'
+    +'body{width:100%;}'
+    // Print-only safety net: whatever the measured height was, the list itself must fill the whole
+    // page (rows stretch, "Done by" stays on the bottom line, inside the 17mm bottom margin).
+    +'.card{overflow:visible!important;}'
+    +'table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:var(--pxf);}'
+    +'th,td{border:1px solid #c0c8e0;padding:calc(var(--pxp) + var(--pxv)) calc(var(--pxp) * 1.15)!important;white-space:normal!important;word-wrap:break-word;overflow-wrap:break-word;}'
+    +'thead tr{background:#e8ecf7!important;}'
+    +'tbody tr:nth-child(even) td{background:#f5f7fc!important;}'
+    +'th:first-child,td:first-child{width:5%;}'
+    +'th:nth-child(2),td:nth-child(2){width:20%;text-align:left;}'
+    +'#qpProclTable th:first-child,#qpProclTable td:first-child{width:4.5%!important;}'
+    +'#qpProclTable th:nth-last-child(3),#qpProclTable td:nth-last-child(3){width:8.5%!important;}'
+    +'#qpProclTable th:nth-last-child(2),#qpProclTable td:nth-last-child(2){width:8%!important;}'
+    +'#qpProclTable th:last-child,#qpProclTable td:last-child{width:5.5%!important;}'
+    +'#qpProclTable tbody td{font-size:1.35rem!important;font-weight:900!important;white-space:nowrap!important;padding-left:2px!important;padding-right:2px!important;overflow:hidden;}'
+    +'#qpProclTable tbody td:nth-last-child(3){font-size:1.25rem!important;}'
+    +'#qpProclTable tbody td:nth-last-child(2){font-size:1.1rem!important;}'
+    +'#qpProclTable tbody td:nth-child(2){white-space:normal!important;padding-left:5px!important;}'
+    +'#qpProclTable tbody td:nth-child(2) div{font-size:1.3rem!important;font-weight:800!important;line-height:1.15!important;}'
+    +'#qpProclTable thead th{font-size:.9rem!important;padding-left:1px!important;padding-right:1px!important;}'
+    +'.ctitle{display:none!important;}'
+    +'.rcirc{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--pxf) * 1.85);height:calc(var(--pxf) * 1.85);border-radius:50%;font-weight:700;font-size:calc(var(--pxf) * .92);}'
+    +'.r1{background:#f6c90e;color:#1a1200;}'
+    +'.r2{background:#b0bec5;color:#1a1200;}'
+    +'.r3{background:#cd7f32;color:#fff;}'
+    +'.rn{background:#e8ecf7;color:#2a2f4e;}'
+    +'#qpProclTable{width:100%!important;}'
+    +'.p6mt th:first-child,.p6mt td:first-child{width:24%!important;text-align:left!important;}'
+    +'.p6mt th:nth-child(2),.p6mt td:nth-child(2){width:auto!important;text-align:center!important;}'
+    +'.p6mt .p6mt-title{display:block!important;}'
+    +'.ctitle{font-size:calc(var(--pxf) * 1.2)!important;margin-bottom:var(--pxp)!important;}'
+    +'</style>';
+
+  return COMPACT_HDR + printStyles
+    +'<style>'
+    +'@page{size:Letter portrait;margin:8mm 8mm 17mm 8mm;}'
+    +'html,body{margin:0!important;padding:0!important;background:#fff;}'
+    +'.qa-sheet{width:'+QA_W+'px;height:'+QA_H+'px;margin:0 auto;overflow:hidden;position:relative;}'
+    +'.qa-fit{transform-origin:0 0;display:flex;flex-direction:column;}'
+    +'@media print{.qa-sheet{width:100%!important;height:calc(100vh - 1px)!important;margin:0!important;page-break-after:always;break-after:page;}'
+    +'.qa-sheet:last-child{page-break-after:auto;break-after:auto;}}'
+    +'.qa-fit>#qpProclTable{flex:1 1 auto;display:flex;flex-direction:column;}'
+    +'#qpProclTable>.card{flex:1 1 auto;display:flex;flex-direction:column;}'
+    +'#qpProclTable>.card>table{flex:1 1 auto;}'
+    +'.qa-bands{width:100%;}'
+    +'.qa-bands .p6mt{margin-top:10px!important;}'
+    +'.qa-bands .p6mt .p6mt-title{display:block!important;}'
+    +'.no-print{text-align:center;padding:10px;background:#f0f0f0;font-size:.85rem;color:#444;font-family:Outfit,Arial,sans-serif;}'
+    +'@media print{.no-print{display:none!important;}}'
+    +'@media screen{.qa-sheet{border:1px solid #ddd;margin-bottom:12px;}}'
+    +'</style>';
+}
+function printAllQuizProcl(){
+  var clsSel=document.getElementById('qpCls'), wkSel=document.getElementById('qpWeek');
+  if(!clsSel || !wkSel) return;
+  if(!wkSel.value){ alert('Select the week first, then tap Print All Classes.'); return; }
+  var origCls=clsSel.value;
+  var wkName=wkSel.options[wkSel.selectedIndex] ? wkSel.options[wkSel.selectedIndex].text.trim() : '';
+  var cards=[];
+  [].forEach.call(clsSel.options, function(o){
+    if(!o.value) return;
+    clsSel.value=o.value;
+    genQuizProcl();
+    var t=document.getElementById('qpProclTable');
+    if(!t) return;                      // class has no marks for this week → skip
+    var tmp=document.createElement('div');
+    tmp.innerHTML=t.outerHTML;
+    // P6 Monthly Test: the "students per score range" block goes on its own page after the rankings
+    var bands=[].slice.call(tmp.querySelectorAll('.p6mt'));
+    var banner=tmp.querySelector('.qph-banner');
+    var bandsHtml='';
+    if(bands.length){
+      bandsHtml='<div class="qa-bands">'+(banner?banner.outerHTML:'')+bands.map(function(n){ return n.outerHTML; }).join('')+'</div>';
+      bands.forEach(function(n){ n.parentNode.removeChild(n); });
+    }
+    cards.push(_resolveCssVars(tmp.innerHTML));
+    if(bandsHtml) cards.push(_resolveCssVars(bandsHtml));
+  });
+  clsSel.value=origCls;
+  genQuizProcl();
+  if(!cards.length){ alert('No quiz marks were found for any class in this week.'); return; }
+  _printFitted(cards, 'Proclamation Lists — All Classes'+(wkName?' — '+wkName:''), {
+    sheetCls:'qa-sheet', fitCls:'qa-fit', fit:_qaFitAll,
+    label:function(n){ return n+' page'+(n!==1?'s':'')+' ready — one class per page (P6 Monthly Test analysis on its own page)'; },
+    css:_qaCss()
+  });
+}
+
+// Director: print every student's report card of the selected class + period (one A4 page each)
+function printAllReports(){
+  if(!isAdmin()) return;
+  var cid=(document.getElementById('rpCls')||{}).value||'';
+  var termRaw=(document.getElementById('rpTerm')||{}).value||'';
+  if(!cid){ alert('Select a class first, then tap Print All.'); return; }
+  if(!termRaw){ alert('Select the Term / Period first.'); return; }
+  var cls=DB.classes.find(function(c){ return c.id===cid; });
+  var students=yearStudents().filter(function(s){ return s.classId===cid; })
+    .sort(function(a,b){ return a.name.localeCompare(b.name); });
+  if(!students.length){ alert('No students found in '+(cls?cls.name:'this class')+'.'); return; }
+  var stSel=document.getElementById('rpSt');
+  var originalSt=stSel.value;
+  var cards=[];
+  students.forEach(function(st){
+    stSel.value=st.id;
+    genReport();
+    var o=document.getElementById('rpOut');
+    if(o && o.innerHTML.trim() && !o.querySelector('.empty')) cards.push(_resolveCssVars(o.innerHTML));
+  });
+  stSel.value=originalSt;
+  genReport();
+  if(!cards.length){ alert('Could not generate report cards. Make sure marks are entered for the students.'); return; }
+  // Same lock behaviour as single Print
+  var tid=parseTermPeriod(termRaw).termId;
+  if(cid && tid){
+    if(!DB.approvals) DB.approvals={};
+    var ex=DB.approvals[cid+'_'+tid]||{};
+    if(!ex.directorPrinted){
+      ex.directorPrinted=true; ex.directorPrintedAt=new Date().toISOString(); ex.approved=true;
+      DB.approvals[cid+'_'+tid]=ex;
+      addLog('🖨️ Director printed all report cards — '+(cls?cls.name:cid)+' / '+tid+' — LOCKED');
+      try{ dbSave(); }catch(e){}
+      try{ renderApprovalStatus(); renderApprovalDashboard(); }catch(e){}
+    }
+  }
+  var tSel=document.getElementById('rpTerm');
+  var tName=tSel&&tSel.options[tSel.selectedIndex]?tSel.options[tSel.selectedIndex].text.trim():'';
+  _printReportCards(cards,'Report Cards — '+(cls?cls.name:'')+(tName?' — '+tName:''));
+}
+
 function _doPrint(sourceId){
   var src = document.getElementById(sourceId);
   if(!src || !src.innerHTML.trim() || src.querySelector('.empty')){
@@ -16987,6 +17320,12 @@ function _doPrint(sourceId){
     }
   }
 
+  if(sourceId==='rpOut'){
+    var _stSel=document.getElementById(isAdmin()?'rpSt':'rpSt2');
+    var _nm=_stSel&&_stSel.options[_stSel.selectedIndex]?_stSel.options[_stSel.selectedIndex].text.trim():'';
+    _printReportCards([_resolveCssVars(src.innerHTML)], 'Report Card'+(_nm?' — '+_nm:''));
+    return;
+  }
   _openPrintWindow(_resolveCssVars(src.innerHTML), _isT3ETCard());
 }
 function printReport(){ _doPrint('rpOut'); }
@@ -17069,8 +17408,8 @@ function printQuizProcl(){
     +'.qph-week{font-size:34px!important;font-weight:900!important;line-height:1.1!important;margin:0 8px!important;}'
     +'.qph-date{display:block!important;font-size:19px!important;font-weight:800!important;margin:1px 0 0!important;line-height:1.2!important;}'
     +'.qph-year{display:block!important;font-size:11px!important;margin:0!important;line-height:1.2!important;}'
-    +'.qp-doneby{text-align:right!important;font-size:18px!important;font-weight:800!important;margin-top:8px!important;color:#000!important;}'
-    +'.qp-doneby span{border-bottom:2px solid #000!important;color:#000!important;min-width:200px!important;}'
+    +'.qp-doneby{text-align:center!important;font-size:18px!important;font-weight:800!important;margin-top:8px!important;color:#000!important;}'
+    +'.qp-doneby span{border-bottom:0!important;color:#000!important;}'
     +'</style>';
   var PAGE_W_PX = 754;  // Letter portrait, 8mm side margins (199.9mm) at 96dpi — fills the full width
   var PAGE_H_PX = 954;  // Letter 279.4mm minus 8mm top and 17mm bottom margin (>1.5cm) = 254mm usable
@@ -17203,6 +17542,7 @@ function openDirSettings(){
   setDsVal('ds_address', s.schoolAddress||'');
   setDsVal('ds_level',   s.schoolLevel||'PRIMARY');
   setDsVal('ds_directorName', s.directorName||'');
+  sigSet('dssig', s.directorSignature||'');
   var imgEl=document.getElementById('ds_logoImg');
   var ph=document.getElementById('ds_logoPlaceholder');
   var rmBtn=document.getElementById('ds_logoRemoveBtn');
@@ -17249,6 +17589,7 @@ function dsSaveAll(){
   DB.settings.schoolAddress = (document.getElementById('ds_address').value||'').trim();
   DB.settings.schoolLevel   = (document.getElementById('ds_level').value||'PRIMARY');
   DB.settings.directorName  = (document.getElementById('ds_directorName').value||'').trim();
+  DB.settings.directorSignature = (document.getElementById('dssig')||{}).value||'';
   dbSave(); applySchool(); syncTerms(); syncTermYearBanner();
   var dw=document.getElementById('dwelcome');
   if(dw&&ME) dw.textContent=(name?name+' — ':'')+L('welcomeBack')+', '+ME.name;
@@ -18918,6 +19259,14 @@ document.addEventListener('DOMContentLoaded', function(){
       <div style="display:flex;flex-direction:column;gap:.75rem;">
         <div class="fg"><label>School Name</label><input type="text" id="ds_name" placeholder="e.g. St. Mary's Academy"></div>
         <div class="fg"><label>Director's Full Name</label><input type="text" id="ds_directorName" placeholder="e.g. Jean Pierre Habimana"></div>
+        <div class="fg"><label>✍️ Signature <span style="color:var(--ink3);font-weight:400;">(shown under their name on reports &amp; proclamation lists)</span></label>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <input type="file" id="dssig-file" accept="image/*" onchange="sigPick(this,'dssig')" style="flex:1 1 180px;min-width:0;">
+            <img id="dssig-prev" alt="Signature preview" style="display:none;height:44px;max-width:150px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:6px;padding:2px;">
+            <button type="button" id="dssig-clear" onclick="sigClear('dssig')" style="display:none;padding:5px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);cursor:pointer;font-size:.8rem;">Remove</button>
+          </div>
+          <input type="hidden" id="dssig">
+        </div>
         <div class="fg"><label>Motto / Tagline</label><input type="text" id="ds_motto" placeholder="e.g. Excellence in Education"></div>
         <div class="fg"><label>Academic Year</label><input type="text" id="ds_acadYear" placeholder="e.g. 2025-2026"></div>
         <div class="fg"><label>School Code / Reference</label><input type="text" id="ds_code" placeholder="e.g. SCH-001"></div>
