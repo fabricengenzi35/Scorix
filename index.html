@@ -2888,6 +2888,12 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 </div></div>
 
 <!-- Edit Teacher -->
+<div class="mbg" id="mrp"><div class="modal" style="max-width:560px;">
+  <div class="mhead"><div class="mtitle">👨‍👩‍👧 Registered Parents</div><button class="mx" onclick="cm('mrp')" aria-label="Close dialog">✕</button></div>
+  <div id="mrp-summary" style="margin-bottom:.8rem;font-size:.86rem;color:var(--ink2);"></div>
+  <input type="text" id="mrp-search" placeholder="Search by email, child or class…" oninput="renderRegParentsList()" style="width:100%;margin-bottom:.8rem;">
+  <div id="mrp-list"></div>
+</div></div>
 <div class="mbg" id="met"><div class="modal">
   <div class="mhead"><div class="mtitle">✏️ Edit Teacher</div><button class="mx" onclick="cm('met')" aria-label="Close dialog">✕</button></div>
   <input type="hidden" id="metid">
@@ -6884,6 +6890,86 @@ function classSparkData(classId){
   });
 }
 
+// ── Director: registered parents (count + list) ──
+// Teachers see parents only for the class they are class teacher of. Director: all.
+function _parentScopeIds(){
+  if(isAdmin()) return null;
+  var ids={};
+  if(ME&&ME.classTeacher) ids[ME.classTeacher]=1;   // class teacher: only their own class
+  return ids;
+}
+function _parentChildren(p){
+  var scope=_parentScopeIds();
+  var out=[];
+  (p.studentCodes||[]).forEach(function(code){
+    var st=(DB.students||[]).find(function(x){return (x.sid||'').toUpperCase()===String(code).toUpperCase();});
+    if(scope && (!st || !scope[st.classId])) return;   // teachers only see children in their own classes
+    var cls=st?(DB.classes||[]).find(function(c){return c.id===st.classId;}):null;
+    out.push({name:st?st.name:String(code),cls:cls?cls.name:'',found:!!st});
+  });
+  return out;
+}
+function _regParents(){
+  var scope=_parentScopeIds();
+  return (DB.parents||[]).filter(function(p){
+    if(p.schoolId && CURRENT_SCHOOL_ID && p.schoolId!==CURRENT_SCHOOL_ID) return false;
+    return scope ? _parentChildren(p).length>0 : true;
+  });
+}
+function regParentsCardHtml(){
+  var n=_regParents().length;
+  return '<div class="card" style="margin-bottom:.9rem;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
+    +'<div style="font-size:2rem;">👨‍👩‍👧</div>'
+    +'<div style="flex:1;min-width:140px;"><div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);">'+(isAdmin()?'Registered Parents':'Parents Registered in Your Class')+'</div>'
+    +'<div style="font-size:1.9rem;font-weight:800;color:var(--green);line-height:1.1;">'+n+'</div></div>'
+    +'<button class="btn gold" onclick="openRegParents()">View list</button>'
+    +'</div>';
+}
+function deleteRegParent(id){
+  if(!isAdmin()){ alert('Only the director/admin can delete registered parents.'); return; }
+  var par=(DB.parents||[]).find(function(x){return x.id===id;});
+  if(!par){ alert('Parent not found.'); return; }
+  var kids=_parentChildren(par).map(function(k){return k.name;}).join(', ');
+  if(!confirm('Delete parent account '+par.email+'?'+(kids?'\n\nLinked child(ren): '+kids:'')+'\n\nThis parent will lose access and must register again.')) return;
+  DB.parents=DB.parents.filter(function(x){return x.id!==id;});
+  addLog('🗑️ Director deleted parent account: '+par.email);
+  dbSave();
+  renderRegParentsList();
+  var qa=document.getElementById('dash-quickactions');
+  if(qa&&typeof renderDash==='function') renderDash();
+  if(typeof renderStudents==='function'){ try{renderStudents();}catch(e){} }
+}
+function openRegParents(){
+  var mt=document.querySelector('#mrp .mtitle'); if(mt) mt.textContent=isAdmin()?'👨‍👩‍👧 Registered Parents':'👨‍👩‍👧 Parents in Your Class';
+  var s=document.getElementById('mrp-search'); if(s) s.value='';
+  renderRegParentsList();
+  om('mrp');
+}
+function renderRegParentsList(){
+  var all=_regParents();
+  var q=((document.getElementById('mrp-search')||{}).value||'').trim().toLowerCase();
+  var linked=0; all.forEach(function(p){linked+=_parentChildren(p).length;});
+  var sum=document.getElementById('mrp-summary');
+  if(sum) sum.innerHTML='<strong style="color:var(--ink);">'+all.length+'</strong> parent account'+(all.length===1?'':'s')+' registered · <strong style="color:var(--ink);">'+linked+'</strong> child link'+(linked===1?'':'s');
+  var rows=all.map(function(p){return {p:p,kids:_parentChildren(p)};}).filter(function(r){
+    if(!q) return true;
+    var hay=(r.p.email||'')+' '+r.kids.map(function(k){return k.name+' '+k.cls;}).join(' ');
+    return hay.toLowerCase().indexOf(q)>=0;
+  }).sort(function(a,b){return String(b.p.createdAt||'').localeCompare(String(a.p.createdAt||''));});
+  var out=document.getElementById('mrp-list'); if(!out) return;
+  if(!rows.length){ out.innerHTML='<div class="empty"><div class="ei">👨‍👩‍👧</div><p>'+(all.length?'No parent matches your search.':'No parent has registered yet.')+'</p></div>'; return; }
+  out.innerHTML=rows.map(function(r,i){
+    var d=r.p.createdAt?new Date(r.p.createdAt):null;
+    var ds=(d&&!isNaN(d))?d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'';
+    return '<div style="padding:.7rem .9rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:.5rem;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;"><div style="display:flex;align-items:flex-start;gap:8px;font-weight:700;font-size:.88rem;word-break:break-all;">'
+      +(isAdmin()?'<button type="button" onclick="deleteRegParent(\''+esc(r.p.id)+'\')" title="Delete this parent account" aria-label="Delete parent" style="flex:none;border:1px solid rgba(224,82,82,.4);background:rgba(224,82,82,.1);color:var(--red);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:.9rem;line-height:1.3;">🗑️</button>':'')
+      +'<span>'+(i+1)+'. '+esc(r.p.email||'(no email)')+'</span></div>'
+      +(ds?'<div style="font-size:.72rem;color:var(--ink3);white-space:nowrap;">Registered '+esc(ds)+'</div>':'')+'</div>'
+      +'<div style="margin-top:4px;font-size:.8rem;color:var(--ink2);">'+r.kids.map(function(k){return '🎓 '+esc(k.name)+(k.cls?' <span style="color:var(--ink3);">('+esc(k.cls)+')</span>':'');}).join('<br>')+'</div>'
+      +'</div>';
+  }).join('');
+}
 function renderDash(){
 
   var schoolName=DB.settings&&DB.settings.schoolName?DB.settings.schoolName:'';
@@ -6928,7 +7014,8 @@ function renderDash(){
   var qa = document.getElementById('dash-quickactions');
   if(qa){
     if(isAdmin()){
-      qa.innerHTML = '<div class="card" style="margin-bottom:.9rem;">'
+      qa.innerHTML = regParentsCardHtml()
+        +'<div class="card" style="margin-bottom:.9rem;">'
         +'<div class="ctitle" style="margin-bottom:.8rem;">⚡ Quick Actions</div>'
         +'<div style="display:flex;flex-wrap:wrap;gap:10px;">'
         +'<button class="btn gold" onclick="dashQuickAdd(\'student\')">👨‍🎓 Add Student</button>'
@@ -6938,6 +7025,8 @@ function renderDash(){
         +'<button class="btn ghost" onclick="dashQuickAdd(\'term\')">📅 Add Term</button>'
         +'</div>'
         +'</div>';
+    } else if(ME && ME.role==='teacher' && ME.classTeacher){
+      qa.innerHTML = regParentsCardHtml();
     } else {
       qa.innerHTML='';
     }
