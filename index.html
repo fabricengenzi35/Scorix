@@ -2888,6 +2888,19 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 </div></div>
 
 <!-- Edit Teacher -->
+<div class="mbg" id="mqm"><div class="modal">
+  <div class="mhead"><div class="mtitle">↔️ Move Quiz Marks</div><button class="mx" onclick="cm('mqm')" aria-label="Close dialog">✕</button></div>
+  <div id="mqm-from" style="margin-bottom:.9rem;padding:9px 12px;background:var(--s2);border-radius:7px;font-size:.86rem;color:var(--ink2);"></div>
+  <div class="g2" style="margin-bottom:.8rem;">
+    <div class="fg"><label>To Term</label><select id="mqm-term" onchange="mqmFillWeeks()"></select></div>
+    <div class="fg"><label>To Week</label><select id="mqm-week"></select></div>
+  </div>
+  <div class="fg" style="margin-bottom:.8rem;"><label>Action</label>
+    <select id="mqm-action"><option value="move">Move (remove from the old week)</option><option value="copy">Copy (keep in both weeks)</option></select>
+  </div>
+  <div id="mqm-info" style="font-size:.78rem;color:var(--ink3);margin-bottom:.9rem;">Every subject mark of this class is moved together. Marks already in the chosen week are asked about before being replaced.</div>
+  <button class="btn gold" onclick="mqmRun()">↔️ Move Marks</button>
+</div></div>
 <div class="mbg" id="mrp"><div class="modal" style="max-width:560px;">
   <div class="mhead"><div class="mtitle">👨‍👩‍👧 Registered Parents</div><button class="mx" onclick="cm('mrp')" aria-label="Close dialog">✕</button></div>
   <div id="mrp-summary" style="margin-bottom:.8rem;font-size:.86rem;color:var(--ink2);"></div>
@@ -15348,6 +15361,7 @@ function loadQuizTable(){
       : '<div style="margin-top:.9rem;display:flex;gap:8px;flex-wrap:wrap;">'
           +'<button class="btn green" onclick="saveQuizMarks()">💾 Save Quiz Marks</button>'
           +'<button class="btn gold" onclick="viewQuizProclamation()">🏆 View Proclamation</button>'
+          +'<button class="btn ghost" onclick="openMoveQuizMarks()">↔️ Move Marks to Another Week</button>'
         +'</div>'
         +'<div id="qzSaveFlash" style="margin-top:.5rem;"></div>');
 }
@@ -15393,6 +15407,80 @@ function viewQuizProclamation(){
   },100);
 }
 
+// ── Move quiz marks from one term/week to another (fix marks typed in the wrong week) ──
+var _mqm = {cid:'',week:''};
+function openMoveQuizMarks(){
+  var yr=getActiveQuizYear();
+  if(!yr){ alert('No academic year selected.'); return; }
+  if(yr.locked){ alert('🔒 This year is closed. Quiz marks cannot be moved.'); return; }
+  var cid=(document.getElementById('qzCls')||{}).value, week=(document.getElementById('qzWeek')||{}).value;
+  if(!cid||!week){ alert('First select the class and the week that has the wrong marks.'); return; }
+  try{ saveQuizMarks(); }catch(e){}            // keep anything typed but not yet saved
+  _mqm={cid:cid,week:week};
+  var cls=DB.classes.find(function(c){return c.id===cid;})||{};
+  var w=(yr.weeks||[]).find(function(x){return x.id===week;})||{};
+  document.getElementById('mqm-from').innerHTML='Moving marks of <strong style="color:var(--ink);">'+esc(cls.name||'')+'</strong> from <strong style="color:var(--ink);">'+esc(_weekTerm(w))+' · '+esc(w.label||'')+'</strong> to:';
+  var weeks=_wkSorted(yr), terms=[];
+  weeks.forEach(function(x){ var t=_weekTerm(x); if(terms.indexOf(t)<0) terms.push(t); });
+  var tEl=document.getElementById('mqm-term');
+  tEl.innerHTML=terms.map(function(t){return '<option value="'+esc(t)+'"'+(t===_weekTerm(w)?' selected':'')+'>'+esc(t)+'</option>';}).join('');
+  mqmFillWeeks();
+  om('mqm');
+}
+function mqmFillWeeks(){
+  var yr=getActiveQuizYear(); if(!yr) return;
+  var term=document.getElementById('mqm-term').value;
+  var list=_wkSorted(yr).filter(function(x){return _weekTerm(x)===term && !(x.id===_mqm.week);});
+  var cls=DB.classes.find(function(c){return c.id===_mqm.cid;});
+  document.getElementById('mqm-week').innerHTML=list.length
+    ? list.map(function(x){return '<option value="'+x.id+'">'+esc(quizWeekName(cls,yr,x))+(isMonthlyTest(cls,yr,x.id)?' (/100)':'')+'</option>';}).join('')
+    : '<option value="">— No other week in this term —</option>';
+}
+function mqmRun(){
+  var yr=getActiveQuizYear();
+  if(!yr||yr.locked){ alert('🔒 This year is closed.'); return; }
+  var src=_mqm.week, cid=_mqm.cid, dst=document.getElementById('mqm-week').value;
+  var act=document.getElementById('mqm-action').value;
+  if(!dst){ alert('Choose the week to move the marks to.'); return; }
+  if(dst===src){ alert('Choose a different week.'); return; }
+  var cls=DB.classes.find(function(c){return c.id===cid;});
+  var srcSfx='_'+(CURRENT_QUIZ_YEAR_ID||'noyr')+'_'+src, dstSfx='_'+(CURRENT_QUIZ_YEAR_ID||'noyr')+'_'+dst;
+  var students=yearStudents().filter(function(s){return s.classId===cid;});
+  var pairs=[], conflicts=0;
+  students.forEach(function(st){
+    var pre='qz_'+st.id+'_';
+    Object.keys(DB.marks).forEach(function(k){
+      if(k.indexOf(pre)!==0) return;
+      if(k.length<=pre.length+srcSfx.length || k.slice(-srcSfx.length)!==srcSfx) return;
+      var v=DB.marks[k]; if(v===''||v===undefined||v===null) return;
+      var nk=k.slice(0,k.length-srcSfx.length)+dstSfx;
+      var ex=DB.marks[nk]; if(ex!==undefined && ex!=='' && ex!==null) conflicts++;
+      pairs.push([k,nk,v]);
+    });
+  });
+  if(!pairs.length){ alert('There are no marks in the selected week to move.'); return; }
+  var srcMX=quizMaxFor(cls,yr,src), dstMX=quizMaxFor(cls,yr,dst);
+  var msg=(act==='move'?'Move ':'Copy ')+pairs.length+' marks from the old week to the new week?';
+  if(conflicts) msg+='\n\n⚠️ '+conflicts+' mark(s) already in the new week will be REPLACED.';
+  if(srcMX!==dstMX) msg+='\n\n⚠️ The old week is out of '+srcMX+' but the new week is out of '+dstMX+'. Marks are moved as typed (anything above '+dstMX+' is capped).';
+  if(!confirm(msg)) return;
+  pairs.forEach(function(pr){
+    var n=parseFloat(pr[2]);
+    DB.marks[pr[1]]=isNaN(n)?String(pr[2]):String(Math.max(0,Math.min(n,dstMX)));
+    if(act==='move') DB.marks[pr[0]]='';
+  });
+  var dw=(yr.weeks||[]).find(function(x){return x.id===dst;})||{}, sw=(yr.weeks||[]).find(function(x){return x.id===src;})||{};
+  addLog((act==='move'?'Moved ':'Copied ')+pairs.length+' quiz marks — '+(cls?cls.name:'?')+' / '+yr.label+' / '+_weekTerm(sw)+' '+sw.label+' → '+_weekTerm(dw)+' '+dw.label);
+  _clearPendingKeys();
+  dbSave();
+  cm('mqm');
+  // show the destination week so the teacher can check the result
+  _qTermSel.qz=_weekTerm(dw);
+  _fillQuizSelects('qz',yr);
+  var wEl=document.getElementById('qzWeek'); if(wEl) wEl.value=dst;
+  try{ loadQuizTable(); }catch(e){}
+  alert('✅ '+pairs.length+' marks '+(act==='move'?'moved':'copied')+' to '+_weekTerm(dw)+' · '+dw.label+'.');
+}
 function saveQuizMarks(){
   var yr = getActiveQuizYear();
   if(yr&&yr.locked){alert('🔒 This year is closed. Quiz marks cannot be edited.');return;}
