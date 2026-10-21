@@ -1595,20 +1595,20 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     </div>
 
     <!-- LOGIN TAB -->
-    <div id="parent-login-tab">
+    <form id="parent-login-tab" method="post" action="#" autocomplete="on" onsubmit="doParentLogin();return false;">
       <div class="lerr" id="parent-lerr" style="display:none;">❌ Invalid email or password.</div>
       <div class="lf"><label>School</label>
         <select id="p-school-login" style="width:100%;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;"></select>
       </div>
-      <div class="lf" style="margin-top:.6rem;"><label>Email Address</label><input type="email" id="p-email-login" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="lf" style="margin-top:.6rem;"><label>Email Address</label><input type="email" id="p-email-login" name="email" placeholder="your@email.com" autocomplete="username" inputmode="email" autocapitalize="none"></div>
       <div class="lf" style="margin-top:.7rem;"><label>Password</label>
-        <div class="pw-wrap"><input type="password" id="p-pass-login" placeholder="Your password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-login',this)">👁</button></div>
+        <div class="pw-wrap"><input type="password" id="p-pass-login" name="password" placeholder="Your password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-login',this)">👁</button></div>
       </div>
-      <button class="lbtn" onclick="doParentLogin()" style="margin-top:1rem;">Sign In →</button>
+      <button class="lbtn" type="submit" style="margin-top:1rem;">Sign In →</button>
       <div style="text-align:center;margin-top:.7rem;">
         <a href="javascript:void(0)" onclick="openParentForgotPw()" style="font-size:.78rem;color:var(--blue);text-decoration:none;">Forgot password?</a>
       </div>
-    </div>
+    </form>
 
     <!-- FORGOT PASSWORD TAB -->
     <div id="parent-forgot-tab" style="display:none;">
@@ -1638,15 +1638,15 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     </div>
 
     <!-- SIGNUP TAB -->
-    <div id="parent-signup-tab" style="display:none;">
+    <form id="parent-signup-tab" method="post" action="#" autocomplete="on" style="display:none;" onsubmit="doParentSignup();return false;">
       <div style="padding:8px 12px;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;font-size:.76rem;color:var(--green);margin-bottom:.9rem;line-height:1.6;">
         📋 To register, you need your child's <strong>Student Academic Code</strong> found on their report card.
       </div>
       <div class="lerr" id="parent-serr" style="display:none;">❌ Error</div>
       <div id="parent-sok" style="display:none;padding:8px 12px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:8px;font-size:.82rem;color:var(--green);margin-bottom:.7rem;"></div>
-      <div class="lf"><label>Email Address</label><input type="email" id="p-email-signup" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="lf"><label>Email Address</label><input type="email" id="p-email-signup" name="email" placeholder="your@email.com" autocomplete="username" inputmode="email" autocapitalize="none"></div>
       <div class="lf" style="margin-top:.6rem;"><label>Password</label>
-        <div class="pw-wrap"><input type="password" id="p-pass-signup" placeholder="Create a password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-signup',this)">👁</button></div>
+        <div class="pw-wrap"><input type="password" id="p-pass-signup" name="new-password" placeholder="Create a password" autocomplete="new-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-signup',this)">👁</button></div>
       </div>
       <div class="lf" style="margin-top:.6rem;"><label>Student Academic Code <span style="color:var(--ink3);font-weight:400;">(from report card)</span></label>
         <input type="text" id="p-code-signup" placeholder="e.g. ST001" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
@@ -1655,8 +1655,8 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         <label>School</label>
         <select id="p-school-signup" style="width:100%;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;"></select>
       </div>
-      <button class="lbtn" onclick="doParentSignup()" style="margin-top:1rem;background:var(--green);color:#0a3d2a;">Register →</button>
-    </div>
+      <button class="lbtn" type="submit" style="margin-top:1rem;background:var(--green);color:#0a3d2a;">Register →</button>
+    </form>
 
     <!-- REGISTRATION COMPLETE TAB -->
     <div id="parent-done-tab" style="display:none;text-align:center;padding:.4rem 0 .2rem;">
@@ -5610,6 +5610,11 @@ async function doParentLogin(){
 
     PARENT_USER = foundParent;
     CURRENT_SCHOOL_ID = foundSchoolId;
+    try{
+      if(window.PasswordCredential && navigator.credentials && navigator.credentials.store){
+        navigator.credentials.store(new PasswordCredential({id:email,password:pass,name:email}));
+      }
+    }catch(_c){}
     // Record sign-in time (director sees it in Registered Parents)
     try{
       var _nowIso=new Date().toISOString();
@@ -6267,14 +6272,7 @@ document.getElementById('loginBtn').addEventListener('click', doLogin);
 document.getElementById('luser').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
 document.getElementById('lpass').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
 // Parent login — Enter key support
-document.addEventListener('keydown', function(e){
-  if(e.key !== 'Enter') return;
-  var pw = document.getElementById('parentWrap');
-  if(pw && pw.style.display === 'flex'){
-    var loginTab = document.getElementById('parent-login-tab');
-    if(loginTab && loginTab.style.display !== 'none') doParentLogin();
-  }
-});
+// (Enter is handled by the <form> submit on the parent sign-in form)
 document.getElementById('logoutBtn').addEventListener('click', doLogout);
 document.getElementById('resetBtn').addEventListener('click', function(){
   if(confirm('Clear all data and reset to defaults? This cannot be undone.')){
