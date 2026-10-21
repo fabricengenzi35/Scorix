@@ -1993,7 +1993,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <div class="page" id="p-classes">
         <div class="ph"><div><div class="phtitle">Classes</div><div class="phsub">Manage class groups</div></div>
         <div class="phact admin-only"><button class="btn gold" onclick="om('mc')">+ Add Class</button></div></div>
-        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Class Name</th><th>Students</th><th id="clsacth" class="admin-only">Action</th></tr></thead><tbody id="tbc"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Class Name</th><th>Students</th><th>Max / Pass</th><th id="clsacth" class="admin-only">Action</th></tr></thead><tbody id="tbc"></tbody></table></div></div>
       </div>
 
       <!-- TERMS -->
@@ -2975,6 +2975,14 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <option value="SECONDARY">🎓 Secondary</option>
     </select>
   </div>
+  <div style="margin-bottom:.9rem;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--s2);">
+    <div style="font-weight:700;font-size:.82rem;margin-bottom:.25rem;">🎯 Marking rules for this class</div>
+    <div style="font-size:.72rem;color:var(--ink3);margin-bottom:.6rem;">Applies to every numeric subject in this class. Leave a box empty to use each subject's own value.</div>
+    <div class="g2">
+      <div class="fg"><label>Max Mark</label><input type="number" id="mec-max" min="1" placeholder="e.g. 50"></div>
+      <div class="fg"><label>Pass Mark (%)</label><input type="number" id="mec-pass" min="0" max="100" placeholder="e.g. 50"></div>
+    </div>
+  </div>
   <button class="btn gold" onclick="saveEditClass()">Save Changes</button>
 </div></div>
 
@@ -3133,6 +3141,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
     <div class="fg" id="mes-maxmark"><label>Max Mark</label><input type="number" id="mesmax" value="100" min="1" placeholder="e.g. 100"></div>
     <div class="fg" id="mes-pass"><label>Promotion Mark</label><input type="number" id="mesp" value="50" min="0" placeholder="e.g. 50"></div>
   </div>
+  <div id="mes-classrules" style="margin-bottom:.9rem;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--s2);"></div>
   <div id="mes-grades" style="margin-bottom:.9rem;">
     <div class="ctitle" style="margin-bottom:.6rem;">Grade Thresholds (% of max mark)</div>
     <div class="g4">
@@ -5601,6 +5610,16 @@ async function doParentLogin(){
 
     PARENT_USER = foundParent;
     CURRENT_SCHOOL_ID = foundSchoolId;
+    // Record sign-in time (director sees it in Registered Parents)
+    try{
+      var _nowIso=new Date().toISOString();
+      if(!Array.isArray(foundParent.logins)) foundParent.logins=[];
+      foundParent.logins.push(_nowIso);
+      if(foundParent.logins.length>50) foundParent.logins=foundParent.logins.slice(-50);
+      foundParent.lastLogin=_nowIso;
+      foundParent.loginCount=(foundParent.loginCount||0)+1;
+      dbSave();
+    }catch(_e){}
     auditLog('login','parent '+email);
     document.getElementById('parentWrap').style.display='none';
     enterParentPortal();
@@ -6035,12 +6054,13 @@ function renderParentPortal(){
               var v=DB.marks[k];
               if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
             });
-            return {id:st.id, total:cnt>0?tot:null};
+            return {id:st.id, total:cnt>0?tot:null, pct:cnt>0?(tot/(cnt*MX))*100:null};
           }).filter(function(x){return x.total!==null;});
-          classScores.sort(function(a,b){return b.total-a.total;});
+          classScores.sort(function(a,b){return b.pct-a.pct;});
           var myRank = null;
+          var _pRanks = _tieRanks(classScores,function(x){return x.pct;});
           for(var ri=0;ri<classScores.length;ri++){
-            if(classScores[ri].id===student.id){myRank=ri+1;break;}
+            if(classScores[ri].id===student.id){myRank=_pRanks[ri];break;}
           }
           var totalInClass = classScores.length;
 
@@ -6535,6 +6555,44 @@ function levelSettings(){
   return ls;
 }
 
+// ── Per-class marking rules (c.rule = {max, pass%}) ──
+// effSub(): returns a copy of the subject with that class's max mark / pass mark applied.
+// No rule set on the class → the subject is returned untouched (old behaviour).
+function classRule(classId){
+  var c=DB.classes.find(function(x){return x.id===classId;});
+  return (c&&c.rule)?c.rule:null;
+}
+function effSub(sub,classId){
+  if(!sub||sub.scale==='letter'||!classId) return sub;
+  var r=classRule(classId);
+  var sr=(sub.classRules&&sub.classRules[classId])||null;
+  if(!r&&!sr) return sub;
+  var baseScale=parseFloat(sub.scale)||100;
+  var o=Object.assign({},sub);
+  var scale=baseScale;
+  if(r&&r.max!=null&&r.max>0) scale=r.max;
+  if(sr&&sr.max!=null&&sr.max>0) scale=sr.max;
+  o.scale=scale;
+  if(sr&&sr.pass!=null) o.pass=sr.pass;                       // raw mark, out of this class's max
+  else if(r&&r.pass!=null) o.pass=r.pass/100*scale;          // class-wide %
+  else if(scale!==baseScale) o.pass=(parseFloat(sub.pass)||50)/baseScale*scale;
+  return o;
+}
+function classPromoMark(classId,fallback){
+  var r=classRule(classId);
+  return (r&&r.pass!=null)?r.pass:fallback;
+}
+function classRuleLabel(c){
+  var r=c&&c.rule;
+  if(!r) return '<span style="color:var(--ink3);">Default</span>';
+  return (r.max!=null?'Max '+r.max:'Max default')+' · '+(r.pass!=null?'Pass '+r.pass+'%':'Pass default');
+}
+function _mkSub(subid){
+  var sub=DB.subjects.find(function(s){return s.id===subid;});
+  var cEl=document.getElementById('mkCls');
+  return effSub(sub,cEl?cEl.value:null);
+}
+
 // Level-scoped data helpers
 function levelClasses(){
   return DB.classes.filter(function(c){ return !c.level || c.level===CURRENT_LEVEL; });
@@ -6973,13 +7031,20 @@ function renderRegParentsList(){
   if(!rows.length){ out.innerHTML='<div class="empty"><div class="ei">👨‍👩‍👧</div><p>'+(all.length?'No parent matches your search.':'No parent has registered yet.')+'</p></div>'; return; }
   out.innerHTML=rows.map(function(r,i){
     var d=r.p.createdAt?new Date(r.p.createdAt):null;
-    var ds=(d&&!isNaN(d))?d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'';
+    var ds=(d&&!isNaN(d))?d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}):'';
+    var _fmt=function(iso){var x=new Date(iso);return isNaN(x)?'':x.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})+' · '+x.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});};
+    var _lg=(r.p.logins||[]).slice().reverse();
+    var loginHtml=_lg.length
+      ?'<details style="margin-top:6px;font-size:.76rem;color:var(--ink2);"><summary style="cursor:pointer;">🔑 Signed in '+(r.p.loginCount||_lg.length)+' time'+((r.p.loginCount||_lg.length)===1?'':'s')+' · last '+esc(_fmt(_lg[0]))+'</summary>'
+        +'<div style="margin-top:4px;max-height:140px;overflow:auto;line-height:1.7;">'+_lg.map(function(t,k){return (k+1)+'. '+esc(_fmt(t));}).join('<br>')+'</div></details>'
+      :'<div style="margin-top:6px;font-size:.74rem;color:var(--ink3);">🔑 No sign-in recorded yet</div>';
     return '<div style="padding:.7rem .9rem;background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:.5rem;">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;"><div style="display:flex;align-items:flex-start;gap:8px;font-weight:700;font-size:.88rem;word-break:break-all;">'
       +(isAdmin()?'<button type="button" onclick="deleteRegParent(\''+esc(r.p.id)+'\')" title="Delete this parent account" aria-label="Delete parent" style="flex:none;border:1px solid rgba(224,82,82,.4);background:rgba(224,82,82,.1);color:var(--red);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:.9rem;line-height:1.3;">🗑️</button>':'')
       +'<span>'+(i+1)+'. '+esc(r.p.email||'(no email)')+'</span></div>'
       +(ds?'<div style="font-size:.72rem;color:var(--ink3);white-space:nowrap;">Registered '+esc(ds)+'</div>':'')+'</div>'
       +'<div style="margin-top:4px;font-size:.8rem;color:var(--ink2);">'+r.kids.map(function(k){return '🎓 '+esc(k.name)+(k.cls?' <span style="color:var(--ink3);">('+esc(k.cls)+')</span>':'');}).join('<br>')+'</div>'
+      +loginHtml
       +'</div>';
   }).join('');
 }
@@ -8685,13 +8750,14 @@ function delTeacher(id){
 function renderClasses(){
   var tb=document.getElementById('tbc');
   var list=isAdmin()?levelClasses():myClasses();
-  if(!list.length){tb.innerHTML='<tr><td colspan="4"><div class="empty"><p>No classes in '+CURRENT_LEVEL+' yet. Click <strong>+ Add Class</strong>.</p></div></td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="5"><div class="empty"><p>No classes in '+CURRENT_LEVEL+' yet. Click <strong>+ Add Class</strong>.</p></div></td></tr>';return;}
   var lvlColors={'NURSERY':'var(--green)','PRIMARY':'var(--blue)','SECONDARY':'var(--gold)'};
   tb.innerHTML=list.map(function(c,i){
     var cnt=DB.students.filter(function(s){return s.classId===c.id;}).length;
     var lvl=c.level||CURRENT_LEVEL; var lvlColor=lvlColors[lvl]||'var(--blue)';
     var lvlBadge='<span style="font-size:.63rem;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(74,143,255,.1);color:'+lvlColor+';border:1px solid '+lvlColor+'44;">'+lvl+'</span>';
     return'<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong> '+lvlBadge+'</td><td>'+cnt+'</td>'
+      +'<td style="font-size:.76rem;color:var(--ink2);">'+classRuleLabel(c)+'</td>'
       +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" onclick="openEditClass(\''+c.id+'\')">✏️ Edit</button><button class="btn sm red" onclick="delClass(\''+c.id+'\')">Delete</button></div></td></tr>';
   }).join('');
 }
@@ -8701,6 +8767,9 @@ function openEditClass(id){
   document.getElementById('mecname').textContent=c.name;
   document.getElementById('mecn').value=c.name;
   var mecLvl=document.getElementById('mec-level'); if(mecLvl) mecLvl.value=c.level||CURRENT_LEVEL;
+  var _r=c.rule||{};
+  var _mx=document.getElementById('mec-max'); if(_mx) _mx.value=(_r.max!=null?_r.max:'');
+  var _ps=document.getElementById('mec-pass'); if(_ps) _ps.value=(_r.pass!=null?_r.pass:'');
   document.getElementById('mec').classList.add('open');
 }
 function saveEditClass(){
@@ -8709,7 +8778,15 @@ function saveEditClass(){
   var name=document.getElementById('mecn').value.trim();
   if(!name){alert('Enter a class name.');return;}
   c.name=name; c.level=(document.getElementById('mec-level')||{}).value||c.level||CURRENT_LEVEL;
-  addLog('Updated class: '+name);dbSave();renderClasses();syncAll();syncClassSelects();cm('mec');
+  var _mxv=parseFloat((document.getElementById('mec-max')||{}).value);
+  var _psv=parseFloat((document.getElementById('mec-pass')||{}).value);
+  if(!isNaN(_mxv)&&_mxv<=0){alert('Max mark must be greater than 0.');return;}
+  if(!isNaN(_psv)&&(_psv<0||_psv>100)){alert('Pass mark must be between 0 and 100 (%).');return;}
+  var _rule={};
+  if(!isNaN(_mxv)) _rule.max=_mxv;
+  if(!isNaN(_psv)) _rule.pass=_psv;
+  if(_rule.max!=null||_rule.pass!=null) c.rule=_rule; else delete c.rule;
+  addLog('Updated class: '+name+(c.rule?' [max '+(c.rule.max!=null?c.rule.max:'default')+', pass '+(c.rule.pass!=null?c.rule.pass+'%':'default')+']':''));dbSave();renderClasses();syncAll();syncClassSelects();cm('mec');
 }
 function addClass(){
   var name=document.getElementById('mcn').value.trim();
@@ -8931,8 +9008,39 @@ function openEditSub(id){
   document.getElementById('mes-grD').value=s.grD||40;
   var mesLvlEl=document.getElementById('mes-level'); if(mesLvlEl) mesLvlEl.value=s.level||CURRENT_LEVEL;
   var mesUniEl=document.getElementById('mes-universal'); if(mesUniEl) mesUniEl.checked=!!s.universal;
+  renderSubClassRules(s);
   toggleSubForm('mes');
   document.getElementById('mes').classList.add('open');
+}
+function renderSubClassRules(s){
+  var box=document.getElementById('mes-classrules'); if(!box) return;
+  if(s.scale==='letter'){box.style.display='none';return;}
+  box.style.display='';
+  var lvl=s.level||CURRENT_LEVEL;
+  var cls=DB.classes.filter(function(c){return !c.level||c.level===lvl;});
+  var cr=s.classRules||{};
+  var h='<div style="font-weight:700;font-size:.82rem;margin-bottom:.2rem;">🎯 Per-class Max &amp; Promotion Mark</div>'
+    +'<div style="font-size:.72rem;color:var(--ink3);margin-bottom:.6rem;">Leave empty to use the values above. Promotion Mark is out of that class\'s max.</div>';
+  if(!cls.length) h+='<div style="font-size:.76rem;color:var(--ink3);">No classes in this level yet.</div>';
+  cls.forEach(function(c){
+    var r=cr[c.id]||{};
+    h+='<div style="display:grid;grid-template-columns:1fr 84px 84px;gap:6px;align-items:center;margin-bottom:6px;">'
+      +'<div style="font-size:.84rem;font-weight:600;">'+esc(c.name)+'</div>'
+      +'<input type="number" min="1" class="scr-max" data-cid="'+c.id+'" placeholder="Max" value="'+(r.max!=null?r.max:'')+'">'
+      +'<input type="number" min="0" class="scr-pass" data-cid="'+c.id+'" placeholder="Pass" value="'+(r.pass!=null?r.pass:'')+'">'
+      +'</div>';
+  });
+  box.innerHTML=h;
+}
+function _collectSubClassRules(s){
+  var rules={};
+  document.querySelectorAll('#mes-classrules .scr-max').forEach(function(el){
+    var m=parseFloat(el.value); if(!isNaN(m)&&m>0){(rules[el.dataset.cid]=rules[el.dataset.cid]||{}).max=m;}
+  });
+  document.querySelectorAll('#mes-classrules .scr-pass').forEach(function(el){
+    var v=parseFloat(el.value); if(!isNaN(v)&&v>=0){(rules[el.dataset.cid]=rules[el.dataset.cid]||{}).pass=v;}
+  });
+  if(Object.keys(rules).length) s.classRules=rules; else delete s.classRules;
 }
 function saveEditSubject(){
   var id=document.getElementById('mesid').value;
@@ -8948,6 +9056,7 @@ function saveEditSubject(){
   s.grD=isL?50:parseFloat(document.getElementById('mes-grD').value)||50;
   s.level=(document.getElementById('mes-level')||{}).value||s.level||CURRENT_LEVEL;
   var mesUniEl=document.getElementById('mes-universal'); s.universal=mesUniEl?mesUniEl.checked:!!s.universal;
+  if(isL) delete s.classRules; else _collectSubClassRules(s);
   addLog('Updated subject: '+s.name+(s.universal?' [Universal]':'')); dbSave();renderSubjects();cm('mes');
 }
 function delSubject(id){
@@ -9771,7 +9880,7 @@ function loadMkTable(){
   }
 
   var students = yearStudents().filter(function(s){ return s.classId===cid; }).sort(function(a,b){return a.name.localeCompare(b.name);});
-  var sub      = DB.subjects.find(function(s){ return s.id===sid; });
+  var sub      = effSub(DB.subjects.find(function(s){ return s.id===sid; }), cid);
   // Use actualTid to find the correct term for this component
   var term = DB.terms.find(function(t){ return t.id===actualTid; }) || DB.terms.find(function(t){ return t.id===tid; });
   if(!students.length){ wrap.innerHTML='<div class="empty"><p>No students in this class.</p></div>'; return; }
@@ -10119,7 +10228,7 @@ function _singleCounter(stid, maxMark){
 
 // ── Live grade preview for dual-mode inputs ──
 function prevDualMark(stid, subid, maxMark){
-  var sub = DB.subjects.find(function(s){return s.id===subid;});
+  var sub = _mkSub(subid);
   var euEl = document.getElementById('mkeu_'+stid);
   var etEl = document.getElementById('mket_'+stid);
   var euN = euEl&&euEl.value!==''&&!isNaN(parseFloat(euEl.value)) ? parseFloat(euEl.value) : null;
@@ -10181,7 +10290,7 @@ function saveDualMarks(which){
   if(!compToSave||!tidToSave){ alert('Period not found.'); return; }
 
   var subObj3 = DB.subjects.find(function(x){return x.id===sid;});
-  var subMax3 = parseFloat((subObj3&&subObj3.scale)||100);
+  var subMax3 = parseFloat((subObj3?effSub(subObj3,cid).scale:100)||100);
   var students3 = yearStudents().filter(function(s){return s.classId===cid;}).sort(function(a,b){return a.name.localeCompare(b.name);});
   var cnt3 = 0;
   students3.forEach(function(s){
@@ -10213,7 +10322,7 @@ function saveDualMarks(which){
 function prevMarkComp(stid, subid, tid){
   var term  = DB.terms.find(function(t){ return t.id===tid; });
   var comps = term&&term.components&&term.components.length ? term.components : null;
-  var sub   = DB.subjects.find(function(s){ return s.id===subid; });
+  var sub   = _mkSub(subid);
   if(!comps||!sub) return;
   var subScale = parseFloat(sub.scale||100);
   // Each component max = sub.scale
@@ -10247,7 +10356,7 @@ function prevMarkComp(stid, subid, tid){
 }
 
 function prevMarkSingle(stid, subid, maxMark){
-  var sub=DB.subjects.find(function(s){return s.id===subid;});
+  var sub=_mkSub(subid);
   var el=document.getElementById('mk_'+stid);
   if(!el)return;
   var v=parseFloat(el.value);
@@ -10309,7 +10418,7 @@ function saveAllMarks(){
   var selectedComp = allComps ? allComps.find(function(c){ return c.id===compId; }) : null;
   var subObj = DB.subjects.find(function(x){return x.id===sid;});
   // sub.scale = max per component (EU out of 90, ET out of 90 if scale=90)
-  var subCompMax = parseFloat((subObj&&subObj.scale)||100);
+  var subCompMax = parseFloat((subObj?effSub(subObj,cid).scale:100)||100);
 
   // Block saving if current term year is locked
   var activeTY = getActiveTermYear();
@@ -11795,6 +11904,7 @@ function genReport(){
   // Always read from per-level settings first, fall back to global
   var _ls_rc=levelSettings();
   var promotionMark=_ls_rc.promotionMark!=null?_ls_rc.promotionMark:(DB.settings.promotionMark!=null?DB.settings.promotionMark:(_ls_rc.grD||g.grD||50));
+  promotionMark=classPromoMark(st.classId,promotionMark); // per-class pass mark
 
   var allActive=activeTerms();
   var selectedTp=parseTermPeriod(selectedTermRaw);
@@ -11945,7 +12055,7 @@ function genReport(){
   var activeSubjects=levelSubjects().filter(function(s){
     var cfg=rpSubjConfig[s.id];
     return !cfg||cfg.include!==false;
-  });
+  }).map(function(s){ return effSub(s,st.classId); }); // per-class max/pass
 
   // ── Colours ──
   // GC2 used in subject rows below
@@ -12017,7 +12127,7 @@ function genReport(){
   // ── For a term, get EU mark, ET mark, total, max ──
   // sub.scale = max per component. EU out of sub.scale, ET out of sub.scale, total = sub.scale × 2
   function getTermMarks(sid_,subId,term,onlyEU){
-    var sub=DB.subjects.find(function(s){return s.id===subId;});
+    var sub=effSub(DB.subjects.find(function(s){return s.id===subId;}),st.classId);
     var subScale=parseFloat((sub&&sub.scale)||100);
     var eu=getTermEU(term);
     var et=onlyEU?null:getTermET(term);
@@ -12658,6 +12768,7 @@ function renderAnalytics(){
 
   var students=cid?yearStudents().filter(function(s){return s.classId===cid;}):yearStudents();
   var subjects=sid?DB.subjects.filter(function(s){return s.id===sid;}):DB.subjects.filter(function(s){return s.scale!=='letter';});
+  if(cid) subjects=subjects.map(function(s){return effSub(s,cid);}); // per-class max/pass
 
   if(!students.length||!subjects.length||!tid){
     out.innerHTML='<div class="empty"><div class="ei">📊</div><p>Select filters above to see analytics.</p></div>';
@@ -12773,6 +12884,8 @@ function genProcl(){
   var list=yearStudents().filter(function(s){return s.classId===cid;});
   var g=DB.settings;
   var promotionMark=DB.settings.promotionMark!=null?DB.settings.promotionMark:g.grD||50;
+  promotionMark=classPromoMark(cid,promotionMark); // per-class pass mark
+  var _procSubs=DB.subjects.map(function(s){return effSub(s,cid);}); // per-class max/pass
 
   // ── Build sibling termIds for mark lookup (handles old EU/ET stored separately) ──
   var termObj=DB.terms.find(function(t){return t.id===term;});
@@ -12809,7 +12922,7 @@ function genProcl(){
   // ── Rank students by overall average ──
   var ranked=list.map(function(s){
     var tot=0,cnt=0;
-    DB.subjects.forEach(function(sub){
+    _procSubs.forEach(function(sub){
       var v=getMk(s.id,sub.id);
       if(v!==undefined&&v!==''&&sub.scale!=='letter'){tot+=(parseFloat(v)/parseFloat(sub.scale))*100;cnt++;}
     });
@@ -12817,7 +12930,7 @@ function genProcl(){
   }).filter(function(s){return s.avg!==null;}).sort(function(a,b){return b.avg-a.avg;});
 
   // ── Subject averages across all students ──
-  var subjectAverages=DB.subjects.map(function(sub){
+  var subjectAverages=_procSubs.map(function(sub){
     var vals=list.map(function(s){
       var v=getMk(s.id,sub.id);
       return v!==undefined&&v!==''&&sub.scale!=='letter'?(parseFloat(v)/parseFloat(sub.scale))*100:null;
@@ -12856,7 +12969,7 @@ function genProcl(){
     +'<thead><tr style="background:var(--s3);color:var(--ink);">'
     +'<th style="padding:7px 8px;text-align:center;border:1px solid var(--bd);white-space:nowrap;">Rank</th>'
     +'<th style="padding:7px 8px;text-align:left;border:1px solid var(--bd);min-width:120px;">Student</th>'
-    +DB.subjects.filter(function(s){return s.scale!=='letter';}).map(function(sub){
+    +_procSubs.filter(function(s){return s.scale!=='letter';}).map(function(sub){
       return'<th style="padding:7px 5px;text-align:center;border:1px solid var(--bd);white-space:nowrap;font-size:.65rem;">'+sub.name+'<div style="font-weight:400;opacity:.8;">/'+sub.scale+'</div></th>';
     }).join('')
     +'<th style="padding:7px 8px;text-align:center;border:1px solid var(--bd);background:var(--s2);white-space:nowrap;color:var(--gold);">Total %</th>'
@@ -12865,7 +12978,7 @@ function genProcl(){
     +'</tr></thead><tbody>'
     +(function(){
       // Rebuild ranked list with per-subject marks
-      var numericSubs = DB.subjects.filter(function(s){return s.scale!=='letter';});
+      var numericSubs = _procSubs.filter(function(s){return s.scale!=='letter';});
       var rankedFull = list.map(function(s){
         var tot=0,cnt=0;
         numericSubs.forEach(function(sub){
@@ -12880,8 +12993,10 @@ function genProcl(){
         return b.avg-a.avg;
       });
       var GCt={'A':'#2e7d32','B':'#1565c0','C':'#e65100','D':'#6a1b9a','F':'#c62828'};
+      var _prRanks=_tieRanks(rankedFull,function(x){return x.avg;});
       return rankedFull.map(function(s,i){
-        var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+        var _pos=_prRanks[i];
+        var medal=s.avg===null?'—':_pos===1?'🥇':_pos===2?'🥈':_pos===3?'🥉':_pos+'.';
         var grade=s.avg!==null?(s.avg>=g.grA?'A':s.avg>=g.grB?'B':s.avg>=g.grC?'C':s.avg>=g.grD?'D':'F'):'—';
         var promoted=s.avg!==null&&s.avg>=promotionMark;
         var rowBg=i%2===0?'background:var(--s2);':'background:var(--s1);';
@@ -15721,6 +15836,18 @@ function qpSetWeekStart(v){
   try{ dbSave(); }catch(e){}
   genQuizProcl();
 }
+// Tie-aware ranking: students with equal scores share the same position (1,1,3 ...).
+// list must already be sorted best-first; keyFn returns the score used to compare.
+function _tieRanks(list, keyFn){
+  var out=[], prevKey=null, prevRank=0;
+  list.forEach(function(item,i){
+    var k=keyFn(item);
+    var key=(k===null||k===undefined)?null:Math.round(k*1e6)/1e6;
+    var r=(i>0 && key===prevKey)?prevRank:i+1;
+    out.push(r); prevKey=key; prevRank=r;
+  });
+  return out;
+}
 function genQuizProcl(){
   var cid=document.getElementById('qpCls').value;
   var week=document.getElementById('qpWeek').value;
@@ -15797,10 +15924,12 @@ function genQuizProcl(){
     +'<th style="padding:8px 8px;text-align:center;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--bd);">Level</th>'
     +'</tr></thead><tbody>';
 
+  var _qRanks=_tieRanks(ranked,function(x){return x.quizPct;});
   ranked.forEach(function(s,i){
     var r=getRangeLabel(s.quizPct);
-    var circClass=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
-    var rankDisplay=i===0?'1':i===1?'2':i===2?'3':''+(i+1);
+    var _pos=_qRanks[i];
+    var circClass=_pos===1?'r1':_pos===2?'r2':_pos===3?'r3':'rn';
+    var rankDisplay=''+_pos;
     var rowBg=i%2===0?'background:var(--s2);':'';
     html+='<tr style="'+rowBg+'">'
       +'<td style="padding:6px 8px;text-align:center;"><div class="rcirc '+circClass+'" style="margin:0 auto;">'+rankDisplay+'</div></td>'
@@ -15822,7 +15951,7 @@ function genQuizProcl(){
     +'<div class="qp-doneby" style="text-align:center;margin-top:10px;font-size:1.2rem;font-weight:800;color:var(--ink);">'
     +'<div style="display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:2px 8px;">'
     +'<span>Done by:</span>'
-    +'<span>'+esc(_ctName)+'</span>'
+    +'<span>'+(_ctName?'Tr. '+esc(_ctName.replace(/^\s*(Tr|Mr|Mrs|Ms|Miss)\.?\s+/i,'')):'Tr. ........................')+'</span>'
     +((_ctU&&_ctU.signature)?'<img src="'+_ctU.signature+'" alt="" style="height:88px;max-width:260px;object-fit:contain;mix-blend-mode:multiply;border:0;background:none;">':'')
     +'</div></div>'
     +'</div>';
@@ -15864,16 +15993,17 @@ function genQuizBreakdown(students, subjects, cid, week, maxTotal, ranges){
       var v=DB.marks[quizMarkKey(st.id,sub.id,week)];
       if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){tot+=parseFloat(v);cnt++;}
     });
-    return {id:st.id, total:cnt>0?tot:null};
+    return {id:st.id, total:cnt>0?tot:null, pct:cnt>0?(tot/(cnt*MX))*100:null};
   });
   ranked.sort(function(a,b){
-    if(a.total===null&&b.total===null) return 0;
-    if(a.total===null) return 1;
-    if(b.total===null) return -1;
-    return b.total-a.total;
+    if(a.pct===null&&b.pct===null) return 0;
+    if(a.pct===null) return 1;
+    if(b.pct===null) return -1;
+    return b.pct-a.pct;
   });
   var rankMap={};
-  ranked.forEach(function(r,i){ rankMap[r.id]=(r.total!==null?i+1:null); });
+  var _bdRanks=_tieRanks(ranked,function(x){return x.pct;});
+  ranked.forEach(function(r,i){ rankMap[r.id]=(r.pct!==null?_bdRanks[i]:null); });
 
   var thead = '<tr>'
     +'<th style="text-align:center;">#</th>'
