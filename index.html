@@ -1418,6 +1418,13 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 /* ── Skeleton loader ── */
 .skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:skel 1.4s infinite;border-radius:6px;}
 @keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ═══ PARENT LANGUAGE CHOOSER ═══ */
+.par-lang-choice{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--s1);border:2px solid rgba(62,207,142,.35);border-radius:16px;padding:1.1rem 1rem;margin-bottom:.85rem;cursor:pointer;color:var(--ink);font-family:'Outfit',sans-serif;transition:all .18s;-webkit-tap-highlight-color:transparent;}
+.par-lang-choice:hover,.par-lang-choice:active{border-color:var(--green);transform:translateY(-2px);box-shadow:0 8px 24px rgba(62,207,142,.18);}
+.par-lang-choice .plc-flag{font-size:2.5rem;line-height:1;flex:none;}
+.par-lang-choice .plc-main{display:block;font-size:1.25rem;font-weight:700;line-height:1.35;}
+.par-lang-choice .plc-sub{display:block;font-size:.88rem;color:var(--green);font-weight:600;margin-top:5px;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -1576,99 +1583,135 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
   </div>
 </div>
 
+<!-- ══ PARENT LANGUAGE CHOOSER (shown right after tapping "Parent") ══ -->
+<div id="parentLangWrap" style="display:none;min-height:100vh;background:var(--bg);align-items:center;justify-content:center;padding:1rem;box-sizing:border-box;">
+  <div style="position:absolute;top:1rem;right:1rem;display:flex;gap:8px;align-items:center;">
+    <button onclick="backToLanding()" style="background:none;border:1px solid var(--bd);border-radius:20px;padding:4px 12px;font-size:.78rem;color:var(--ink3);cursor:pointer;font-family:'Outfit',sans-serif;">← Back</button>
+    <button class="theme-toggle" onclick="toggleTheme()" style="font-size:.75rem;"><span class="tt-icon">🌙</span></button>
+  </div>
+  <div style="width:100%;max-width:460px;">
+    <div style="text-align:center;margin-bottom:1.1rem;">
+      <div style="font-family:'Playfair Display',serif;font-size:1.8rem;">SC<span style="color:var(--gold)">ORIX</span></div>
+      <div style="font-size:2.2rem;margin:.4rem 0 .2rem;">👪</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--ink);line-height:1.5;">Hitamo ururimi ushaka gukoresha</div>
+      <div style="font-size:.82rem;color:var(--ink3);line-height:1.5;">Choose your language &nbsp;·&nbsp; Choisissez votre langue</div>
+    </div>
+    <button type="button" class="par-lang-choice" onclick="chooseParentLang('rw')">
+      <span class="plc-flag">🇷🇼</span>
+      <span><span class="plc-main">Ndi umubyeyi, nshaka gukomeza mu Kinyarwanda.</span><span class="plc-sub">Kanda hano →</span></span>
+    </button>
+    <button type="button" class="par-lang-choice" onclick="chooseParentLang('en')">
+      <span class="plc-flag">🇬🇧</span>
+      <span><span class="plc-main">I am a parent, I want to continue in English.</span><span class="plc-sub">Tap here →</span></span>
+    </button>
+    <button type="button" class="par-lang-choice" onclick="chooseParentLang('fr')">
+      <span class="plc-flag">🇫🇷</span>
+      <span><span class="plc-main">Je suis parent, je veux continuer en français.</span><span class="plc-sub">Appuyez ici →</span></span>
+    </button>
+  </div>
+</div>
+
 <!-- ══ PARENT LOGIN / SIGNUP WRAP ══ -->
 <div id="parentWrap" style="display:none;min-height:100vh;background:var(--bg);align-items:center;justify-content:center;">
   <div style="position:absolute;top:1rem;right:1rem;display:flex;gap:8px;align-items:center;">
-    <button onclick="backToLanding()" style="background:none;border:1px solid var(--bd);border-radius:20px;padding:4px 12px;font-size:.78rem;color:var(--ink3);cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--ink3)'">← Back</button>
+    <button onclick="parentBackToLang()" style="background:none;border:1px solid var(--bd);border-radius:20px;padding:4px 12px;font-size:.78rem;color:var(--ink3);cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--bd)';this.style.color='var(--ink3)'" data-pa="back">← Back</button>
     <button class="theme-toggle" onclick="toggleTheme()" style="font-size:.75rem;"><span class="tt-icon">🌙</span></button>
   </div>
   <div class="lbox" style="max-width:420px;">
     <div class="llogo" style="font-family:'Playfair Display',serif;font-size:1.8rem;text-align:center;" id="parentLogoText">SC<span style="color:var(--gold)">ORIX</span></div>
     <div style="text-align:center;margin:.3rem 0 .8rem;">
-      <span style="display:inline-flex;align-items:center;gap:5px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:20px;padding:3px 12px;font-size:.75rem;font-weight:700;color:var(--green);">👪 Parent Portal</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:20px;padding:3px 12px;font-size:.75rem;font-weight:700;color:var(--green);"><span data-pa="badge">👪 Parent Portal</span></span>
+    </div>
+    <div style="display:flex;justify-content:center;margin:0 auto .9rem;border:1px solid var(--bd);border-radius:8px;overflow:hidden;width:max-content;max-width:100%;">
+      <button type="button" id="pa-lang-rw" onclick="setParAuthLang('rw')" style="border:none;background:none;color:var(--ink2);padding:7px 12px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇷🇼 Kinyarwanda</button>
+      <button type="button" id="pa-lang-en" onclick="setParAuthLang('en')" style="border:none;background:none;color:var(--ink2);padding:7px 12px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇬🇧 English</button>
+      <button type="button" id="pa-lang-fr" onclick="setParAuthLang('fr')" style="border:none;background:none;color:var(--ink2);padding:7px 12px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇫🇷 Français</button>
     </div>
 
     <!-- TAB SWITCHER -->
     <div style="display:flex;gap:4px;background:var(--s2);border-radius:9px;padding:3px;margin-bottom:1rem;">
-      <button id="ptab-login" onclick="switchParentTab('login')" style="flex:1;padding:7px;border-radius:7px;border:none;background:var(--s1);color:var(--ink);font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;">Sign In</button>
-      <button id="ptab-signup" onclick="switchParentTab('signup')" style="flex:1;padding:7px;border-radius:7px;border:none;background:none;color:var(--ink3);font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .15s;">Register</button>
+      <button id="ptab-login" onclick="switchParentTab('login')" style="flex:1;padding:7px;border-radius:7px;border:none;background:var(--s1);color:var(--ink);font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;" data-pa="tab_login">Sign In</button>
+      <button id="ptab-signup" onclick="switchParentTab('signup')" style="flex:1;padding:7px;border-radius:7px;border:none;background:none;color:var(--ink3);font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .15s;" data-pa="tab_signup">Register</button>
     </div>
 
     <!-- LOGIN TAB -->
     <form id="parent-login-tab" method="post" action="#" autocomplete="on" onsubmit="doParentLogin();return false;">
       <div class="lerr" id="parent-lerr" style="display:none;">❌ Invalid email or password.</div>
-      <div class="lf"><label>School</label>
+      <div class="lf"><label data-pa="school">School</label>
         <select id="p-school-login" style="width:100%;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;"></select>
       </div>
-      <div class="lf" style="margin-top:.6rem;"><label>Email Address</label><input type="email" id="p-email-login" name="email" placeholder="your@email.com" autocomplete="username" inputmode="email" autocapitalize="none"></div>
-      <div class="lf" style="margin-top:.7rem;"><label>Password</label>
-        <div class="pw-wrap"><input type="password" id="p-pass-login" name="password" placeholder="Your password" autocomplete="current-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-login',this)">👁</button></div>
+      <div class="lf" style="margin-top:.6rem;"><label data-pa="email">Email Address</label><input type="email" id="p-email-login" name="email" placeholder="your@email.com" autocomplete="username" inputmode="email" autocapitalize="none"></div>
+      <div class="lf" style="margin-top:.7rem;"><label data-pa="password">Password</label>
+        <div class="pw-wrap"><input type="password" id="p-pass-login" name="password" placeholder="Your password" data-pa-ph="ph_pass" autocomplete="current-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-login',this)">👁</button></div>
       </div>
-      <button class="lbtn" type="submit" style="margin-top:1rem;">Sign In →</button>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:.8rem;font-size:.82rem;color:var(--ink2);cursor:pointer;">
+        <input type="checkbox" id="p-remember" checked style="width:auto;margin:0;"> <span data-pa="remember">Save my password on this phone (auto-fill)</span>
+      </label>
+      <button class="lbtn" type="submit" style="margin-top:.8rem;" data-pa="btn_login">Sign In →</button>
       <div style="text-align:center;margin-top:.7rem;">
-        <a href="javascript:void(0)" onclick="openParentForgotPw()" style="font-size:.78rem;color:var(--blue);text-decoration:none;">Forgot password?</a>
+        <a href="javascript:void(0)" onclick="openParentForgotPw()" style="font-size:.78rem;color:var(--blue);text-decoration:none;" data-pa="forgot">Forgot password?</a>
       </div>
     </form>
 
     <!-- FORGOT PASSWORD TAB -->
     <div id="parent-forgot-tab" style="display:none;">
       <div style="padding:8px 12px;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.2);border-radius:8px;font-size:.76rem;color:var(--blue);margin-bottom:.9rem;line-height:1.6;">
-        🔑 Enter your email and your child's <strong>Student Academic Code</strong> to verify it's you, then set a new password.
+        <span data-pa="forgot_info">🔑 Enter your email and your child's <strong>Student Academic Code</strong> to verify it's you, then set a new password.</span>
       </div>
       <div class="lerr" id="parent-frerr" style="display:none;">❌ Error</div>
       <div id="parent-frok" style="display:none;padding:8px 12px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:8px;font-size:.82rem;color:var(--green);margin-bottom:.7rem;"></div>
       <div class="lf">
-        <label>School</label>
+        <label data-pa="school">School</label>
         <select id="p-school-forgot" style="width:100%;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;"></select>
       </div>
-      <div class="lf" style="margin-top:.6rem;"><label>Email Address</label><input type="email" id="p-email-forgot" placeholder="your@email.com" autocomplete="email"></div>
-      <div class="lf" style="margin-top:.6rem;"><label>Student Academic Code <span style="color:var(--ink3);font-weight:400;">(from report card)</span></label>
-        <input type="text" id="p-code-forgot" placeholder="e.g. ST001" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      <div class="lf" style="margin-top:.6rem;"><label data-pa="email">Email Address</label><input type="email" id="p-email-forgot" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="lf" style="margin-top:.6rem;"><label data-pa="code_label">Student Academic Code <span style="color:var(--ink3);font-weight:400;">(from report card)</span></label>
+        <input type="text" id="p-code-forgot" placeholder="e.g. ST001" data-pa-ph="ph_code" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
       </div>
-      <div class="lf" style="margin-top:.6rem;"><label>New Password</label>
-        <div class="pw-wrap"><input type="password" id="p-pass-forgot" placeholder="New password (min 6 characters)" autocomplete="new-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-forgot',this)">👁</button></div>
+      <div class="lf" style="margin-top:.6rem;"><label data-pa="new_pass">New Password</label>
+        <div class="pw-wrap"><input type="password" id="p-pass-forgot" placeholder="New password (min 6 characters)" data-pa-ph="ph_new6" autocomplete="new-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-forgot',this)">👁</button></div>
       </div>
-      <div class="lf" style="margin-top:.6rem;"><label>Confirm New Password</label>
-        <div class="pw-wrap"><input type="password" id="p-pass-forgot2" placeholder="Type the new password again" autocomplete="new-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-forgot2',this)">👁</button></div>
+      <div class="lf" style="margin-top:.6rem;"><label data-pa="confirm_pass">Confirm New Password</label>
+        <div class="pw-wrap"><input type="password" id="p-pass-forgot2" placeholder="Type the new password again" data-pa-ph="ph_again" autocomplete="new-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-forgot2',this)">👁</button></div>
       </div>
-      <button class="lbtn" onclick="doParentForgotPw()" style="margin-top:1rem;">Reset Password →</button>
+      <button class="lbtn" onclick="doParentForgotPw()" style="margin-top:1rem;" data-pa="btn_reset">Reset Password →</button>
       <div style="text-align:center;margin-top:.7rem;">
-        <a href="javascript:void(0)" onclick="closeParentForgotPw()" style="font-size:.78rem;color:var(--ink3);text-decoration:none;">← Back to Sign In</a>
+        <a href="javascript:void(0)" onclick="closeParentForgotPw()" style="font-size:.78rem;color:var(--ink3);text-decoration:none;" data-pa="back_login">← Back to Sign In</a>
       </div>
     </div>
 
     <!-- SIGNUP TAB -->
     <form id="parent-signup-tab" method="post" action="#" autocomplete="on" style="display:none;" onsubmit="doParentSignup();return false;">
       <div style="padding:8px 12px;background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;font-size:.76rem;color:var(--green);margin-bottom:.9rem;line-height:1.6;">
-        📋 To register, you need your child's <strong>Student Academic Code</strong> found on their report card.
+        <span data-pa="signup_info">📋 To register, you need your child's <strong>Student Academic Code</strong> found on their report card.</span>
       </div>
       <div class="lerr" id="parent-serr" style="display:none;">❌ Error</div>
       <div id="parent-sok" style="display:none;padding:8px 12px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.25);border-radius:8px;font-size:.82rem;color:var(--green);margin-bottom:.7rem;"></div>
-      <div class="lf"><label>Email Address</label><input type="email" id="p-email-signup" name="email" placeholder="your@email.com" autocomplete="username" inputmode="email" autocapitalize="none"></div>
-      <div class="lf" style="margin-top:.6rem;"><label>Password</label>
-        <div class="pw-wrap"><input type="password" id="p-pass-signup" name="new-password" placeholder="Create a password" autocomplete="new-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-signup',this)">👁</button></div>
+      <div class="lf"><label data-pa="email">Email Address</label><input type="email" id="p-email-signup" name="email" placeholder="your@email.com" autocomplete="username" inputmode="email" autocapitalize="none"></div>
+      <div class="lf" style="margin-top:.6rem;"><label data-pa="password">Password</label>
+        <div class="pw-wrap"><input type="password" id="p-pass-signup" name="new-password" placeholder="Create a password" data-pa-ph="ph_newpass" autocomplete="new-password"><button class="pw-eye" type="button" onclick="togglePwField('p-pass-signup',this)">👁</button></div>
       </div>
-      <div class="lf" style="margin-top:.6rem;"><label>Student Academic Code <span style="color:var(--ink3);font-weight:400;">(from report card)</span></label>
-        <input type="text" id="p-code-signup" placeholder="e.g. ST001" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      <div class="lf" style="margin-top:.6rem;"><label data-pa="code_label">Student Academic Code <span style="color:var(--ink3);font-weight:400;">(from report card)</span></label>
+        <input type="text" id="p-code-signup" placeholder="e.g. ST001" data-pa-ph="ph_code" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
       </div>
       <div class="lf" style="margin-top:.6rem;">
-        <label>School</label>
+        <label data-pa="school">School</label>
         <select id="p-school-signup" style="width:100%;padding:8px 11px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--ink);font-size:.86rem;outline:none;"></select>
       </div>
-      <button class="lbtn" type="submit" style="margin-top:1rem;background:var(--green);color:#0a3d2a;">Register →</button>
+      <button class="lbtn" type="submit" style="margin-top:1rem;background:var(--green);color:#0a3d2a;" data-pa="btn_signup">Register →</button>
     </form>
 
     <!-- REGISTRATION COMPLETE TAB -->
     <div id="parent-done-tab" style="display:none;text-align:center;padding:.4rem 0 .2rem;">
       <div style="font-size:2.8rem;margin-bottom:.3rem;">🎉</div>
-      <div style="font-weight:700;font-size:1.1rem;color:var(--green);margin-bottom:.5rem;">Registration complete!</div>
+      <div style="font-weight:700;font-size:1.1rem;color:var(--green);margin-bottom:.5rem;" data-pa="done_title">Registration complete!</div>
       <div id="parent-done-msg" style="font-size:.85rem;color:var(--ink2);line-height:1.6;margin-bottom:.4rem;"></div>
-      <div style="padding:9px 12px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:8px;font-size:.85rem;font-weight:700;color:var(--green);margin:.8rem 0;">✅ You may now sign in.</div>
-      <button class="lbtn" type="button" onclick="parentGoToSignIn()" style="background:var(--green);color:#0a3d2a;">Sign In →</button>
+      <div style="padding:9px 12px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:8px;font-size:.85rem;font-weight:700;color:var(--green);margin:.8rem 0;" data-pa="done_ok">✅ You may now sign in.</div>
+      <button class="lbtn" type="button" onclick="parentGoToSignIn()" style="background:var(--green);color:#0a3d2a;" data-pa="btn_login">Sign In →</button>
     </div>
 
     <div style="margin-top:.9rem;padding:.6rem 1rem;background:rgba(74,143,255,.08);border:1px solid rgba(74,143,255,.18);border-radius:8px;text-align:center;">
-      <div style="font-size:.65rem;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">Having trouble? Contact support</div>
+      <div style="font-size:.65rem;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;" data-pa="help">Having trouble? Contact support</div>
       <a href="tel:+250792580714" style="font-size:1rem;font-weight:700;color:var(--blue);text-decoration:none;letter-spacing:.04em;">📞 0792 580 714</a>
     </div>
   </div>
@@ -1683,9 +1726,10 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
       <div id="par-sub-lbl" style="font-size:.62rem;color:var(--ink3);">Academic Results Portal</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <div id="par-lang-switch" title="Language / Ururimi" style="display:flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;">
+      <div id="par-lang-switch" title="Language / Ururimi / Langue" style="display:flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;">
         <button id="par-lang-en" onclick="setParLang('en')" style="border:none;background:none;color:var(--ink2);padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇬🇧 EN</button>
         <button id="par-lang-rw" onclick="setParLang('rw')" style="border:none;background:none;color:var(--ink2);padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇷🇼 RW</button>
+        <button id="par-lang-fr" onclick="setParLang('fr')" style="border:none;background:none;color:var(--ink2);padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;">🇫🇷 FR</button>
       </div>
       <button class="theme-toggle" onclick="toggleTheme()" style="font-size:.8rem;"><span class="tt-icon">🌙</span></button>
       <div style="display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:4px 10px 4px 4px;">
@@ -5273,23 +5317,71 @@ async function rebuildUserIndex(){
 // ═══════════════════════════════════════
 //  PORTAL ROUTING — Director / Teacher / Parent
 // ═══════════════════════════════════════
+// ═══ PARENT PORTAL — language chooser + trilingual sign-in/register (RW / EN / FR) ═══
+var PA_TXT = {"en": {"badge": "👪 Parent Portal", "back": "← Back", "tab_login": "Sign In", "tab_signup": "Register", "school": "School", "email": "Email Address", "password": "Password", "ph_pass": "Your password", "ph_newpass": "Create a password", "remember": "Save my password on this phone (auto-fill)", "btn_login": "Sign In →", "forgot": "Forgot password?", "forgot_info": "🔑 Enter your email and your child's <strong>Student Academic Code</strong> to verify it's you, then set a new password.", "code_label": "Student Academic Code <span style=\"color:var(--ink3);font-weight:400;\">(from report card)</span>", "ph_code": "e.g. ST001", "new_pass": "New Password", "ph_new6": "New password (min 6 characters)", "confirm_pass": "Confirm New Password", "ph_again": "Type the new password again", "btn_reset": "Reset Password →", "back_login": "← Back to Sign In", "signup_info": "📋 To register, you need your child's <strong>Student Academic Code</strong> found on their report card.", "btn_signup": "Register →", "done_title": "Registration complete!", "done_ok": "✅ You may now sign in.", "help": "Having trouble? Contact support", "no_schools": "No schools available", "e_enter_creds": "Enter your email and password.", "e_throttle": "Too many failed attempts. Try again in {n}s.", "e_bad_login": "Email or password is incorrect. Make sure you select the correct school.", "e_paused": "This school account is currently paused. Contact your administrator.", "e_fill_all": "Please fill in all fields.", "e_school": "Please select your school.", "e_email": "Enter a valid email address.", "e_pw6": "Password must be at least 6 characters.", "e_pw6_new": "New password must be at least 6 characters.", "e_confirm_pw": "Please confirm your new password.", "e_pw_mismatch": "The two passwords do not match. Please type the same password in both fields.", "b_verifying": "Verifying…", "b_checking": "Checking…", "b_saving": "Saving…", "b_signing": "Signing in…", "e_no_acct": "No parent account found with that email at this school.", "e_code_mismatch": "That student code does not match this account. Check the code on the report card.", "ok_reset": "Password reset! You can now sign in with your new password.", "e_wrong": "Something went wrong. Please try again.", "e_conn": "Something went wrong. Please check your connection and try again.", "e_code_nf": "Student code \"{code}\" not found in the selected school. Check the code on the report card.", "e_code_shared": "This academic code is used by more than one student. Please contact the school to correct it.", "e_already": "Student \"{name}\" is already registered on this email. Use Sign In.", "e_pw_existing": "This email is already registered. To add another student, enter the SAME password you use for this email, or use \"Forgot password\" on the Sign In tab.", "confirm_child": "👪 Is \"{name}\" really your child?\n\nClick OK to confirm and complete registration.", "e_cancelled": "Registration cancelled. Please double-check the student code with the school if this is not your child.", "taken": "Student \"{name}\" is already registered on another email ({email}). A student can be registered on one email only. That parent can remove the student from their account, or please contact the school.", "done_added": "Student \"{name}\" has been added to {email}.", "done_new": "Your account {email} is ready and student \"{name}\" is linked to it."}, "rw": {"badge": "👪 Urubuga rw'Ababyeyi", "back": "← Subira inyuma", "tab_login": "Injira", "tab_signup": "Iyandikishe", "school": "Ishuri", "email": "Aderesi ya imeri", "password": "Ijambobanga", "ph_pass": "Andika ijambobanga ryawe", "ph_newpass": "Hitamo ijambobanga", "remember": "Bika ijambobanga ryanjye kuri iyi telefoni (rihite ryuzura)", "btn_login": "Injira →", "forgot": "Wibagiwe ijambobanga?", "forgot_info": "🔑 Andika imeri yawe na <strong>kode y'umunyeshuri</strong> y'umwana wawe kugira ngo tugenzure ko ari wowe, hanyuma ushyireho ijambobanga rishya.", "code_label": "Kode y'umunyeshuri <span style=\"color:var(--ink3);font-weight:400;\">(iri ku ikarita y'amanota)</span>", "ph_code": "Urugero: ST001", "new_pass": "Ijambobanga rishya", "ph_new6": "Ijambobanga rishya (nibura inyuguti 6)", "confirm_pass": "Subiramo ijambobanga rishya", "ph_again": "Ongera wandike ijambobanga rishya", "btn_reset": "Hindura ijambobanga →", "back_login": "← Subira ku kwinjira", "signup_info": "📋 Kugira ngo wiyandikishe, ukeneye <strong>kode y'umunyeshuri</strong> y'umwana wawe iri ku ikarita ye y'amanota.", "btn_signup": "Iyandikishe →", "done_title": "Kwiyandikisha byagenze neza!", "done_ok": "✅ Ubu ushobora kwinjira.", "help": "Ufite ikibazo? Hamagara ubufasha", "no_schools": "Nta mashuri ahari", "e_enter_creds": "Andika imeri yawe n'ijambobanga.", "e_throttle": "Wagerageje inshuro nyinshi bidakunda. Ongera ugerageze nyuma y'amasegonda {n}.", "e_bad_login": "Imeri cyangwa ijambobanga si byo. Reba ko wahisemo ishuri ryawe neza.", "e_paused": "Konti y'iri shuri yahagaritswe ubu. Vugana n'ubuyobozi.", "e_fill_all": "Uzuza ahabugenewe hose.", "e_school": "Hitamo ishuri ryawe.", "e_email": "Andika imeri yemewe.", "e_pw6": "Ijambobanga rigomba kugira nibura inyuguti 6.", "e_pw6_new": "Ijambobanga rishya rigomba kugira nibura inyuguti 6.", "e_confirm_pw": "Subiramo ijambobanga rishya.", "e_pw_mismatch": "Amajambobanga yombi ntahura. Andika ijambobanga rimwe mu mwanya wombi.", "b_verifying": "Birimo kugenzura…", "b_checking": "Birimo gusuzuma…", "b_saving": "Birimo kubika…", "b_signing": "Birimo kwinjira…", "e_no_acct": "Nta konti y'umubyeyi iboneka kuri iyi imeri muri iri shuri.", "e_code_mismatch": "Iyo kode ntihura n'iyi konti. Reba kode iri ku ikarita y'amanota.", "ok_reset": "Ijambobanga ryahinduwe! Ubu ushobora kwinjira ukoresheje irishya.", "e_wrong": "Hari ikitagenze neza. Ongera ugerageze.", "e_conn": "Hari ikitagenze neza. Reba interineti yawe ukongere ugerageze.", "e_code_nf": "Kode \"{code}\" ntabonetse muri iri shuri wahisemo. Reba kode iri ku ikarita y'amanota.", "e_code_shared": "Iyi kode ikoreshwa n'abanyeshuri barenze umwe. Vugana n'ishuri rikosore.", "e_already": "Umunyeshuri \"{name}\" yamaze kwandikwa kuri iyi imeri. Koresha \"Injira\".", "e_pw_existing": "Iyi imeri yamaze kwiyandikisha. Kugira ngo wongere undi munyeshuri, andika ijambobanga RIMWE usanzwe ukoresha kuri iyi imeri, cyangwa ukoreshe \"Wibagiwe ijambobanga\" ku gice cyo kwinjira.", "confirm_child": "👪 Mbese \"{name}\" ni umwana wawe koko?\n\nKanda OK kugira ngo wemeze usoze kwiyandikisha.", "e_cancelled": "Kwiyandikisha kwahagaritswe. Niba atari umwana wawe, ongera ugenzure kode n'ishuri.", "taken": "Umunyeshuri \"{name}\" yamaze kwandikwa kuri indi imeri ({email}). Umunyeshuri yandikwa kuri imeri imwe gusa. Uwo mubyeyi ashobora kumukura kuri konti ye, cyangwa vugana n'ishuri.", "done_added": "Umunyeshuri \"{name}\" yongewe kuri {email}.", "done_new": "Konti yawe {email} yateguwe kandi umunyeshuri \"{name}\" yamaze kuyihuzwaho."}, "fr": {"badge": "👪 Portail des parents", "back": "← Retour", "tab_login": "Se connecter", "tab_signup": "S'inscrire", "school": "École", "email": "Adresse e-mail", "password": "Mot de passe", "ph_pass": "Votre mot de passe", "ph_newpass": "Créez un mot de passe", "remember": "Enregistrer mon mot de passe sur ce téléphone (remplissage automatique)", "btn_login": "Se connecter →", "forgot": "Mot de passe oublié ?", "forgot_info": "🔑 Saisissez votre e-mail et le <strong>code académique</strong> de votre enfant pour vérifier que c'est vous, puis choisissez un nouveau mot de passe.", "code_label": "Code académique de l'élève <span style=\"color:var(--ink3);font-weight:400;\">(sur le bulletin)</span>", "ph_code": "ex. ST001", "new_pass": "Nouveau mot de passe", "ph_new6": "Nouveau mot de passe (min. 6 caractères)", "confirm_pass": "Confirmez le nouveau mot de passe", "ph_again": "Saisissez à nouveau le nouveau mot de passe", "btn_reset": "Réinitialiser le mot de passe →", "back_login": "← Retour à la connexion", "signup_info": "📋 Pour vous inscrire, vous avez besoin du <strong>code académique</strong> de votre enfant, indiqué sur son bulletin.", "btn_signup": "S'inscrire →", "done_title": "Inscription terminée !", "done_ok": "✅ Vous pouvez maintenant vous connecter.", "help": "Un problème ? Contactez le support", "no_schools": "Aucune école disponible", "e_enter_creds": "Saisissez votre e-mail et votre mot de passe.", "e_throttle": "Trop de tentatives échouées. Réessayez dans {n} s.", "e_bad_login": "E-mail ou mot de passe incorrect. Vérifiez que vous avez choisi la bonne école.", "e_paused": "Le compte de cette école est actuellement suspendu. Contactez votre administrateur.", "e_fill_all": "Veuillez remplir tous les champs.", "e_school": "Veuillez choisir votre école.", "e_email": "Saisissez une adresse e-mail valide.", "e_pw6": "Le mot de passe doit contenir au moins 6 caractères.", "e_pw6_new": "Le nouveau mot de passe doit contenir au moins 6 caractères.", "e_confirm_pw": "Veuillez confirmer votre nouveau mot de passe.", "e_pw_mismatch": "Les deux mots de passe ne correspondent pas. Saisissez le même mot de passe dans les deux champs.", "b_verifying": "Vérification…", "b_checking": "Vérification…", "b_saving": "Enregistrement…", "b_signing": "Connexion…", "e_no_acct": "Aucun compte parent trouvé avec cet e-mail dans cette école.", "e_code_mismatch": "Ce code ne correspond pas à ce compte. Vérifiez le code sur le bulletin.", "ok_reset": "Mot de passe réinitialisé ! Vous pouvez maintenant vous connecter avec le nouveau.", "e_wrong": "Une erreur est survenue. Veuillez réessayer.", "e_conn": "Une erreur est survenue. Vérifiez votre connexion et réessayez.", "e_code_nf": "Le code « {code} » est introuvable dans l'école choisie. Vérifiez le code sur le bulletin.", "e_code_shared": "Ce code est utilisé par plusieurs élèves. Veuillez contacter l'école pour le corriger.", "e_already": "L'élève « {name} » est déjà inscrit avec cet e-mail. Utilisez « Se connecter ».", "e_pw_existing": "Cet e-mail est déjà inscrit. Pour ajouter un autre élève, saisissez le MÊME mot de passe que pour cet e-mail, ou utilisez « Mot de passe oublié » dans l'onglet Connexion.", "confirm_child": "👪 « {name} » est-il bien votre enfant ?\n\nCliquez sur OK pour confirmer et terminer l'inscription.", "e_cancelled": "Inscription annulée. Si ce n'est pas votre enfant, vérifiez le code auprès de l'école.", "taken": "L'élève « {name} » est déjà inscrit avec un autre e-mail ({email}). Un élève ne peut être inscrit que sur un seul e-mail. Ce parent peut retirer l'élève de son compte, ou contactez l'école.", "done_added": "L'élève « {name} » a été ajouté à {email}.", "done_new": "Votre compte {email} est prêt et l'élève « {name} » y est lié."}};
+function PA(key, v){
+  var d = PA_TXT[PAR_LANG] || PA_TXT.en;
+  var s = d[key]; if(s === undefined) s = PA_TXT.en[key]; if(s === undefined) s = key;
+  if(v){ for(var k in v){ if(Object.prototype.hasOwnProperty.call(v,k)) s = s.split('{'+k+'}').join(v[k]); } }
+  return s;
+}
+function _parLoc(){ return PAR_LANG==='fr' ? 'fr-FR' : 'en-GB'; }
+function _parIsFr(){ try{ return PAR_LANG==='fr' && typeof PARENT_USER!=='undefined' && !!PARENT_USER; }catch(e){ return false; } }
+function _qLocaleP(){ return _parIsFr() ? 'fr-FR' : _qLocale(); }
+function applyParentAuthLang(){
+  document.querySelectorAll('#parentWrap [data-pa]').forEach(function(el){ el.innerHTML = PA(el.getAttribute('data-pa')); });
+  document.querySelectorAll('#parentWrap [data-pa-ph]').forEach(function(el){ el.placeholder = PA(el.getAttribute('data-pa-ph')); });
+  ['rw','en','fr'].forEach(function(l){
+    var b = document.getElementById('pa-lang-'+l); if(!b) return;
+    var on = (l === PAR_LANG);
+    b.style.background = on ? 'var(--green)' : 'none'; b.style.color = on ? '#fff' : 'var(--ink2)';
+  });
+  if(!(SUPERDB.schools && SUPERDB.schools.length)){
+    ['p-school-signup','p-school-login','p-school-forgot'].forEach(function(id){
+      var s = document.getElementById(id); if(s) s.innerHTML = '<option value="">'+PA('no_schools')+'</option>';
+    });
+  }
+  ['parent-lerr','parent-serr','parent-frerr','parent-sok','parent-frok'].forEach(function(id){
+    var e = document.getElementById(id); if(e) e.style.display = 'none';
+  });
+  try{ document.documentElement.lang = PAR_LANG; }catch(e){}
+}
+function setParAuthLang(l){
+  PAR_LANG = (l==='rw'||l==='fr') ? l : 'en';
+  try{ localStorage.setItem('scorix_par_lang', PAR_LANG); }catch(e){}
+  applyParentAuthLang();
+  try{ applyParLang(); }catch(e){}
+}
+function chooseParentLang(l){
+  PAR_LANG = (l==='rw'||l==='fr') ? l : 'en';
+  try{ localStorage.setItem('scorix_par_lang', PAR_LANG); }catch(e){}
+  var lw = document.getElementById('parentLangWrap'); if(lw) lw.style.display = 'none';
+  openParentAuth();
+}
+function parentBackToLang(){
+  var pw = document.getElementById('parentWrap'); if(pw) pw.style.display = 'none';
+  var lw = document.getElementById('parentLangWrap'); if(lw) lw.style.display = 'flex';
+}
+function openParentAuth(){
+  document.getElementById('landingWrap').style.display = 'none';
+  var pw = document.getElementById('parentWrap');
+  pw.style.display = 'flex';
+  var schoolOptions = SUPERDB.schools.length
+    ? SUPERDB.schools.map(function(sc){ return '<option value="'+sc.id+'">'+esc(sc.name)+'</option>'; }).join('')
+    : '<option value="">'+PA('no_schools')+'</option>';
+  ['p-school-signup','p-school-login','p-school-forgot'].forEach(function(id){
+    var s = document.getElementById(id); if(s) s.innerHTML = schoolOptions;
+  });
+  switchParentTab('login');
+  applyParentAuthLang();
+}
+
 function showPortalLogin(portal){
   LOGIN_PORTAL = portal;
   if(portal === 'parent'){
+    // Step 1: parents first pick their language (big full sentences), then sign in / register
     document.getElementById('landingWrap').style.display = 'none';
-    var pw = document.getElementById('parentWrap');
-    pw.style.display = 'flex';
-    // Populate school selector for signup
-    var schoolOptions = SUPERDB.schools.length
-      ? SUPERDB.schools.map(function(sc){ return '<option value="'+sc.id+'">'+esc(sc.name)+'</option>'; }).join('')
-      : '<option value="">No schools available</option>';
-    var sel = document.getElementById('p-school-signup');
-    if(sel){ sel.innerHTML = schoolOptions; }
-    var selLogin = document.getElementById('p-school-login');
-    if(selLogin){ selLogin.innerHTML = schoolOptions; }
-    var selForgot = document.getElementById('p-school-forgot');
-    if(selForgot){ selForgot.innerHTML = schoolOptions; }
-    switchParentTab('login');
+    var _lw = document.getElementById('parentLangWrap'); if(_lw) _lw.style.display = 'flex';
     return;
   }
   // Director or Teacher — show the standard username/password login
@@ -5315,12 +5407,40 @@ function showLogin(){
 function backToLanding(){
   document.getElementById('loginWrap').style.display = 'none';
   var pw = document.getElementById('parentWrap'); if(pw) pw.style.display = 'none';
+  var _plw = document.getElementById('parentLangWrap'); if(_plw) _plw.style.display = 'none';
   var pp = document.getElementById('parentPortalWrap'); if(pp) pp.style.display = 'none';
   document.getElementById('landingWrap').style.display = 'block';
   stopSunriseAnimation();
   setTimeout(function(){ startSunriseAnimation('landing-typing'); }, 400);
 }
 
+// ── Remember parent login on this device (opt-in, stored only on this phone) ──
+var _PCRED_KEY='scorix_parent_cred';
+function prefillParentLogin(){
+  try{
+    var raw=localStorage.getItem(_PCRED_KEY); if(!raw) return;
+    var c=JSON.parse(raw);
+    var e=document.getElementById('p-email-login'), pw=document.getElementById('p-pass-login'),
+        sc=document.getElementById('p-school-login'), rm=document.getElementById('p-remember');
+    if(e&&c.e) e.value=c.e;
+    if(pw&&c.p) pw.value=decodeURIComponent(escape(atob(c.p)));
+    if(sc&&c.s) sc.value=c.s;
+    if(rm) rm.checked=true;
+  }catch(_e){}
+}
+function _storeParentCred(email,pass,schoolId){
+  try{ localStorage.setItem(_PCRED_KEY,JSON.stringify({e:email,p:btoa(unescape(encodeURIComponent(pass))),s:schoolId})); }catch(_e){}
+}
+function _saveParentCred(email,pass,schoolId){
+  try{
+    var rm=document.getElementById('p-remember');
+    if(rm&&rm.checked){
+      localStorage.setItem(_PCRED_KEY,JSON.stringify({e:email,p:btoa(unescape(encodeURIComponent(pass))),s:schoolId}));
+    } else {
+      localStorage.removeItem(_PCRED_KEY);
+    }
+  }catch(_e){}
+}
 function switchParentTab(tab){
   var loginTab  = document.getElementById('parent-login-tab');
   var signupTab = document.getElementById('parent-signup-tab');
@@ -5350,6 +5470,7 @@ function switchParentTab(tab){
     if(signupTab) signupTab.style.display = 'none';
     if(forgotTab) forgotTab.style.display = 'none';
   }
+  if(tab === 'login') prefillParentLogin();
   // Clear errors
   var le = document.getElementById('parent-lerr'); if(le) le.style.display='none';
   var se = document.getElementById('parent-serr'); if(se) se.style.display='none';
@@ -5385,22 +5506,22 @@ async function doParentForgotPw(){
   function fErr(msg){ errEl.textContent='❌ '+msg; errEl.style.display='flex'; okEl.style.display='none'; }
   function fOk(msg){  okEl.textContent='✅ '+msg;  okEl.style.display='block'; errEl.style.display='none'; }
 
-  if(!schoolId){ fErr('Please select your school.'); return; }
-  if(!email || !code || !newPass){ fErr('Please fill in all fields.'); return; }
-  if(newPass.length < 6){ fErr('New password must be at least 6 characters.'); return; }
-  if(!newPass2){ fErr('Please confirm your new password.'); return; }
-  if(newPass !== newPass2){ fErr('The two passwords do not match. Please type the same password in both fields.'); return; }
+  if(!schoolId){ fErr(PA('e_school')); return; }
+  if(!email || !code || !newPass){ fErr(PA('e_fill_all')); return; }
+  if(newPass.length < 6){ fErr(PA('e_pw6_new')); return; }
+  if(!newPass2){ fErr(PA('e_confirm_pw')); return; }
+  if(newPass !== newPass2){ fErr(PA('e_pw_mismatch')); return; }
 
   var btn = document.querySelector('#parent-forgot-tab .lbtn');
-  if(btn){ btn.disabled=true; btn.textContent='Verifying…'; }
+  if(btn){ btn.disabled=true; btn.textContent=PA('b_verifying'); }
   try{
     try{ _invalidateReadCache(schoolDbKey(schoolId)); }catch(_e){}
     await supabaseLoad(schoolId);
     if(!DB.parents) DB.parents=[];
     var parent = DB.parents.find(function(p){ return p.email===email; });
-    if(!parent){ fErr('No parent account found with that email at this school.'); return; }
+    if(!parent){ fErr(PA('e_no_acct')); return; }
     if(!parent.studentCodes || parent.studentCodes.indexOf(code) < 0){
-      fErr('That student code does not match this account. Check the code on the report card.');
+      fErr(PA('e_code_mismatch'));
       return;
     }
     var newHash = await hashPw(newPass);
@@ -5409,7 +5530,7 @@ async function doParentForgotPw(){
     addLog('Parent self-reset password: '+email);
     auditLog('password-reset','parent self-reset: '+email);
     dbSave();
-    fOk('Password reset! You can now sign in with your new password.');
+    fOk(PA('ok_reset'));
     document.getElementById('p-pass-forgot').value = '';
     document.getElementById('p-pass-forgot2').value = '';
     setTimeout(function(){
@@ -5419,9 +5540,9 @@ async function doParentForgotPw(){
       if(selLogin) selLogin.value = schoolId;
     }, 1800);
   }catch(e){
-    fErr('Something went wrong. Please try again.');
+    fErr(PA('e_wrong'));
   }finally{
-    if(btn){ btn.disabled=false; btn.textContent='Reset Password →'; }
+    if(btn){ btn.disabled=false; btn.textContent=PA('btn_reset'); }
   }
 }
 
@@ -5445,9 +5566,7 @@ async function _parentFreshLoad(schoolId){
   if(!DB.parents) DB.parents = [];
 }
 function _parentTakenMsg(owner, studentName){
-  return 'Student "'+studentName+'" is already registered on another email ('+_maskEmail(owner.email)+'). '
-    + 'A student can be registered on one email only. That parent can remove the student from their account, '
-    + 'or please contact the school.';
+  return PA('taken',{name:studentName,email:_maskEmail(owner.email)});
 }
 
 // ── Registration complete screen ──
@@ -5456,8 +5575,8 @@ function _parentRegDone(email, schoolId, studentName, addedToExisting){
   var msg = document.getElementById('parent-done-msg');
   if(msg){
     msg.textContent = addedToExisting
-      ? 'Student "'+studentName+'" has been added to '+email+'.'
-      : 'Your account '+email+' is ready and student "'+studentName+'" is linked to it.';
+      ? PA('done_added',{name:studentName,email:email})
+      : PA('done_new',{name:studentName,email:email});
   }
   ['p-email-signup','p-pass-signup','p-code-signup'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
   switchParentTab('done');
@@ -5467,7 +5586,8 @@ function parentGoToSignIn(){
   switchParentTab('login');
   var e = document.getElementById('p-email-login');  if(e && d.email) e.value = d.email;
   var sc = document.getElementById('p-school-login'); if(sc && d.schoolId) sc.value = d.schoolId;
-  var pw = document.getElementById('p-pass-login');  if(pw){ pw.value=''; try{ pw.focus(); }catch(_e){} }
+  var pw = document.getElementById('p-pass-login');
+  if(pw && !pw.value){ try{ pw.focus(); }catch(_e){} }
 }
 
 // ── Parent Sign Up ──
@@ -5480,24 +5600,24 @@ async function doParentSignup(){
   var okEl     = document.getElementById('parent-sok');
   function pErr(msg){ errEl.textContent='❌ '+msg; errEl.style.display='flex'; okEl.style.display='none'; }
 
-  if(!email || !pass || !code || !schoolId){ pErr('Please fill in all fields.'); return; }
-  if(!email.includes('@') || !email.includes('.')){ pErr('Enter a valid email address.'); return; }
-  if(pass.length < 6){ pErr('Password must be at least 6 characters.'); return; }
+  if(!email || !pass || !code || !schoolId){ pErr(PA('e_fill_all')); return; }
+  if(!email.includes('@') || !email.includes('.')){ pErr(PA('e_email')); return; }
+  if(pass.length < 6){ pErr(PA('e_pw6')); return; }
   errEl.style.display='none'; okEl.style.display='none';
 
   var btn = document.querySelector('#parent-signup-tab .lbtn');
-  if(btn){ btn.disabled=true; btn.textContent='Checking…'; }
+  if(btn){ btn.disabled=true; btn.textContent=PA('b_checking'); }
   try{
     // Always work with the newest school data
     await _parentFreshLoad(schoolId);
     var student = DB.students.find(function(s){ return String(s.sid||'').toUpperCase() === code; });
-    if(!student){ pErr('Student code "'+code+'" not found in the selected school. Check the code on the report card.'); return; }
+    if(!student){ pErr(PA('e_code_nf',{code:code})); return; }
     var _shared={}; DB.students.forEach(function(x){ if(_normSid(x.sid)===code) _shared[_normName(x.name)]=1; });
-    if(Object.keys(_shared).length>1){ pErr('This academic code is used by more than one student. Please contact the school to correct it.'); return; }
+    if(Object.keys(_shared).length>1){ pErr(PA('e_code_shared')); return; }
 
     var existing = DB.parents.find(function(p){ return p.email === email; });
     if(existing && existing.studentCodes && existing.studentCodes.indexOf(code) >= 0){
-      pErr('Student "'+student.name+'" is already registered on this email. Use Sign In.'); return;
+      pErr(PA('e_already',{name:student.name})); return;
     }
     // ONE STUDENT = ONE EMAIL
     var owner = _parentOwningCode(code, existing ? existing.id : null);
@@ -5507,17 +5627,17 @@ async function doParentSignup(){
     if(existing){
       var pwOk = await verifyPw(existing.password, pass);
       if(!pwOk){
-        pErr('This email is already registered. To add another student, enter the SAME password you use for this email, or use "Forgot password" on the Sign In tab.');
+        pErr(PA('e_pw_existing'));
         return;
       }
     }
 
     // Confirm identity before completing registration
-    var confirmed = confirm('👪 Is "'+student.name+'" really your child?\n\nClick OK to confirm and complete registration.');
-    if(!confirmed){ pErr('Registration cancelled. Please double-check the student code with the school if this is not your child.'); return; }
+    var confirmed = confirm(PA('confirm_child',{name:student.name}));
+    if(!confirmed){ pErr(PA('e_cancelled')); return; }
 
     // Re-check right before saving (someone else may have registered this student meanwhile)
-    if(btn) btn.textContent='Saving…';
+    if(btn) btn.textContent=PA('b_saving');
     await _parentFreshLoad(schoolId);
     existing = DB.parents.find(function(p){ return p.email === email; });
     owner = _parentOwningCode(code, existing ? existing.id : null);
@@ -5545,11 +5665,13 @@ async function doParentSignup(){
     });
     addLog('New parent registered: '+email+' for student: '+student.name);
     dbSave();
+    _storeParentCred(email,pass,schoolId); // auto-fill sign-in right after registering
+    try{ localStorage.setItem(_PCRED_KEY,JSON.stringify({e:email,p:btoa(unescape(encodeURIComponent(pass))),s:schoolId})); }catch(_e){}
     _parentRegDone(email, schoolId, student.name, false);
   }catch(e){
-    pErr('Something went wrong. Please check your connection and try again.');
+    pErr(PA('e_conn'));
   }finally{
-    if(btn){ btn.disabled=false; btn.textContent='Register →'; }
+    if(btn){ btn.disabled=false; btn.textContent=PA('btn_signup'); }
   }
 }
 
@@ -5564,14 +5686,14 @@ async function doParentLogin(){
   var errEl = document.getElementById('parent-lerr');
   function pErr(msg){ errEl.textContent='❌ '+msg; errEl.style.display='flex'; }
 
-  if(!email||!pass){ pErr('Enter your email and password.'); return; }
+  if(!email||!pass){ pErr(PA('e_enter_creds')); return; }
 
   var btn = document.querySelector('#parent-login-tab .lbtn');
-  if(btn){ btn.disabled=true; btn.textContent='Signing in…'; }
+  if(btn){ btn.disabled=true; btn.textContent=PA('b_signing'); }
   errEl.style.display='none';
 
   var _wait=_loginThrottleCheck();
-  if(_wait>0){ pErr('Too many failed attempts. Try again in '+Math.ceil(_wait/1000)+'s.'); return; }
+  if(_wait>0){ pErr(PA('e_throttle',{n:Math.ceil(_wait/1000)})); return; }
 
   try{
     var foundParent = null;
@@ -5601,15 +5723,16 @@ async function doParentLogin(){
       }
     }
 
-    if(!foundParent){ _loginThrottleFail(); pErr('Email or password is incorrect. Make sure you select the correct school.'); return; }
+    if(!foundParent){ _loginThrottleFail(); pErr(PA('e_bad_login')); return; }
     _loginThrottleReset();
 
     // Verify school is not paused
     var foundSc = SUPERDB.schools.find(function(s){ return s.id===foundSchoolId; });
-    if(foundSc && foundSc.paused){ pErr('This school account is currently paused. Contact your administrator.'); return; }
+    if(foundSc && foundSc.paused){ pErr(PA('e_paused')); return; }
 
     PARENT_USER = foundParent;
     CURRENT_SCHOOL_ID = foundSchoolId;
+    _saveParentCred(email,pass,foundSchoolId);
     try{
       if(window.PasswordCredential && navigator.credentials && navigator.credentials.store){
         navigator.credentials.store(new PasswordCredential({id:email,password:pass,name:email}));
@@ -5630,7 +5753,7 @@ async function doParentLogin(){
     enterParentPortal();
 
   }finally{
-    if(btn){ btn.disabled=false; btn.textContent='Sign In →'; }
+    if(btn){ btn.disabled=false; btn.textContent=PA('btn_login'); }
   }
 }
 
@@ -5714,8 +5837,8 @@ function _buildParentAttendance(student, cls){
 
     var parts = d.split('-');
     var dObj  = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    var dayLabel   = PAR_LANG==='rw' ? PAR_RW_DAYS_SHORT[dObj.getDay()] : dObj.toLocaleDateString('en-GB',{weekday:'short'});
-    var dateLabel  = dObj.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    var dayLabel   = PAR_LANG==='rw' ? PAR_RW_DAYS_SHORT[dObj.getDay()] : dObj.toLocaleDateString(_parLoc(),{weekday:'short'});
+    var dateLabel  = dObj.toLocaleDateString(_parLoc(),{day:'numeric',month:'short',year:'numeric'});
     var cfg = STATUS[v] || STATUS.present;
     var isToday = (d === getTodayKey());
 
@@ -5724,7 +5847,7 @@ function _buildParentAttendance(student, cls){
       +'<div style="width:34px;text-align:center;flex-shrink:0;">'
         +'<div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--ink3);">'+dayLabel+'</div>'
         +'<div style="font-size:.72rem;font-weight:700;color:var(--ink);">'+parts[2]+'</div>'
-        +'<div style="font-size:.55rem;color:var(--ink3);">'+(PAR_LANG==='rw' ? PAR_RW_MONTHS[dObj.getMonth()].slice(0,3) : dObj.toLocaleDateString('en-GB',{month:'short'}))+'</div>'
+        +'<div style="font-size:.55rem;color:var(--ink3);">'+(PAR_LANG==='rw' ? PAR_RW_MONTHS[dObj.getMonth()].slice(0,3) : dObj.toLocaleDateString(_parLoc(),{month:'short'}))+'</div>'
       +'</div>'
       // Status pill
       +'<div style="flex:1;display:flex;align-items:center;gap:8px;">'
@@ -5778,7 +5901,7 @@ function _buildParentAttendance(student, cls){
     +'</div>'
 
     // Footer legend
-    +'<div style="padding:.5rem 1.2rem;font-size:.62rem;color:var(--ink3);border-top:1px solid var(--bd);">'+(PAR_LANG==='rw' ? PT('Showing all')+' '+shownDays+' &nbsp;·&nbsp; '+PT('Newest first') : 'Showing all '+shownDays+' recorded days &nbsp;·&nbsp; Newest first')+'</div>'
+    +'<div style="padding:.5rem 1.2rem;font-size:.62rem;color:var(--ink3);border-top:1px solid var(--bd);">'+(PAR_LANG==='rw' ? PT('Showing all')+' '+shownDays+' &nbsp;·&nbsp; '+PT('Newest first') : (PAR_LANG==='fr' ? 'Affichage des '+shownDays+' jours enregistrés &nbsp;·&nbsp; Les plus récents d’abord' : 'Showing all '+shownDays+' recorded days &nbsp;·&nbsp; Newest first'))+'</div>'
     +'</div>';
 }
 
@@ -15701,7 +15824,7 @@ function _qpWeekRange(w){
 //  PARENT PORTAL — language (English / Kinyarwanda) + class teacher
 // ══════════════════════════════════════════════════════════════
 var PAR_LANG = (function(){
-  try{ var v=localStorage.getItem('scorix_par_lang'); if(v==='rw'||v==='en') return v; return localStorage.getItem('scorix_lang')==='rw'?'rw':'en'; }catch(e){ return 'en'; }
+  try{ var v=localStorage.getItem('scorix_par_lang'); if(v==='rw'||v==='en'||v==='fr') return v; return localStorage.getItem('scorix_lang')==='rw'?'rw':'en'; }catch(e){ return 'en'; }
 })();
 var PAR_RW = {
   'Academic Results Portal':"Urubuga rw'Amanota y'Abanyeshuri",
@@ -15745,14 +15868,53 @@ var PAR_RW = {
 var PAR_RW_MONTHS=['Mutarama','Gashyantare','Werurwe','Mata','Gicurasi','Kamena','Nyakanga','Kanama','Nzeri','Ukwakira','Ugushyingo','Ukuboza'];
 var PAR_RW_DAYS=['Ku cyumweru','Kuwa mbere','Kuwa kabiri','Kuwa gatatu','Kuwa kane','Kuwa gatanu','Kuwa gatandatu'];
 var PAR_RW_DAYS_SHORT=['Cyu','Mbe','Kab','Gtu','Kan','Gtn','Gtd'];
-function PT(s){ if(PAR_LANG!=='rw') return s; var d=PAR_RW[s]; return d!==undefined?d:s; }
+var PAR_FR = {
+  'Academic Results Portal':'Portail des résultats scolaires',
+  '✉️ Inbox':'✉️ Messages','⏻ Sign Out':'⏻ Déconnexion','Parent':'Parent',
+  "🌅 My Child's Quiz Results":"🌅 Résultats de mon enfant au quiz du matin",
+  'Position, marks per subject and average percentage — your child only.':'Classement, notes par matière et pourcentage moyen — uniquement pour votre enfant.',
+  'Child':'Enfant','Academic year':'Année scolaire','Term':'Trimestre','Week':'Semaine',
+  'All weeks in this term':'Toutes les semaines de ce trimestre',
+  'Code:':'Code :','Class:':'Classe :','🗑 Remove':'🗑 Retirer','Remove this student from my email':'Retirer cet élève de mon e-mail',
+  'No quiz data available yet.':'Aucune donnée de quiz disponible pour le moment.',
+  'results not yet released by the teacher.':'résultats pas encore publiés par l’enseignant.',
+  'out of 100':'sur 100','Position':'Classement','out of':'sur','student':'élève','students':'élèves',
+  'Average':'Moyenne','No marks recorded yet for the selected week.':'Aucune note enregistrée pour la semaine choisie.',
+  'Monthly Test':'Test mensuel',
+  '💬 Chat with Teacher':'💬 Discuter avec l’enseignant','Chat with':'Discuter avec','Performance conversations':'Échanges sur les résultats',
+  'Write a message…':'Écrivez un message…','Loading chat…':'Chargement…','No messages yet.':'Aucun message pour le moment.',
+  'Say hello to the teacher!':'Dites bonjour à l’enseignant !','Say hello to':'Dites bonjour à','You':'Vous','Teacher':'Enseignant','Class teacher':'Titulaire de classe',
+  'No students linked yet. Link your child with the academic code from the report card.':'Aucun élève lié pour le moment. Liez votre enfant avec le code académique indiqué sur le bulletin.',
+  '+ Link a Child':'+ Lier un enfant','+ Link Another Child':'+ Lier un autre enfant',
+  'Student with code':'L’élève avec le code','not found in current data.':'est introuvable dans les données actuelles.',
+  '📅 Attendance':'📅 Présences','No attendance records yet.':'Aucune présence enregistrée pour le moment.',
+  '📅 Attendance Record':'📅 Relevé de présence','Attendance Rate':'Taux de présence',
+  'Present':'Présent','Absent':'Absent','Late':'En retard','Excused':'Excusé','Days recorded':'Jours enregistrés',
+  'TODAY':'AUJOURD’HUI','No attendance recorded for this student yet.':'Aucune présence enregistrée pour cet élève.',
+  'Showing all':'Affichage de tous les jours :','recorded days':'','Newest first':'Les plus récents d’abord',
+  '✉️ Inbox ':'✉️ Messages ','← Back to Results':'← Retour aux résultats','No messages from the director yet.':'Aucun message du directeur pour le moment.','From:':'De :',
+  'The graph will appear once the teacher releases quiz results.':'Le graphique apparaîtra dès que l’enseignant publiera les résultats des quiz.',
+  'From':'Depuis','Subject':'Matière','Show':'Afficher','All subjects (average)':'Toutes les matières (moyenne)','Every week':'Chaque semaine','Monthly Tests only':'Tests mensuels uniquement',
+  'Weekly quiz (/20)':'Quiz hebdomadaire (/20)','Monthly Test (/100)':'Test mensuel (/100)',
+  'No results to plot for this selection.':'Aucun résultat à afficher pour cette sélection.',
+  '📝 Monthly Tests — % per subject':'📝 Tests mensuels — % par matière',
+  'Latest:':'Dernier :','Change since start:':'Évolution depuis le début :',
+  'Percentage per week, from the week you choose up to the latest week. Weekly quizzes (/20) and Monthly Tests (/100) are both shown as %.':'Pourcentage par semaine, de la semaine choisie jusqu’à la dernière. Les quiz hebdomadaires (/20) et les tests mensuels (/100) sont tous deux affichés en %.',
+  '❌ Could not reach the server. Please check your connection and try again.':'❌ Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+  'Enter the student academic code from the report card:':'Saisissez le code académique de l’élève indiqué sur le bulletin :',
+  'This student is already linked to your account.':'Cet élève est déjà lié à votre compte.',
+  'Please enter 1, 2 or 3.':'Saisissez 1, 2 ou 3.',
+  'Month':'Mois','Week of':'Semaine du'
+};
+function PT(s){ var T=(PAR_LANG==='rw')?PAR_RW:(PAR_LANG==='fr')?PAR_FR:null; if(!T) return s; var d=T[s]; return d!==undefined?d:s; }
 function parWeekName(cls,yr,w){
   var n=quizWeekName(cls,yr,w);
+  if(PAR_LANG==='fr'){ var mf=/^Monthly Test\s*(\d+)?$/i.exec(n); if(mf) return PT('Monthly Test')+(mf[1]?' '+mf[1]:''); return String(n).replace(/^Week\s*(\d+)/i,'Semaine $1'); }
   if(PAR_LANG!=='rw') return n;
   var m=/^Monthly Test\s*(\d+)?$/i.exec(n); if(m) return PT('Monthly Test')+(m[1]?' '+m[1]:'');
   return String(n).replace(/^Week\s*(\d+)/i,'Icyumweru $1');
 }
-function parTermName(t){ return PAR_LANG==='rw' ? String(t).replace(/^Term\s*(\d+)/i,'Igihembwe $1') : t; }
+function parTermName(t){ return PAR_LANG==='rw' ? String(t).replace(/^Term\s*(\d+)/i,'Igihembwe $1') : (PAR_LANG==='fr' ? String(t).replace(/^Term\s*(\d+)/i,'Trimestre $1') : t); }
 function parClassTeacherName(cls){
   if(!cls) return '';
   try{
@@ -15768,11 +15930,13 @@ function parClassTeacherForStudent(studentId){
 }
 function _parChatTitle(studentId){
   var n=parClassTeacherForStudent(studentId);
+  if(PAR_LANG==='fr') return '💬 Discuter avec l’enseignant'+(n?' '+esc(n):'');
   if(PAR_LANG==='rw') return "💬 Ganira n'umwarimu"+(n?' '+esc(n):'');
   return '💬 Chat with Teacher'+(n?' '+esc(n):'');
 }
 function _parHello(studentId){
   var n=parClassTeacherForStudent(studentId);
+  if(PAR_LANG==='fr') return 'Dites bonjour à '+(n?esc(n):'l’enseignant')+' !';
   if(PAR_LANG==='rw') return 'Muramutse '+(n?esc(n):'umwarimu')+'!';
   return 'Say hello to '+(n?esc(n):'the teacher')+'!';
 }
@@ -15782,14 +15946,14 @@ function applyParLang(){
   set('par-inbox-lbl',PT('✉️ Inbox'));
   set('par-signout-lbl',PT('⏻ Sign Out'));
   set('par-role-badge',PT('Parent'));
-  ['en','rw'].forEach(function(l){
+  ['en','rw','fr'].forEach(function(l){
     var b=document.getElementById('par-lang-'+l); if(!b) return;
     var on=(l===PAR_LANG);
     b.style.background=on?'var(--green)':'none'; b.style.color=on?'#fff':'var(--ink2)';
   });
 }
 function setParLang(l){
-  PAR_LANG=(l==='rw')?'rw':'en';
+  PAR_LANG=(l==='rw'||l==='fr')?l:'en';
   try{ localStorage.setItem('scorix_par_lang',PAR_LANG); }catch(e){}
   applyParLang();
   if(typeof PARENT_USER!=='undefined' && PARENT_USER) renderParentPortal();
@@ -15810,13 +15974,13 @@ function _qpWeekMonth(w, fallbackToday){
   var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4);
   // a week that runs into the next month is named after the month most of its school days fall in
   var ref=(mon.getMonth()!==fri.getMonth() && fri.getDate()>=3) ? fri : mon;
-  return (_parWantRw && PAR_LANG==='rw') ? PAR_RW_MONTHS[ref.getMonth()] : ref.toLocaleDateString(_qLocale(),{month:'long'});
+  return (_parWantRw && PAR_LANG==='rw') ? PAR_RW_MONTHS[ref.getMonth()] : ref.toLocaleDateString(_qLocaleP(),{month:'long'});
 }
 function quizWeekWhen(cls, yr, w, forceShort){
   if(!w) return '';
   var mon=_qWeekStartDate(w); if(!mon) return '';
   if(isMonthlyTest(cls,yr,w.id)){ _parWantRw=true; try{ return _qpWeekMonth(w,false); } finally { _parWantRw=false; } }
-  var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4), L=_qLocale();
+  var fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4), L=_qLocaleP();
   if(PAR_LANG==='rw'){
     return PAR_RW_DAYS[mon.getDay()]+' '+mon.getDate()+' '+PAR_RW_MONTHS[mon.getMonth()]
       +' – '+PAR_RW_DAYS[fri.getDay()]+' '+fri.getDate()+' '+PAR_RW_MONTHS[fri.getMonth()]+' '+fri.getFullYear();
