@@ -2797,6 +2797,38 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
         </div>
       </div>
 
+      <!-- DIRECTOR ATTENDANCE PAGE -->
+      <div class="page" id="p-attendance">
+        <div class="ph">
+          <div>
+            <div class="phtitle">📅 Attendance</div>
+            <div class="phsub">Attendance saved by class teachers — every class, every child</div>
+          </div>
+          <div class="phact"><button class="btn ghost" onclick="showAuditLog('attendance')">📋 Who saved / changed (audit)</button></div>
+        </div>
+        <div class="card" style="padding:.9rem;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="btn ghost" id="dirAttModeDay" onclick="dirAttSetMode('day')">📅 Daily</button>
+            <button class="btn ghost" id="dirAttModeMonth" onclick="dirAttSetMode('month')">📊 Monthly rate</button>
+            <span id="dirAttDayCtl" style="display:contents;">
+            <button class="btn ghost" onclick="dirAttShift(-1)" title="Previous school day">◀</button>
+            <input type="date" id="dirAttDate" onchange="dirAttSetDate(this.value)" style="padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-family:inherit;">
+            <button class="btn ghost" onclick="dirAttShift(1)" title="Next school day">▶</button>
+            <button class="btn ghost" onclick="dirAttToday()">Today</button>
+            </span>
+            <span id="dirAttMonthCtl" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="btn ghost" onclick="dirAttMonthShift(-1)" title="Previous month">◀</button>
+            <input type="month" id="dirAttMonthInp" onchange="dirAttSetMonth(this.value)" style="padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-family:inherit;">
+            <button class="btn ghost" onclick="dirAttMonthShift(1)" title="Next month">▶</button>
+            <button class="btn gold" onclick="dirAttPrint()">🖨️ Print</button>
+            </span>
+            <select id="dirAttClassSel" onchange="dirAttSetClass(this.value)" style="padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-family:inherit;"></select>
+            <input type="search" id="dirAttSearch" placeholder="🔍 Search a child…" oninput="dirAttSearch(this.value)" style="flex:1;min-width:150px;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--ink);font-family:inherit;">
+          </div>
+        </div>
+        <div id="dirAttBody"></div>
+      </div>
+
       <!-- BACKUP PAGE -->
       <div class="page" id="p-backup">
         <div class="ph"><div><div class="phtitle">💾 Data Backup</div><div class="phsub">Download a full backup of all school data</div></div></div>
@@ -4788,20 +4820,272 @@ async function downloadSnapshot(day){
   }catch(e){ alert('Could not download the snapshot.'); }
 }
 
-function showAuditLog(){
+// ═══ DIRECTOR ATTENDANCE PAGE — see attendance of all children saved by class teachers ═══
+var _dirAttDate = '', _dirAttClass = '', _dirAttQ = '', _dirAttOpen = {};
+var _ATT_COL = {present:'var(--green)',absent:'var(--red)',late:'var(--gold)',excused:'var(--blue)'};
+var _ATT_LBL = {present:'Present',absent:'Absent',late:'Late',excused:'Excused'};
+function _dirAttChip(v){
+  if(!v) return '<span style="color:var(--ink3);">—</span>';
+  var c=_ATT_COL[v]||'var(--ink3)';
+  return '<span style="display:inline-block;padding:2px 9px;border-radius:12px;font-size:.72rem;font-weight:700;color:'+c+';border:1px solid '+c+';">'+(_ATT_LBL[v]||esc(v))+'</span>';
+}
+function _dirAttMonth(studentId, classId, monthPrefix){
+  var c={p:0,a:0,l:0,e:0}, pre='att_'+classId+'_';
+  Object.keys(DB.attendance||{}).forEach(function(k){
+    if(k.indexOf(pre+monthPrefix)!==0) return;
+    if(isDayOff(k.slice(pre.length))) return;
+    var v=DB.attendance[k][studentId];
+    if(v==='present')c.p++; else if(v==='absent')c.a++; else if(v==='late')c.l++; else if(v==='excused')c.e++;
+  });
+  var tot=c.p+c.a+c.l+c.e;
+  c.rate = tot ? Math.round(((c.p+c.l)/tot)*1000)/10 : null;
+  return c;
+}
+function _dirAttRateHtml(r){
+  if(r===null) return '<span style="color:var(--ink3);">—</span>';
+  var col = r>=90?'var(--green)':r>=75?'var(--gold)':'var(--red)';
+  return '<strong style="color:'+col+';">'+r+'%</strong>';
+}
+function _dirAttMonthCell(m){
+  return '<span style="color:var(--green);">'+m.p+'P</span> <span style="color:var(--red);">'+m.a+'A</span> <span style="color:var(--gold);">'+m.l+'L</span> <span style="color:var(--blue);">'+m.e+'E</span> · '+_dirAttRateHtml(m.rate);
+}
+function _dirAttSavedInfo(cname, date){
+  try{
+    var best=null, pre=String(cname).slice(0,30)+' '+date;
+    (_auditStore()||[]).forEach(function(e){
+      if(String(e.a).indexOf('attendance-')===0 && e.a!=='attendance-change' && String(e.d).indexOf(pre)===0){ if(!best || e.t>best.t) best=e; }
+    });
+    if(!best) return '';
+    return 'by '+esc(best.u)+' · '+esc(new Date(best.t).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
+  }catch(e){ return ''; }
+}
+function dirAttSetDate(v){ if(!v) return; if(v>getTodayKey()) v=getTodayKey(); _dirAttDate=v; renderDirAttendance(); }
+function dirAttToday(){ _dirAttDate=getTodayKey(); renderDirAttendance(); }
+function dirAttShift(delta){
+  var cur=(_dirAttDate||getTodayKey()).split('-');
+  var d=new Date(parseInt(cur[0]),parseInt(cur[1])-1,parseInt(cur[2]));
+  do{ d.setDate(d.getDate()+delta); }while(d.getDay()===0||d.getDay()===6);
+  var k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(k>getTodayKey()) k=getTodayKey();
+  _dirAttDate=k; renderDirAttendance();
+}
+function dirAttSetClass(v){ _dirAttClass=v||''; _dirAttOpen={}; renderDirAttendance(); }
+function dirAttSearch(v){ _dirAttQ=String(v||'').trim().toLowerCase(); renderDirAttendance(); }
+function dirAttToggle(id){ _dirAttOpen[id]=!_dirAttOpen[id]; renderDirAttendance(); }
+var _dirAttMode = 'day', _dirAttMon = '';
+function dirAttSetMode(m){ _dirAttMode = (m==='month')?'month':'day'; renderDirAttendance(); }
+function dirAttSetMonth(v){ if(!v) return; var cur=getTodayKey().slice(0,7); if(v>cur) v=cur; _dirAttMon=v; renderDirAttendance(); }
+function dirAttMonthShift(d){
+  var cur=_dirAttMon||getTodayKey().slice(0,7), y=parseInt(cur.slice(0,4)), m=parseInt(cur.slice(5,7))+d;
+  while(m<1){ m+=12; y--; } while(m>12){ m-=12; y++; }
+  dirAttSetMonth(y+'-'+String(m).padStart(2,'0'));
+}
+function _dirAttMonthLabel(mon){ return new Date(parseInt(mon.slice(0,4)),parseInt(mon.slice(5,7))-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
+// Monthly numbers for one class: per child + class total. Day-offs are skipped; only days the teacher saved count.
+function _dirAttMonthData(cls, students, mon){
+  var pre='att_'+cls.id+'_'+mon, days=0;
+  Object.keys(DB.attendance||{}).forEach(function(k){
+    if(k.indexOf(pre)!==0) return;
+    if(isDayOff(k.slice(('att_'+cls.id+'_').length))) return;
+    if(Object.keys(DB.attendance[k]||{}).length) days++;
+  });
+  var tot={p:0,a:0,l:0,e:0}, rows=students.map(function(s){
+    var m=_dirAttMonth(s.id, cls.id, mon);
+    tot.p+=m.p; tot.a+=m.a; tot.l+=m.l; tot.e+=m.e;
+    return {s:s, m:m};
+  });
+  var n=tot.p+tot.a+tot.l+tot.e;
+  tot.rate = n ? Math.round(((tot.p+tot.l)/n)*1000)/10 : null;
+  var teacher=''; try{ teacher=parClassTeacherName(cls); }catch(e){}
+  return {cls:cls, days:days, rows:rows, tot:tot, teacher:teacher};
+}
+function _dirAttMonthSets(){
+  var classes=levelClasses().slice().sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+  var all=yearStudents(), mon=_dirAttMon||getTodayKey().slice(0,7);
+  return classes.filter(function(c){ return !_dirAttClass || c.id===_dirAttClass; }).map(function(c){
+    var sts=all.filter(function(s){ return s.classId===c.id; }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+    return sts.length ? _dirAttMonthData(c, sts, mon) : null;
+  }).filter(Boolean);
+}
+function renderDirAttMonthly(host){
+  var mon=_dirAttMon||(_dirAttMon=getTodayKey().slice(0,7));
+  var mi=document.getElementById('dirAttMonthInp'); if(mi){ mi.value=mon; mi.max=getTodayKey().slice(0,7); }
+  var sets=_dirAttMonthSets();
+  var html='<div style="font-size:.95rem;font-weight:700;margin:.2rem 0 .7rem;">📊 Monthly attendance — '+esc(_dirAttMonthLabel(mon))+'</div>';
+  if(!sets.length){ host.innerHTML=html+'<div class="card" style="padding:1rem;color:var(--ink3);">No classes with children found.</div>'; return; }
+  var th='style="padding:6px 8px;text-align:center;"';
+  if(!_dirAttClass){
+    // all classes: one line per class, tap to open the class
+    var rows=sets.map(function(d){
+      return '<tr onclick="dirAttSetClass(\''+esc(d.cls.id)+'\')" style="cursor:pointer;border-top:1px solid var(--bd);">'
+        +'<td style="padding:8px;"><div style="font-weight:700;">'+esc(d.cls.name)+'</div><div style="font-size:.7rem;color:var(--ink3);">'+(d.teacher?esc(d.teacher)+' · ':'')+d.rows.length+' children</div></td>'
+        +'<td style="padding:8px;text-align:center;">'+d.days+'</td>'
+        +'<td style="padding:8px;text-align:center;color:var(--green);">'+d.tot.p+'</td><td style="padding:8px;text-align:center;color:var(--red);">'+d.tot.a+'</td><td style="padding:8px;text-align:center;color:var(--gold);">'+d.tot.l+'</td><td style="padding:8px;text-align:center;color:var(--blue);">'+d.tot.e+'</td>'
+        +'<td style="padding:8px;text-align:center;">'+_dirAttRateHtml(d.tot.rate)+'</td></tr>';
+    }).join('');
+    host.innerHTML=html+'<div style="font-size:.76rem;color:var(--ink3);margin-bottom:.5rem;">Tap a class to see each child. Rate = (present + late) ÷ days recorded.</div>'
+      +'<div class="card" style="padding:.6rem;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.82rem;"><thead><tr style="text-align:left;color:var(--ink3);font-size:.7rem;text-transform:uppercase;"><th style="padding:6px 8px;">Class</th><th '+th+'>Days</th><th '+th+'>Present</th><th '+th+'>Absent</th><th '+th+'>Late</th><th '+th+'>Excused</th><th '+th+'>Rate</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    return;
+  }
+  var d=sets[0];
+  var rows2=d.rows.map(function(r,i){
+    var m=r.m, bad=(m.rate!==null && m.rate<75);
+    return '<tr style="border-top:1px solid var(--bd);'+(bad?'background:rgba(224,82,82,.06);':'')+'"><td style="padding:7px 8px;color:var(--ink3);">'+(i+1)+'</td><td style="padding:7px 8px;">'+esc(r.s.name)+'</td>'
+      +'<td style="padding:7px 8px;text-align:center;color:var(--green);">'+m.p+'</td><td style="padding:7px 8px;text-align:center;color:var(--red);">'+m.a+'</td><td style="padding:7px 8px;text-align:center;color:var(--gold);">'+m.l+'</td><td style="padding:7px 8px;text-align:center;color:var(--blue);">'+m.e+'</td>'
+      +'<td style="padding:7px 8px;text-align:center;">'+_dirAttRateHtml(m.rate)+'</td></tr>';
+  }).join('');
+  host.innerHTML=html
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.8rem;">'
+    +'<div class="scard" style="flex:1;min-width:90px;"><div class="snum">'+d.days+'</div><div class="slbl">School days recorded</div></div>'
+    +'<div class="scard" style="flex:1;min-width:90px;"><div class="snum">'+d.tot.rate+(d.tot.rate===null?'':'%')+'</div><div class="slbl">Class rate</div></div></div>'
+    +'<div style="font-size:.76rem;color:var(--ink3);margin-bottom:.5rem;">'+esc(d.cls.name)+(d.teacher?' · Class teacher: '+esc(d.teacher):'')+' · Rate = (present + late) ÷ days recorded. Rows in red are below 75%.</div>'
+    +'<div class="card" style="padding:.6rem;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.82rem;"><thead><tr style="text-align:left;color:var(--ink3);font-size:.7rem;text-transform:uppercase;"><th style="padding:6px 8px;width:30px;">#</th><th style="padding:6px 8px;">Child</th><th '+th+'>Present</th><th '+th+'>Absent</th><th '+th+'>Late</th><th '+th+'>Excused</th><th '+th+'>Rate</th></tr></thead><tbody>'+rows2
+    +'<tr style="border-top:2px solid var(--bd);font-weight:700;background:var(--s2);"><td></td><td style="padding:7px 8px;">Class total</td><td style="padding:7px 8px;text-align:center;">'+d.tot.p+'</td><td style="padding:7px 8px;text-align:center;">'+d.tot.a+'</td><td style="padding:7px 8px;text-align:center;">'+d.tot.l+'</td><td style="padding:7px 8px;text-align:center;">'+d.tot.e+'</td><td style="padding:7px 8px;text-align:center;">'+_dirAttRateHtml(d.tot.rate)+'</td></tr></tbody></table></div>';
+}
+function _dirAttPrintHtml(){
+  var mon=_dirAttMon||getTodayKey().slice(0,7), sets=_dirAttMonthSets();
+  var school=(DB.settings&&DB.settings.schoolName)||'';
+  function rt(r){ return r===null?'—':r+'%'; }
+  var css='body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18mm 14mm;}h1{font-size:16pt;margin:0 0 2px;}h2{font-size:12pt;margin:0 0 10px;font-weight:600;color:#333;}'
+    +'table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:16px;}th,td{border:1px solid #999;padding:5px 7px;}th{background:#eee;text-align:center;}td.n{text-align:center;}td.l{text-align:left;}'
+    +'tr.tot td{font-weight:700;background:#f3f3f3;}tr.low td{background:#fde8e8;}.meta{font-size:9pt;color:#444;margin-bottom:8px;}.sig{margin-top:28px;display:flex;justify-content:space-between;font-size:10pt;}.sig div{width:40%;border-top:1px solid #333;padding-top:4px;text-align:center;}'
+    +'.pb{page-break-after:always;}@page{size:A4;margin:0;}';
+  var body='';
+  sets.forEach(function(d,idx){
+    body+='<div'+(idx<sets.length-1?' class="pb"':'')+'>'
+      +(school?'<h1>'+esc(school)+'</h1>':'<h1>Attendance report</h1>')
+      +'<h2>Monthly attendance — '+esc(d.cls.name)+' — '+esc(_dirAttMonthLabel(mon))+'</h2>'
+      +'<div class="meta">'+(d.teacher?'Class teacher: '+esc(d.teacher)+' · ':'')+'School days recorded: '+d.days+' · Class rate: '+rt(d.tot.rate)+' · Rate = (present + late) ÷ days recorded</div>'
+      +'<table><thead><tr><th style="width:28px;">#</th><th>Child</th><th>Present</th><th>Absent</th><th>Late</th><th>Excused</th><th>Rate</th></tr></thead><tbody>'
+      +d.rows.map(function(r,i){ var m=r.m; return '<tr'+((m.rate!==null&&m.rate<75)?' class="low"':'')+'><td class="n">'+(i+1)+'</td><td class="l">'+esc(r.s.name)+'</td><td class="n">'+m.p+'</td><td class="n">'+m.a+'</td><td class="n">'+m.l+'</td><td class="n">'+m.e+'</td><td class="n">'+rt(m.rate)+'</td></tr>'; }).join('')
+      +'<tr class="tot"><td></td><td class="l">Class total</td><td class="n">'+d.tot.p+'</td><td class="n">'+d.tot.a+'</td><td class="n">'+d.tot.l+'</td><td class="n">'+d.tot.e+'</td><td class="n">'+rt(d.tot.rate)+'</td></tr></tbody></table>'
+      +'<div class="meta">Printed on '+esc(new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}))+'</div>'
+      +'<div class="sig"><div>Class teacher</div><div>Director</div></div></div>';
+  });
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Monthly attendance</title><style>'+css+'</style></head><body>'+(body||'<p>No data.</p>')+'</body></html>';
+}
+function dirAttPrint(){
+  if(!isAdmin()) return;
+  var sets=_dirAttMonthSets();
+  if(!sets.length){ alert('Nothing to print.'); return; }
+  var old=document.getElementById('dirAttPrintFrame'); if(old) old.remove();
+  var f=document.createElement('iframe'); f.id='dirAttPrintFrame';
+  f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(f);
+  var doc=f.contentWindow.document; doc.open(); doc.write(_dirAttPrintHtml()); doc.close();
+  setTimeout(function(){ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert('Could not open the print dialog.'); } }, 350);
+  try{ auditLog('export','printed monthly attendance '+_dirAttMon+(_dirAttClass?' (one class)':' (all classes)')); }catch(e){}
+}
+function renderDirAttendance(){
+  if(!isAdmin()) return;
+  var host=document.getElementById('dirAttBody'); if(!host) return;
+  if(!DB.attendance) DB.attendance={};
+  var today=getTodayKey();
+  if(!_dirAttDate) _dirAttDate=today;
+  var date=_dirAttDate, month=date.slice(0,7);
+  var classes=levelClasses().slice().sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+  var _isM=(_dirAttMode==='month');
+  var _dc=document.getElementById('dirAttDayCtl'); if(_dc) _dc.style.display=_isM?'none':'contents';
+  var _mc=document.getElementById('dirAttMonthCtl'); if(_mc) _mc.style.display=_isM?'flex':'none';
+  var _ss=document.getElementById('dirAttSearch'); if(_ss) _ss.style.display=_isM?'none':'';
+  [['dirAttModeDay',!_isM],['dirAttModeMonth',_isM]].forEach(function(x){ var b=document.getElementById(x[0]); if(b){ b.style.outline=x[1]?'2px solid var(--green)':'none'; } });
+  var di=document.getElementById('dirAttDate'); if(di){ di.value=date; di.max=today; }
+  var sel=document.getElementById('dirAttClassSel');
+  if(sel){
+    sel.innerHTML='<option value="">All classes</option>'+classes.map(function(c){ return '<option value="'+esc(c.id)+'"'+(c.id===_dirAttClass?' selected':'')+'>'+esc(c.name)+'</option>'; }).join('');
+  }
+  if(_isM){ renderDirAttMonthly(host); return; }
+  var all=yearStudents();
+  var shown=classes.filter(function(c){ return !_dirAttClass || c.id===_dirAttClass; });
+  var dObj=new Date(parseInt(date.slice(0,4)),parseInt(date.slice(5,7))-1,parseInt(date.slice(8,10)));
+  var nice=dObj.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var html='<div style="font-size:.95rem;font-weight:700;margin:.2rem 0 .7rem;">'+esc(nice)+(date===today?' <span style="color:var(--gold);font-size:.72rem;">(today)</span>':'')+'</div>';
+
+  if(isDayOff(date)){
+    var rec0=DB.attendance[getDayOffKey(date)]||{};
+    host.innerHTML=html+'<div class="card" style="padding:1rem;color:var(--orange);font-weight:600;">🚫 School closed — '+esc(rec0.__dayoffLabel||'Day Off')+'. No attendance is taken on this day.</div>';
+    return;
+  }
+  if(dObj.getDay()===0||dObj.getDay()===6) html+='<div style="font-size:.78rem;color:var(--ink3);margin-bottom:.6rem;">ℹ️ This is a weekend — attendance is normally taken Monday to Friday.</div>';
+
+  // ── Search mode: find a child across classes ──
+  if(_dirAttQ){
+    var hits=[];
+    shown.forEach(function(c){
+      all.filter(function(s){ return s.classId===c.id; }).forEach(function(s){
+        if(String(s.name||'').toLowerCase().indexOf(_dirAttQ)>=0 || String(s.sid||'').toLowerCase().indexOf(_dirAttQ)>=0) hits.push({s:s,c:c});
+      });
+    });
+    var rows=hits.slice(0,100).map(function(h){
+      var rec=DB.attendance[getAttKey(h.c.id,date)];
+      var has=rec && Object.keys(rec).length>0;
+      return '<tr><td style="padding:6px 8px;">'+esc(h.s.name)+'</td><td style="padding:6px 8px;color:var(--ink3);">'+esc(h.c.name)+'</td><td style="padding:6px 8px;">'+(has?_dirAttChip(rec[h.s.id]||'present'):'<span style="color:var(--ink3);font-size:.74rem;">not saved yet</span>')+'</td><td style="padding:6px 8px;white-space:nowrap;">'+_dirAttMonthCell(_dirAttMonth(h.s.id,h.c.id,month))+'</td></tr>';
+    }).join('');
+    host.innerHTML=html+'<div class="card" style="padding:.6rem;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.82rem;"><thead><tr style="text-align:left;color:var(--ink3);font-size:.7rem;text-transform:uppercase;"><th style="padding:6px 8px;">Child</th><th style="padding:6px 8px;">Class</th><th style="padding:6px 8px;">On this day</th><th style="padding:6px 8px;">This month</th></tr></thead><tbody>'
+      +(rows||'<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--ink3);">No child found.</td></tr>')+'</tbody></table></div>';
+    return;
+  }
+
+  // ── Per-class overview ──
+  var T={p:0,a:0,l:0,e:0}, savedCount=0, withStudents=0, absentees=[], lates=[], body='';
+  shown.forEach(function(c){
+    var sts=all.filter(function(s){ return s.classId===c.id; }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+    if(!sts.length) return;
+    withStudents++;
+    var rec=DB.attendance[getAttKey(c.id,date)];
+    var has=rec && Object.keys(rec).length>0;
+    var cnt=has?_attCounts(sts,rec):null;
+    if(has){
+      savedCount++; T.p+=cnt.p; T.a+=cnt.a; T.l+=cnt.l; T.e+=cnt.e;
+      sts.forEach(function(s){ var v=rec[s.id]||'present'; if(v==='absent') absentees.push(s.name+' ('+c.name+')'); else if(v==='late') lates.push(s.name+' ('+c.name+')'); });
+    }
+    var teacher=''; try{ teacher=parClassTeacherName(c); }catch(e){}
+    var info=has?_dirAttSavedInfo(c.name,date):'';
+    var open=!!_dirAttOpen[c.id] || !!_dirAttClass;
+    var rate=has && sts.length ? Math.round(((cnt.p+cnt.l)/sts.length)*1000)/10 : null;
+    body+='<tr onclick="dirAttToggle(\''+esc(c.id)+'\')" style="cursor:pointer;border-top:1px solid var(--bd);">'
+      +'<td style="padding:8px;"><div style="font-weight:700;">'+(open?'▾ ':'▸ ')+esc(c.name)+'</div><div style="font-size:.7rem;color:var(--ink3);">'+(teacher?esc(teacher)+' · ':'')+sts.length+' children</div></td>'
+      +'<td style="padding:8px;">'+(has?'<span style="color:var(--green);font-weight:700;">✅ Saved</span><div style="font-size:.68rem;color:var(--ink3);">'+info+'</div>':'<span style="color:var(--orange);font-weight:700;">⚠️ Not saved yet</span>')+'</td>'
+      +'<td style="padding:8px;text-align:center;color:var(--green);">'+(has?cnt.p:'—')+'</td><td style="padding:8px;text-align:center;color:var(--red);">'+(has?cnt.a:'—')+'</td><td style="padding:8px;text-align:center;color:var(--gold);">'+(has?cnt.l:'—')+'</td><td style="padding:8px;text-align:center;color:var(--blue);">'+(has?cnt.e:'—')+'</td>'
+      +'<td style="padding:8px;text-align:center;">'+_dirAttRateHtml(rate)+'</td></tr>';
+    if(open){
+      var srows=sts.map(function(s,i){
+        return '<tr><td style="padding:5px 8px;color:var(--ink3);">'+(i+1)+'</td><td style="padding:5px 8px;">'+esc(s.name)+'</td><td style="padding:5px 8px;">'+(has?_dirAttChip(rec[s.id]||'present'):'<span style="color:var(--ink3);font-size:.74rem;">not saved yet</span>')+'</td><td style="padding:5px 8px;white-space:nowrap;">'+_dirAttMonthCell(_dirAttMonth(s.id,c.id,month))+'</td></tr>';
+      }).join('');
+      body+='<tr><td colspan="7" style="padding:0 8px 10px;background:var(--s2);"><table style="width:100%;border-collapse:collapse;font-size:.8rem;"><thead><tr style="text-align:left;color:var(--ink3);font-size:.68rem;text-transform:uppercase;"><th style="padding:6px 8px;width:30px;">#</th><th style="padding:6px 8px;">Child</th><th style="padding:6px 8px;">On this day</th><th style="padding:6px 8px;">This month</th></tr></thead><tbody>'+srows+'</tbody></table></td></tr>';
+    }
+  });
+  if(!withStudents){ host.innerHTML=html+'<div class="card" style="padding:1rem;color:var(--ink3);">No classes with children found for this level.</div>'; return; }
+
+  function card(lbl,n,col){ return '<div class="scard" style="flex:1;min-width:90px;"><div class="snum" style="color:'+col+';">'+n+'</div><div class="slbl">'+lbl+'</div></div>'; }
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.8rem;">'
+    +card('Classes saved',savedCount+'/'+withStudents,savedCount===withStudents?'var(--green)':'var(--orange)')
+    +card('Present',T.p,'var(--green)')+card('Absent',T.a,'var(--red)')+card('Late',T.l,'var(--gold)')+card('Excused',T.e,'var(--blue)')+'</div>';
+  html+='<div class="card" style="padding:.6rem;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.82rem;"><thead><tr style="text-align:left;color:var(--ink3);font-size:.7rem;text-transform:uppercase;"><th style="padding:6px 8px;">Class</th><th style="padding:6px 8px;">Status</th><th style="padding:6px 8px;text-align:center;">Present</th><th style="padding:6px 8px;text-align:center;">Absent</th><th style="padding:6px 8px;text-align:center;">Late</th><th style="padding:6px 8px;text-align:center;">Excused</th><th style="padding:6px 8px;text-align:center;">Rate</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  if(absentees.length) html+='<div class="card" style="padding:.8rem;margin-top:.8rem;"><div style="font-weight:700;color:var(--red);margin-bottom:4px;">✗ Absent ('+absentees.length+')</div><div style="font-size:.8rem;line-height:1.7;">'+absentees.slice(0,80).map(esc).join(' · ')+(absentees.length>80?' …':'')+'</div></div>';
+  if(lates.length) html+='<div class="card" style="padding:.8rem;margin-top:.8rem;"><div style="font-weight:700;color:var(--gold);margin-bottom:4px;">⏰ Late ('+lates.length+')</div><div style="font-size:.8rem;line-height:1.7;">'+lates.slice(0,80).map(esc).join(' · ')+(lates.length>80?' …':'')+'</div></div>';
+  host.innerHTML=html;
+}
+
+function showAuditLog(filter){
   if(!isAdmin()){ return; }
+  var _attOnly = (filter==='attendance');
   var arr=(_auditStore()||[]).slice().sort(function(a,b){ return a.t<b.t?1:-1; });
+  if(_attOnly) arr = arr.filter(function(e){ return String(e.a).indexOf('attendance')===0; });
   var rows=arr.slice(0,300).map(function(e){
     return '<tr><td style="white-space:nowrap;padding:4px 8px;">'+esc(new Date(e.t).toLocaleString())+'</td><td style="padding:4px 8px;">'+esc(e.u)+'</td><td style="padding:4px 8px;">'+esc(e.r)+'</td><td style="padding:4px 8px;">'+esc(e.a)+'</td><td style="padding:4px 8px;word-break:break-word;">'+esc(e.d)+'</td></tr>';
   }).join('');
   var m=_secModal(
     '<h3 style="margin:0 0 6px;font-size:1.15rem;">Audit log</h3>'
-   +'<p style="margin:0 0 10px;color:var(--ink2,#bbb);">Sign-ins, mark changes, password changes, deletions and backups. Showing the latest '+Math.min(300,arr.length)+' of '+arr.length+' entries (max 1000 kept).</p>'
+   +'<p style="margin:0 0 10px;color:var(--ink2,#bbb);">Sign-ins, mark changes, attendance saves, password changes, deletions and backups. Showing the latest '+Math.min(300,arr.length)+' of '+arr.length+' entries (max 1000 kept).</p>'
+   +'<div style="margin:0 0 10px;display:flex;gap:8px;flex-wrap:wrap;"><button id="al_f_all" style="'+_SEC_BTN2+(_attOnly?'':';outline:2px solid var(--green,#3ecf8e)')+'">All activity</button><button id="al_f_att" style="'+_SEC_BTN2+(_attOnly?';outline:2px solid var(--green,#3ecf8e)':'')+'">📅 Attendance only</button></div>'
    +'<div style="overflow:auto;max-height:55vh;border:1px solid var(--bd,#333);border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:.76rem;"><thead><tr style="text-align:left;background:var(--s2,#0f1117);"><th style="padding:6px 8px;">Time</th><th style="padding:6px 8px;">User</th><th style="padding:6px 8px;">Role</th><th style="padding:6px 8px;">Action</th><th style="padding:6px 8px;">Detail</th></tr></thead><tbody>'
    +(rows||'<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--ink3,#888);">No entries yet.</td></tr>')
    +'</tbody></table></div>'
    +'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button id="al_csv" style="'+_SEC_BTN+'">Export CSV</button><button id="al_close" style="'+_SEC_BTN2+'">Close</button></div>', '860px');
   m.box.querySelector('#al_close').onclick=m.close;
+  m.box.querySelector('#al_f_all').onclick=function(){ m.close(); showAuditLog(); };
+  m.box.querySelector('#al_f_att').onclick=function(){ m.close(); showAuditLog('attendance'); };
   m.box.querySelector('#al_csv').onclick=function(){
     function cell(v){ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; }
     var csv='Time,User,Role,Action,Detail\n'+arr.map(function(e){ return [e.t,e.u,e.r,e.a,e.d].map(cell).join(','); }).join('\n');
@@ -6826,7 +7110,7 @@ function buildSidebar(){
     }
     grp(L('grpOutput'),[{id:'reports',icon:'📄',label:L('reports')},{id:'analytics',icon:'📊',label:L('analytics')},{id:'proclamation',icon:'🏆',label:L('proclamation')},{id:'quizprocl',icon:'🌅',label:APP_LANG==='fr'?'Classement Quiz':'Quiz Rankings'}]);
     if(admin){
-      grp('Director Tools',[{id:'perfoverview',icon:'📈',label:'Performance Overview'}]);
+      grp('Director Tools',[{id:'attendance',icon:'📅',label:'Attendance'},{id:'perfoverview',icon:'📈',label:'Performance Overview'}]);
     }
     grp('Communication',[{id:'messages',icon:'✉️',label:admin?'Messagerie':'Inbox'}]);
     grp(L('grpAccount'),[{id:'settings',icon:'⚙️',label:L('settings')}]);
@@ -6847,7 +7131,7 @@ function showPage(id){
     analytics:setupAnalytics, proclamation:setupProcl, settings:setupSettings,
     messages:msgSetup, backup:renderBackupInfo,
     super:renderSuperPanel, overview:renderOverview, quizprocl:setupQuizProcl,
-    perfoverview:setupPerfOverview
+    perfoverview:setupPerfOverview, attendance:renderDirAttendance
   };
   if(fns[id]) fns[id]();
   // Hide credit on reports page, show on all others
@@ -7166,8 +7450,35 @@ function renderRegParentsList(){
       +(ds?'<div style="font-size:.72rem;color:var(--ink3);white-space:nowrap;">Registered '+esc(ds)+'</div>':'')+'</div>'
       +'<div style="margin-top:4px;font-size:.8rem;color:var(--ink2);">'+r.kids.map(function(k){return '🎓 '+esc(k.name)+(k.cls?' <span style="color:var(--ink3);">('+esc(k.cls)+')</span>':'');}).join('<br>')+'</div>'
       +loginHtml
+      +(isAdmin()?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;"><button type="button" onclick="checkRegParentPw(\''+esc(r.p.id)+'\')" style="border:1px solid rgba(62,207,142,.4);background:rgba(62,207,142,.1);color:var(--green);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.76rem;font-weight:600;font-family:\'Outfit\',sans-serif;">✅ Check password</button><button type="button" onclick="resetRegParentPw(\''+esc(r.p.id)+'\')" style="border:1px solid rgba(74,143,255,.4);background:rgba(74,143,255,.1);color:var(--blue);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.76rem;font-weight:600;font-family:\'Outfit\',sans-serif;">🔑 Set temporary password</button></div>':'')
       +'</div>';
   }).join('');
+}
+// Director: passwords are stored as one-way hashes and cannot be shown.
+// Instead, set a temporary password to test a parent's sign-in complaint.
+// Director: test a password the parent says they use — nothing is changed or stored.
+async function checkRegParentPw(id){
+  if(!isAdmin()){ alert('Only the director can do this.'); return; }
+  var p=(DB.parents||[]).find(function(x){ return x.id===id; });
+  if(!p){ alert('Parent account not found.'); return; }
+  var typed=prompt('Type the password the parent says they are using for '+p.email+':');
+  if(typed===null||typed==='') return;
+  var ok=false; try{ ok=await verifyPw(p.password, typed); }catch(e){}
+  alert(ok ? '✅ Match — this password is correct for '+p.email+'. The problem is elsewhere (wrong school selected, email typo, or connection).'
+           : '❌ No match — this is NOT the password on '+p.email+'. The parent may be typing a different one (check capital letters and spaces). You can set a temporary password if needed.');
+}
+async function resetRegParentPw(id){
+  if(!isAdmin()){ alert('Only the director can do this.'); return; }
+  var p=(DB.parents||[]).find(function(x){ return x.id===id; });
+  if(!p){ alert('Parent account not found.'); return; }
+  if(!confirm('Set a NEW temporary password for '+p.email+'?\n\nTheir old password will stop working. You will see the new one once so you can give it to the parent.')) return;
+  var chars='abcdefghjkmnpqrstuvwxyz23456789', tmp='';
+  try{ var arr=new Uint32Array(8); crypto.getRandomValues(arr); for(var i=0;i<8;i++) tmp+=chars[arr[i]%chars.length]; }
+  catch(e){ for(var j=0;j<8;j++) tmp+=chars[Math.floor(Math.random()*chars.length)]; }
+  p.password=await hashPw(tmp);
+  try{ addLog('Director set temporary password for parent: '+p.email); auditLog('password-reset','director set temp password for parent: '+p.email); }catch(e){}
+  dbSave();
+  prompt('Temporary password for '+p.email+' (copy it now — it will not be shown again). The parent can sign in with it, then use "Forgot password" to choose their own:', tmp);
 }
 function renderDash(){
 
@@ -7982,6 +8293,7 @@ function setAtt(classId, studentId, status){
   var attKey  = getAttKey(classId, selDate);
   if(!DB.attendance) DB.attendance={};
   if(!DB.attendance[attKey]) DB.attendance[attKey]={};
+  if(!_attBase[attKey]) _attBase[attKey] = JSON.parse(JSON.stringify(DB.attendance[attKey]||{}));
   DB.attendance[attKey][studentId] = status;
 
   // Refresh just the 4 buttons for this student
@@ -8007,6 +8319,28 @@ function setAtt(classId, studentId, status){
   var se=document.getElementById('att-sum-e'); if(se) se.textContent='📋 Excused: '+counts.e;
 }
 
+// ── Audit trail for attendance saved by class teachers (visible to the director in Audit log) ──
+var _attBase = {};   // attKey -> attendance record as it was before this session's edits
+function _auditAttendanceSave(classId, selDate, before, after, students){
+  try{
+    var cls = (DB.classes||[]).find(function(c){ return c.id===classId; }) || {};
+    var cname = String(cls.name||'class').slice(0,30);
+    var cnt = {present:0,absent:0,late:0,excused:0};
+    students.forEach(function(s){ var v = after[s.id]||'present'; if(cnt[v]!==undefined) cnt[v]++; });
+    var wasSaved = Object.keys(before||{}).length>0;
+    var ch = [];
+    if(wasSaved) students.forEach(function(s){
+      var o = before[s.id], n = after[s.id];
+      if(o!==n) ch.push((s.name||'?')+': '+(o||'(none)')+' -> '+n);
+    });
+    var past = selDate < getTodayKey();
+    var act = !wasSaved ? 'attendance-saved' : (ch.length ? 'attendance-edited' : 'attendance-resaved');
+    auditLog(act, cname+' '+selDate+(past?' [PAST DATE]':'')+' — P:'+cnt.present+' A:'+cnt.absent+' L:'+cnt.late+' E:'+cnt.excused+' of '+students.length);
+    if(ch.length<=25) ch.forEach(function(x){ auditLog('attendance-change', cname+' '+selDate+' · '+x); });
+    else auditLog('attendance-change', ch.length+' students changed in '+cname+' '+selDate);
+    _attBase[getAttKey(classId, selDate)] = JSON.parse(JSON.stringify(after));
+  }catch(e){}
+}
 function saveAttendance(classId){
   var selDate = _attDate[classId] || getTodayKey();
   // Block saving if this day is marked as day off
@@ -8018,11 +8352,13 @@ function saveAttendance(classId){
   var attKey  = getAttKey(classId, selDate);
   if(!DB.attendance) DB.attendance={};
   var students = yearStudents().filter(function(s){return s.classId===classId;});
+  var _attBefore = _attBase[attKey] || JSON.parse(JSON.stringify(DB.attendance[attKey]||{}));
   if(!DB.attendance[attKey]) DB.attendance[attKey]={};
   // Default unmarked students to present
   students.forEach(function(s){
     if(!DB.attendance[attKey][s.id]) DB.attendance[attKey][s.id]='present';
   });
+  _auditAttendanceSave(classId, selDate, _attBefore, DB.attendance[attKey], students);
   addLog('📅 Attendance saved for '+(DB.classes.find(function(c){return c.id===classId;})||{}).name+' — '+selDate);
   dbSave();
   var fl=document.getElementById('att-flash');
