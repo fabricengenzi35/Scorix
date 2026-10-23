@@ -15648,20 +15648,21 @@ function p6BandsHtml(cid, weekId){
   var wk=(yr.weeks||[]).find(function(w){return w.id===weekId;});
   var bandCol=['var(--green)','var(--green)','var(--blue)','var(--blue)','var(--gold)','var(--gold)','var(--red)'];
   function bandIdx(p){ for(var i=0;i<P6_BANDS.length;i++){ if(p>=P6_BANDS[i].min) return i; } return P6_BANDS.length-1; }
-  function rowFor(label, pcts, passPct, bold){
+  function rowFor(label, pcts, passPct, bold, forcedRate){
     var counts=P6_BANDS.map(function(){return 0;});
     pcts.forEach(function(p){ counts[bandIdx(p)]++; });
     var n=pcts.length;
     var avg=n?pcts.reduce(function(a,b){return a+b;},0)/n:null;
     var passed=pcts.filter(function(p){return p>=passPct;}).length;
+    var rate=(forcedRate!==undefined) ? forcedRate : (n?(passed/n)*100:null);
     var td='padding:5px 6px;text-align:center;border-bottom:1px solid var(--bd);';
     return '<tr'+(bold?' style="background:var(--s3);font-weight:800;"':'')+'><td style="'+td+'text-align:left;font-weight:700;">'+esc(label)+'</td>'
       +counts.map(function(c,i){return '<td style="'+td+'font-weight:'+(c?'800':'400')+';color:'+(c?bandCol[i]:'var(--ink3)')+';">'+c+'</td>';}).join('')
       +'<td style="'+td+'">'+n+'</td>'
       +'<td style="'+td+'font-weight:700;color:'+_pctCol(avg)+';">'+(avg!==null?avg.toFixed(1)+'%':'—')+'</td>'
-      +'<td style="'+td+'font-weight:700;color:'+_pctCol(n?(passed/n)*100:null)+';">'+(n?((passed/n)*100).toFixed(0)+'%':'—')+'</td></tr>';
+      +'<td style="'+td+'font-weight:700;color:'+_pctCol(rate)+';">'+(rate!==null?rate.toFixed(0)+'%':'—')+'</td></tr>';
   }
-  var rows='', stuAvg={};
+  var rows='', stuAvg={}, subRates=[];
   subjects.forEach(function(sub){
     var pcts=[], pp=_subPassPct(sub);
     students.forEach(function(st){
@@ -15671,14 +15672,17 @@ function p6BandsHtml(cid, weekId){
         (stuAvg[st.id]=stuAvg[st.id]||[]).push(p);
       }
     });
+    if(pcts.length) subRates.push(pcts.filter(function(p){return p>=pp;}).length/pcts.length*100);
     rows+=rowFor(sub.name,pcts,pp,false);
   });
   var overall=Object.keys(stuAvg).map(function(k){var a=stuAvg[k];return a.reduce(function(x,y){return x+y;},0)/a.length;});
-  rows+=rowFor('ALL SUBJECTS (student average)',overall,50,true);
+  // ALL SUBJECTS row: % Succeeded = average of the % Succeeded column above
+  var _avgRate = subRates.length ? subRates.reduce(function(x,y){return x+y;},0)/subRates.length : null;
+  rows+=rowFor('ALL SUBJECTS (student average)',overall,50,true,_avgRate);
   var th='padding:6px 6px;text-align:center;font-size:.72rem;font-weight:800;border-bottom:2px solid var(--bd);white-space:nowrap;';
   return '<div class="card p6mt" style="margin-top:.8rem;overflow-x:auto;border:2px solid rgba(208,144,16,.55);">'
     +'<div class="p6mt-title" style="font-weight:800;font-size:1rem;margin-bottom:.15rem;">📝 '+esc(quizWeekName(cls,yr,wk))+' Analysis — number of students per score range</div>'
-    +'<div style="font-size:.68rem;color:var(--ink3);margin-bottom:.6rem;">Marks out of 100 · % Succeeded = students who reached the subject pass mark (50% if none set)</div>'
+    +'<div style="font-size:.68rem;color:var(--ink3);margin-bottom:.6rem;">Marks out of 100 · % Succeeded = students who reached the subject pass mark (50% if none set). In the ALL SUBJECTS row, % Succeeded is the average of the % Succeeded column above.</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:.85rem;"><thead><tr style="background:var(--s3);">'
     +'<th style="'+th+'text-align:left;">Subject</th>'
     +P6_BANDS.map(function(b){return '<th style="'+th+'">'+b.lbl+'</th>';}).join('')
