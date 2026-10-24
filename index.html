@@ -68,7 +68,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://zabdtormeyrucjwjipzl.supabase.co wss://zabdtormeyrucjwjipzl.supabase.co https://api.emailjs.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';">
 <meta name="referrer" content="no-referrer-when-downgrade">
 <title>SCORIX — International Academic System v4.0 ✦ Performance Edition</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
 <!--
   ╔══════════════════════════════════════════════════════════╗
   ║           SCORIX CSS — Section Map                      ║
@@ -291,8 +293,6 @@ tbody tr:hover td { background:rgba(246,201,14,.08)!important; transition:backgr
   background:linear-gradient(90deg,rgba(15,20,35,.98),rgba(10,14,26,.97));
   border-bottom:1px solid var(--bd);
   box-shadow:0 2px 24px rgba(0,0,0,.5);
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
 }
 
 /* ════════════════════════════════════
@@ -378,8 +378,6 @@ tbody tr:hover td { background:rgba(246,201,14,.08)!important; transition:backgr
     background:linear-gradient(180deg,rgba(15,20,35,.97),rgba(8,12,24,.98));
     border-top:1px solid var(--bd);
     box-shadow:0 -4px 24px rgba(0,0,0,.4);
-    backdrop-filter:blur(16px);
-    -webkit-backdrop-filter:blur(16px);
   }
 }
 
@@ -1381,7 +1379,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 .skel-line.w40 { width:40%; }
 
 /* Smooth page transitions */
-.page.on { animation: pageIn .22s cubic-bezier(.16,1,.3,1); }
+.page.on { animation: pageIn .1s ease-out; }
 @keyframes pageIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
 /* Print — A4 professional */
@@ -1425,6 +1423,7 @@ button:disabled{ opacity:.5; cursor:not-allowed!important; }
 .par-lang-choice .plc-flag{font-size:2.5rem;line-height:1;flex:none;}
 .par-lang-choice .plc-main{display:block;font-size:1.25rem;font-weight:700;line-height:1.35;}
 .par-lang-choice .plc-sub{display:block;font-size:.88rem;color:var(--green);font-weight:600;margin-top:5px;}
+a,button,.btn,.navbtn,select,label,summary,[onclick]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -4394,7 +4393,7 @@ async function _drainQueue(){
 // Deduplicated write — merges rapid saves into one network call
 var _pendingWrites = {}; // key → {data, timer}
 var _inflightWrites = {}; // key → data currently being uploaded
-var WRITE_DEBOUNCE = 250; // ms — faster than 400ms for snappier saves
+var WRITE_DEBOUNCE = 2000; // ms -- batches rapid edits into one save (every save is pushed to all connected users, which costs data)
 
 function _scheduleWrite(key, data){
   // Always update local cache immediately — instant for offline reads
@@ -4515,6 +4514,15 @@ async function _resilientReadRaw(key, timeoutMs){
   var cached = _readCache[key];
   if(cached && (Date.now() - cached.ts) < _readCacheTTL){
     return cached.data;
+  }
+
+  // 0b. One-shot "use the on-device copy now" (set by sign-in; the server refresh follows in the background)
+  if(window._preferLocalOnce && window._preferLocalOnce===key){
+    window._preferLocalOnce=null;
+    try{
+      var _lr = localStorage.getItem(key);
+      if(_lr){ var _lp = JSON.parse(_lr); _readCache[key] = { data: _lp, ts: 0 }; return _lp; }
+    }catch(e){}
   }
 
   // 1. Try Supabase with fast timeout
@@ -6729,11 +6737,13 @@ async function doLogin(){
   // 2. Fast lookup via cached user index (zero network if pre-warmed)
   var index = await userIndexLoad();
   var foundSchoolId = null;
+  var _idxVerified = false;
 
   if(index && index[u]){
     var entry = index[u];
     if(await verifyPw(entry.password, p)){
       foundSchoolId = entry.schoolId;
+      _idxVerified = true;
     } else {
       // Password mismatch — don't bother scanning schools
       _loginThrottleFail();
@@ -6781,12 +6791,15 @@ async function doLogin(){
     return;
   }
 
-  // Load school data
+  // Load school data (use the on-device copy instantly when we have one; enterApp() refreshes from the server right after)
   CURRENT_SCHOOL_ID=foundSchoolId;
-  await supabaseLoad(CURRENT_SCHOOL_ID);
+  try{ if(localStorage.getItem(schoolDbKey(CURRENT_SCHOOL_ID))) window._preferLocalOnce=schoolDbKey(CURRENT_SCHOOL_ID); }catch(e){}
+  try{ await supabaseLoad(CURRENT_SCHOOL_ID); } finally { window._preferLocalOnce=null; }
 
   var me=null;
-  for(var _mi=0;_mi<DB.users.length;_mi++){
+  // Password was already verified against the user index above -> don't run the slow hash a second time
+  if(_idxVerified){ me=DB.users.find(function(x){return x.username===u;})||null; }
+  for(var _mi=0;!me && _mi<DB.users.length;_mi++){
     if(DB.users[_mi].username===u && await verifyPw(DB.users[_mi].password, p)){ me=DB.users[_mi]; break; }
   }
   if(!me){
@@ -6848,6 +6861,8 @@ async function doLogin(){
 }
 
 function enterApp(){
+  if(window._lastUserId && ME && window._lastUserId!==ME.id){ try{ _clearUserScreens(); }catch(e){} }
+  window._lastUserId = ME ? ME.id : null;
   document.getElementById('loginWrap').style.display='none';
   var _pw=document.getElementById('parentWrap'); if(_pw) _pw.style.display='none';
   stopSunriseAnimation();
@@ -6906,6 +6921,15 @@ function enterApp(){
 
 }
 
+// Wipe everything the previous user had on screen (report cards, selected class/student, lists)
+// so the next person to sign in on this device never sees it.
+function _clearUserScreens(){
+  ['rpOut','prOut','qpOut','qpBreakdown','anOut','povOut','mkWrap','qzWrap','rpApprovalDashboardList','rpUnlockList','mkProgressDashboard','mkSubjectOverview','rpApprovalStatus','rpTeacherApproval']
+    .forEach(function(id){ var e=document.getElementById(id); if(e) e.innerHTML=''; });
+  ['rpCls','rpSt','rpSt2','rpTerm','rpTerm2','prCls','prTerm','qpCls','qpWeek','qpTerm','qpYear','anCls','anSub','anTerm','mkCls','mkSub','mkTerm','mkComp','povLevel','povTerm','povYear','rpRemark','rpConduct','rpDiscipline']
+    .forEach(function(id){ var e=document.getElementById(id); if(!e) return;
+      if(e.tagName==='SELECT'){ e.innerHTML='<option value=""></option>'; e.value=''; } else { e.value=''; } });
+}
 function doLogout(){
   try{ _flushOnClose(); }catch(e){}   // upload anything still waiting before we clear the screen
   _dbKeyLoaded = null;
@@ -6929,6 +6953,8 @@ function doLogout(){
       {id:'T3',name:'Term 3',type:'term',active:true,components:[{id:'T3_mid',name:'Midterm 3',maxMark:50},{id:'T3_exam',name:'Exam Term 3',maxMark:50}]}
     ]
   };
+  try{ _clearUserScreens(); }catch(e){}
+  window._lastUserId=null;
   document.getElementById('appWrap').style.display='none';
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('landingWrap').style.display='block';
@@ -7084,7 +7110,7 @@ function buildSidebar(){
   function grp(label,items){
     html+='<div class="navgrp">'+label+'</div>';
     items.forEach(function(it){
-      html+='<button class="navbtn" id="nb-'+it.id+'" onclick="showPage(\''+it.id+'\')"><span class="navicon">'+it.icon+'</span>'+it.label+'</button>';
+      html+='<button class="navbtn" id="nb-'+it.id+'" onclick="navGo(\''+it.id+'\')"><span class="navicon">'+it.icon+'</span>'+it.label+'</button>';
     });
   }
   if(isSuperAdmin()){
@@ -7117,7 +7143,16 @@ function buildSidebar(){
   }
   document.getElementById('sidebar').innerHTML=html;
 }
+// Menu tap: highlight instantly, then build the page on the next frame so the tap never feels stuck
+var _navTok=0;
+function navGo(id){
+  var tok=++_navTok;
+  document.querySelectorAll('.navbtn.active').forEach(function(b){ b.classList.remove('active'); });
+  var nb=document.getElementById('nb-'+id); if(nb) nb.classList.add('active');
+  requestAnimationFrame(function(){ setTimeout(function(){ if(tok===_navTok) showPage(id); },0); });
+}
 function showPage(id){
+  _navTok++;
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('on'); });
   document.querySelectorAll('.navbtn').forEach(function(b){ b.classList.remove('active'); });
   var pg=document.getElementById('p-'+id);
@@ -9585,7 +9620,19 @@ function renderStudents(){
       +'<td class="admin-only"><div class="brow"><button class="btn sm ghost" data-sid="'+s.id+'" onclick="openEditStudent(this.dataset.sid)">✏️</button><button class="btn sm ghost" data-sid="'+s.id+'" title="Remove registered parent" onclick="manageStudentParent(this.dataset.sid)">👪</button><button class="btn sm red" data-sid="'+s.id+'" onclick="delStudent(this.dataset.sid)">🗑️</button></div></td>'
       +'</tr>';
   });
-  tb.innerHTML=html;
+  // Show the first rows at once, add the rest over the next frames (big classes open instantly)
+  var _stTok=(window._stRT=(window._stRT||0)+1);
+  var _parts=html.split('</tr>'); _parts.pop();
+  tb.innerHTML=_parts.slice(0,60).join('</tr>')+'</tr>';
+  if(_parts.length>60){
+    var _pos=60;
+    (function _more(){
+      if(window._stRT!==_stTok) return;
+      tb.insertAdjacentHTML('beforeend',_parts.slice(_pos,_pos+120).join('</tr>')+'</tr>');
+      _pos+=120;
+      if(_pos<_parts.length) requestAnimationFrame(_more);
+    })();
+  }
 }
 
 function teacherPhoneInput(input){
@@ -11218,6 +11265,9 @@ function setupReports(){
     // Restore previous selection if student still exists
     if(_prevSt2 && list.find(function(s){return s.id===_prevSt2;})){
       document.getElementById('rpSt2').value = _prevSt2;
+    } else {
+      document.getElementById('rpSt2').value = '';
+      document.getElementById('rpOut').innerHTML='';   // drop any report card left from someone else / another class
     }
     syncTerms();
     // Auto-select first term if none selected
@@ -13808,9 +13858,14 @@ function stopLiveSync(){
 
 async function _liveSyncTick(){
   if(_liveSyncRunning || !CURRENT_SCHOOL_ID || !ME) return;
+  if(document.hidden) return;            // nobody is looking -> use no data (catches up when the tab is opened again)
   _pullRemoteIfNewer(false);   // cheap revision check every ~25s, even if realtime looks healthy
   // Skip poll if realtime channel is healthy (connected)
   if(_realtimeChannel && _realtimeChannel.state === 'joined') return;
+  // Realtime is down: ask the server only for the tiny revision number; the full school data is
+  // downloaded only when someone actually changed something (was: full download every 8 seconds).
+  _pullRemoteIfNewer(true);
+  return;
   _liveSyncRunning = true;
   try {
     var chatCountBefore = _parChatStudentId ? (DB.parentChats&&DB.parentChats[_parChatStudentId]||[]).length : -1;
@@ -13843,9 +13898,12 @@ function stopParentLiveSync(){
 
 async function _parentLiveSyncTick(){
   if(!CURRENT_SCHOOL_ID || !PARENT_USER) return;
+  if(document.hidden) return;
   _pullRemoteIfNewer(false);
   // Skip if realtime is healthy
   if(_parentRealtimeChannel && _parentRealtimeChannel.state === 'joined') return;
+  _pullRemoteIfNewer(true);   // revision check only; full download only when something changed
+  return;
   try {
     _invalidateReadCache(schoolDbKey(CURRENT_SCHOOL_ID));
     await supabaseLoad(CURRENT_SCHOOL_ID);
@@ -17293,7 +17351,11 @@ async function initApp(){
   if(!_sessionRestored){
     // No valid session — freshen superDB from Supabase now (user hasn't typed yet)
     document.getElementById('loadBar').style.width='70%';
-    try{ await superLoad(); }catch(e){ console.warn('[SCORIX] superLoad failed on init', e); }
+    if(SUPERDB.superusers && SUPERDB.superusers.length){
+      superLoad().then(function(){ applyBranding(); applySchool(); }).catch(function(e){ console.warn('[SCORIX] superLoad failed on init', e); });
+    } else {
+      try{ await superLoad(); }catch(e){ console.warn('[SCORIX] superLoad failed on init', e); }
+    }
     if(!SUPERDB.superusers || !SUPERDB.superusers.length){
       // Keep the loading overlay in place (first-run modal renders on top of it);
       // it gets removed further below along with the normal boot flow.
@@ -17871,7 +17933,7 @@ function _fitSheets(doc, sheetCls, fitCls, H){
     var fit=sh.querySelector('.'+fitCls); if(!fit) return;
     fit.style.height='auto'; fit.style.minHeight='0px';
     var lo=0.3, hi=1.8, best=lo, i;
-    for(i=0;i<16;i++){
+    for(i=0;i<11;i++){
       var mid=(lo+hi)/2;
       fit.style.width=(100/mid)+'%';
       fit.style.transform='scale('+mid+')';
@@ -17907,13 +17969,13 @@ function _printFitted(cardsHtml, title, cfg){
         try{ win.focus(); }catch(e){}
         try{ win.print(); }catch(e){ try{ alert('Could not open the print dialog automatically. Use the browser menu → Print.'); }catch(_){} }
         if(afterPrint) afterPrint();
-      }, 250);
+      }, 40);
     }
     var imgs=[].slice.call(doc.images||[]), pending=imgs.filter(function(im){ return !im.complete; }).length;
-    function tick(){ if(--pending<=0) setTimeout(go,150); }
+    function tick(){ if(--pending<=0) setTimeout(go,0); }
     if(pending>0){ imgs.forEach(function(im){ if(!im.complete){ im.addEventListener('load',tick); im.addEventListener('error',tick); } }); }
-    try{ if(doc.fonts && doc.fonts.ready){ doc.fonts.ready.then(function(){ if(pending<=0) setTimeout(go,150); }); } }catch(e){}
-    setTimeout(go, pending>0 ? 2500 : 900);   // never wait forever on slow fonts / offline
+    try{ if(doc.fonts && doc.fonts.ready){ doc.fonts.ready.then(function(){ if(pending<=0) setTimeout(go,0); }); } }catch(e){}
+    setTimeout(go, pending>0 ? 1500 : 600);   // never wait forever on slow fonts / offline
   }
 
   var win=null;
@@ -18025,7 +18087,7 @@ function _qaCss(){
     +'html,body{margin:0!important;padding:0!important;background:#fff;}'
     +'.qa-sheet{width:'+QA_W+'px;height:'+QA_H+'px;margin:0 auto;overflow:hidden;position:relative;}'
     +'.qa-fit{transform-origin:0 0;display:flex;flex-direction:column;}'
-    +'@media print{.qa-sheet{width:100%!important;height:calc(100vh - 1px)!important;margin:0!important;page-break-after:always;break-after:page;}'
+    +'@media print{.qa-sheet{width:100%!important;height:253mm!important;max-height:253mm!important;overflow:hidden!important;margin:0!important;page-break-inside:avoid;break-inside:avoid;page-break-after:always;break-after:page;}'
     +'.qa-sheet:last-child{page-break-after:auto;break-after:auto;}}'
     +'.qa-fit>#qpProclTable{flex:1 1 auto;display:flex;flex-direction:column;}'
     +'#qpProclTable>.card{flex:1 1 auto;display:flex;flex-direction:column;}'
