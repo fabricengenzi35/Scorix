@@ -4243,7 +4243,7 @@ async function _casWrite(key, data, opts){
   var forced = !!opts.force;
   var mergedAny = false;
   for(var attempt=0; attempt<12; attempt++){
-    if(Array.isArray(data.audit) && data.audit.length>1000) data.audit.splice(0, data.audit.length-1000);
+    if(Array.isArray(data.audit) && data.audit.length>300) data.audit.splice(0, data.audit.length-300);
     var expected = Number(data._rev)||0;
     var toSend = _clone(data);
     toSend._rev = expected+1;
@@ -4291,6 +4291,20 @@ async function _casWrite(key, data, opts){
     }
   }
   throw new Error('too_many_conflicts');
+}
+
+// After sign-in: ask the server only for the tiny version number; download the whole school record
+// only when it changed (or when this device still has unsent edits)
+async function _lightRefresh(sid){
+  try{
+    var key = schoolDbKey(sid);
+    if(_isOnline && !localStorage.getItem('scorix_dirty_'+key) && _dbKeyLoaded===key){
+      var r = await _withTimeout(supabaseClient.from('epaza_data').select('rev:data->_rev').eq('id',key).maybeSingle(), 8000);
+      var rr = Number(r && r.data && r.data.rev)||0;
+      if(r && !r.error && rr && rr===(Number(DB._rev)||0)) return;   // already up to date: no download
+    }
+  }catch(e){}
+  return supabaseLoad(sid);
 }
 
 // Pull newer server data (3-way merged into what is on screen)
@@ -4760,7 +4774,7 @@ function auditLog(action, detail){
     var role = ME ? (ME.role||'') : (typeof PARENT_USER!=='undefined' && PARENT_USER ? 'parent' : '');
     var arr=_auditStore();
     arr.push({id:Math.random().toString(36).slice(2,9)+Date.now().toString(36), t:new Date().toISOString(), u:String(who).slice(0,60), r:role, a:String(action).slice(0,30), d:String(detail==null?'':detail).slice(0,140)});
-    if(arr.length>1000) arr.splice(0, arr.length-1000);
+    if(arr.length>300) arr.splice(0, arr.length-300);
   }catch(e){}
 }
 var _marksSnap = null;
@@ -5365,6 +5379,7 @@ async function supabaseLoad(sid){
       _persistBase(key, _syncBase[key], true);
     }
   }catch(e){ console.warn('[SCORIX] sync base error', e); }
+  _sigDedupe();
   return res;
 }
 async function _supabaseLoadRaw(sid){
@@ -6905,7 +6920,7 @@ function enterApp(){
 
   // Freshen data from Supabase in background, then re-render
   setTimeout(function(){
-    supabaseLoad(CURRENT_SCHOOL_ID).then(function(){
+    _lightRefresh(CURRENT_SCHOOL_ID).then(function(){
       renderDash();
       syncAll();
       _applyLevelBar(CURRENT_LEVEL);
@@ -8794,30 +8809,67 @@ function sigSet(prefix,data){
   var fi=document.getElementById(prefix+'-file'); if(fi&&!data) fi.value='';
 }
 function sigClear(prefix){ sigSet(prefix,''); }
+// Shrink any picture before it is saved in the school record (keeps every download small)
+function _shrinkImage(src, maxW, maxH, maxChars, cb, preferPng){
+  var img=new Image();
+  img.onload=function(){
+    var sc=Math.min(1, maxW/img.width, maxH/img.height);
+    var w=Math.max(1,Math.round(img.width*sc)), h=Math.max(1,Math.round(img.height*sc));
+    var out='';
+    function draw(W,H,type,q){
+      var cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+      var cx=cv.getContext('2d');
+      if(type==='image/jpeg'){ cx.fillStyle='#fff'; cx.fillRect(0,0,W,H); }
+      cx.drawImage(img,0,0,W,H);
+      return cv.toDataURL(type,q);
+    }
+    if(preferPng){ out=draw(w,h,'image/png'); }
+    if(!out || out.length>maxChars){
+      var q=0.8, W=w, H=h;
+      out=draw(W,H,'image/jpeg',q);
+      var tries=0;
+      while(out.length>maxChars && tries<6){
+        tries++; q=Math.max(0.4,q-0.1); W=Math.max(1,Math.round(W*0.85)); H=Math.max(1,Math.round(H*0.85));
+        out=draw(W,H,'image/jpeg',q);
+      }
+    }
+    cb(out.length>maxChars ? '' : out);
+  };
+  img.onerror=function(){ cb(null); };
+  img.src=src;
+}
 function sigPick(inp,prefix){
   var f=inp.files&&inp.files[0]; if(!f) return;
   if(!/^image\//.test(f.type)){ alert('Please choose an image file (PNG or JPG).'); inp.value=''; return; }
   var rd=new FileReader();
   rd.onload=function(){
-    var img=new Image();
-    img.onload=function(){
-      // Shrink to a small signature-sized image so the saved school data stays light
-      var sc=Math.min(1,360/img.width,140/img.height);
-      var w=Math.max(1,Math.round(img.width*sc)), h=Math.max(1,Math.round(img.height*sc));
-      var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      var out=cv.toDataURL('image/png');
-      if(out.length>150000){
-        var c2=document.createElement('canvas'); c2.width=w; c2.height=h;
-        var x2=c2.getContext('2d'); x2.fillStyle='#fff'; x2.fillRect(0,0,w,h); x2.drawImage(img,0,0,w,h);
-        out=c2.toDataURL('image/jpeg',0.82);
-      }
+    // Signature-sized picture: at most 240x90 px and about 20 KB
+    _shrinkImage(rd.result, 240, 90, 20000, function(out){
+      if(out===null){ alert('Could not read that image. Try another file.'); inp.value=''; return; }
+      if(!out){ alert('That image is too detailed. Please use a simpler signature picture.'); inp.value=''; return; }
       sigSet(prefix,out);
-    };
-    img.onerror=function(){ alert('Could not read that image. Try another file.'); inp.value=''; };
-    img.src=rd.result;
+    }, false);
   };
   rd.readAsDataURL(f);
+}
+// A teacher's signature lives in DB.teachers only (so it is saved once)
+function _sigOf(u){
+  if(!u) return '';
+  if(u.signature) return u.signature;
+  var t=(DB.teachers||[]).find(function(x){ return x && x.id===u.id; });
+  return (t&&t.signature)||'';
+}
+// One-time tidy: move any signature out of DB.users (keeps it in DB.teachers)
+function _sigDedupe(){
+  try{
+    if(!Array.isArray(DB.users)) return;
+    DB.users.forEach(function(u){
+      if(!u || !u.signature) return;
+      var t=(DB.teachers||[]).find(function(x){ return x && x.id===u.id; });
+      if(t && !t.signature) t.signature=u.signature;
+      if(t) delete u.signature;
+    });
+  }catch(e){}
 }
 function _sigImg(src,h){
   return src?'<img src="'+src+'" alt="" style="height:'+h+';max-width:180px;object-fit:contain;display:block;margin:0 auto 2px;position:relative;z-index:1;border:0;background:none;mix-blend-mode:multiply;">':'';
@@ -8825,7 +8877,7 @@ function _sigImg(src,h){
 function _procSigBlock(cid){
   var cls=DB.classes.find(function(c){return c.id===cid;});
   var tu=cls?(DB.users||[]).find(function(u){return u.role==='teacher'&&u.classTeacher===cls.id;}):null;
-  var tn=tu?tu.name:'', ts=(tu&&tu.signature)||'';
+  var tn=tu?tu.name:'', ts=_sigOf(tu);
   var dn=(DB.settings&&DB.settings.directorName)||'', ds=(DB.settings&&DB.settings.directorSignature)||'';
   function col(name,sig,label){
     return '<div style="text-align:center;">'
@@ -8852,7 +8904,7 @@ function addTeacher(){
   var teacherLevel=(document.getElementById('mt-level')||{}).value||CURRENT_LEVEL;
   var teacherSig=(document.getElementById('mtsig')||{}).value||'';
   hashPw(pass).then(function(passHash){
-    DB.users.push({id:id,username:uname,password:passHash,role:'teacher',name:name,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel,signature:teacherSig});
+    DB.users.push({id:id,username:uname,password:passHash,role:'teacher',name:name,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel});
     DB.teachers.push({id:id,name:name,username:uname,classes:cls,subjects:subs,classTeacher:classTeacher,level:teacherLevel,signature:teacherSig});
     addLog('Added teacher: '+name); dbSave(); rebuildUserIndex(); renderTeachers(); cm('mt');
   });
@@ -8880,7 +8932,7 @@ function openEditTeacher(id){
   buildChkList('metc-chk', lvlCls, t.classes||[], 'classes');
   buildChkList('mets-chk', lvlSubs, t.subjects||[], 'subjects');
   var _eu=DB.users.find(function(x){return x.id===id;});
-  sigSet('metsig', t.signature||(_eu&&_eu.signature)||'');
+  sigSet('metsig', t.signature||_sigOf(_eu)||'');
   document.getElementById('met').classList.add('open');
 }
 function saveEditTeacher(){
@@ -8936,12 +8988,12 @@ function saveEditTeacher(){
   t.name=name;t.username=uname;t.classes=cls;t.subjects=subs;t.classTeacher=classTeacher;t.level=newLevel;
   var _newSig=(document.getElementById('metsig')||{}).value||'';
   t.signature=_newSig;
-  if(u){u.name=name;u.username=uname;u.classes=cls;u.subjects=subs;u.classTeacher=classTeacher;u.level=newLevel;u.signature=_newSig;}
+  if(u){u.name=name;u.username=uname;u.classes=cls;u.subjects=subs;u.classTeacher=classTeacher;u.level=newLevel; delete u.signature;}
   var _finishEditTeacher=function(newPwHash){
     if(newPwHash && u) u.password=newPwHash;
     addLog('Updated teacher: '+name);dbSave();rebuildUserIndex();renderTeachers();cm('met');
     if(ME&&ME.id===id){
-      ME.name=name;ME.username=uname;ME.classes=cls;ME.subjects=subs;ME.classTeacher=classTeacher;ME.signature=_newSig;
+      ME.name=name;ME.username=uname;ME.classes=cls;ME.subjects=subs;ME.classTeacher=classTeacher;
       if(newPwHash) ME.password=newPwHash;
       document.getElementById('uname').textContent=name;
     }
@@ -13214,7 +13266,7 @@ function genReport(){
   var _dirName = (DB.settings && DB.settings.directorName) || (DB.users && DB.users.find(function(u){return u.role==='director'||u.role==='admin';})||{}).name || '';
   var _teacherObj = cls ? (DB.users && DB.users.find(function(u){return u.classTeacher===cls.id&&u.role==='teacher';})) : null;
   var _teacherName = _teacherObj ? _teacherObj.name : '';
-  var _teacherSig = (_teacherObj && _teacherObj.signature) || '';
+  var _teacherSig = _sigOf(_teacherObj);
   var _dirSig = (DB.settings && DB.settings.directorSignature) || '';
   html+='<div style="display:flex;justify-content:space-between;margin-top:'+(isFinalTerm?'.3rem':'.5rem')+';padding-top:'+(isFinalTerm?'.3rem':'.5rem')+';border-top:1px solid #ddd4b8;">'
     +'<div style="text-align:center;">'
@@ -13982,12 +14034,14 @@ function handleLogoAdmin(e){
   if(file.size>2*1024*1024){alert('File too large. Max 2MB.');return;}
   var reader=new FileReader();
   reader.onload=function(ev){
-    var src=ev.target.result;
-    DB.settings.schoolLogo=src;
-    localStorage.setItem('scorix_logo',src);
-    dbSave();
-    showLogoAdminPreview(src);
-    genReport(); // refresh report preview if open
+    _shrinkImage(ev.target.result, 300, 300, 60000, function(src){
+      if(!src){ alert('Could not use that image. Try a simpler logo.'); return; }
+      DB.settings.schoolLogo=src;
+      localStorage.setItem('scorix_logo',src);
+      dbSave();
+      showLogoAdminPreview(src);
+      genReport(); // refresh report preview if open
+    }, true);
   };
   reader.readAsDataURL(file);
 }
@@ -14284,7 +14338,7 @@ function _bkFillSignatures(cur, src, stats){
   ['users','teachers'].forEach(function(list){
     (src[list]||[]).forEach(function(sx){
       if(!sx || !sx.signature || sx.id===undefined) return;
-      var cx=(cur[list]||[]).find(function(c){ return c && c.id===sx.id; });
+      var cx=(cur.teachers||[]).find(function(c){ return c && c.id===sx.id; });
       if(cx && !cx.signature){ cx.signature=sx.signature; n++; }
     });
   });
@@ -16533,7 +16587,7 @@ function genQuizProcl(){
     +'<div style="display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:2px 8px;">'
     +'<span>Done by:</span>'
     +'<span>'+(_ctName?'Tr. '+esc(_ctName.replace(/^\s*(Tr|Mr|Mrs|Ms|Miss)\.?\s+/i,'')):'Tr. ........................')+'</span>'
-    +((_ctU&&_ctU.signature)?'<img src="'+_ctU.signature+'" alt="" style="height:88px;max-width:260px;object-fit:contain;mix-blend-mode:multiply;border:0;background:none;">':'')
+    +((_ctU&&_sigOf(_ctU))?'<img src="'+_sigOf(_ctU)+'" alt="" style="height:88px;max-width:260px;object-fit:contain;mix-blend-mode:multiply;border:0;background:none;">':'')
     +'</div></div>'
     +'</div>';
   out.innerHTML=html + p6MonthlyAnalysisHtml(cid,week);
@@ -18514,6 +18568,9 @@ function dsHandleLogo(event){
   if(file.size>2*1024*1024){ flash('dsAlert','warn','⚠️ Image too large. Max 2MB.'); return; }
   var reader=new FileReader();
   reader.onload=function(e){
+   _shrinkImage(e.target.result, 300, 300, 60000, function(_logo){
+    if(!_logo){ flash('dsAlert','warn','⚠️ Could not use that image. Try a simpler logo.'); return; }
+    var e={target:{result:_logo}};
     DB.settings.schoolLogo=e.target.result; dbSave();
     var imgEl=document.getElementById('ds_logoImg');
     var ph2=document.getElementById('ds_logoPlaceholder');
@@ -18526,6 +18583,7 @@ function dsHandleLogo(event){
     var lp=document.getElementById('logoPlaceholder'); if(lp) lp.style.display='none';
     var lb=document.getElementById('logoRemoveBtn'); if(lb) lb.style.display='';
     flash('dsAlert','ok','✅ Logo uploaded and saved.');
+   }, true);
   };
   reader.readAsDataURL(file);
 }
