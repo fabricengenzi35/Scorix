@@ -14277,6 +14277,25 @@ function _bkMerge(cur, src, top, stats, depth){
     }
   });
 }
+// Merge helper: bring back signatures and the school logo that are blank now but present in the backup.
+// Existing (non-blank) ones are never overwritten.
+function _bkFillSignatures(cur, src, stats){
+  var K='Signatures / logo', n=0;
+  ['users','teachers'].forEach(function(list){
+    (src[list]||[]).forEach(function(sx){
+      if(!sx || !sx.signature || sx.id===undefined) return;
+      var cx=(cur[list]||[]).find(function(c){ return c && c.id===sx.id; });
+      if(cx && !cx.signature){ cx.signature=sx.signature; n++; }
+    });
+  });
+  var ss=src.settings, cs=cur.settings;
+  if(ss && cs){
+    ['directorSignature','schoolLogo'].forEach(function(f){
+      if(ss[f] && !cs[f]){ cs[f]=ss[f]; n++; }
+    });
+  }
+  if(n) stats[K]=(stats[K]||0)+n;
+}
 function mergeBackup(e){
   var inp=e.target, f=inp.files[0]; if(!f) return;
   var r=new FileReader();
@@ -14291,7 +14310,9 @@ function mergeBackup(e){
       // Dry run on a copy first
       var copy=JSON.parse(JSON.stringify(DB));
       var stats={};
-      _bkMerge(copy, JSON.parse(JSON.stringify(src)), '', stats, 0);
+      var _srcCopy=JSON.parse(JSON.stringify(src));
+      _bkMerge(copy, _srcCopy, '', stats, 0);
+      _bkFillSignatures(copy, _srcCopy, stats);
       var noPw=stats._noPw||0; delete stats._noPw;
       var labels={marks:'Marks',students:'Students',classes:'Classes',subjects:'Subjects',teachers:'Teachers',users:'User accounts',parents:'Parents',attendance:'Attendance entries',remarks:'Remarks',messages:'Messages'};
       var keys=Object.keys(stats).filter(function(k){ return stats[k]>0; });
