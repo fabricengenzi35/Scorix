@@ -8811,20 +8811,28 @@ function sigPick(inp,prefix){
 function _sigImg(src,h){
   return src?'<img src="'+src+'" alt="" style="height:'+h+';max-width:180px;object-fit:contain;display:block;margin:0 auto 2px;position:relative;z-index:1;border:0;background:none;mix-blend-mode:multiply;">':'';
 }
+// Class teacher name + signature for a class (looks in users AND teachers lists so the signature is never missed)
+function _classTeacherSig(cid){
+  var tu=(DB.users||[]).find(function(u){return u.role==='teacher'&&u.classTeacher===cid;});
+  var tr=(DB.teachers||[]).find(function(t){return t.classTeacher===cid;});
+  var name=(tu&&tu.name)||(tr&&tr.name)||'';
+  var sig=(tu&&tu.signature)||(tr&&tr.signature)||'';
+  return {name:name,signature:sig};
+}
 function _procSigBlock(cid){
   var cls=DB.classes.find(function(c){return c.id===cid;});
-  var tu=cls?(DB.users||[]).find(function(u){return u.role==='teacher'&&u.classTeacher===cls.id;}):null;
-  var tn=tu?tu.name:'', ts=(tu&&tu.signature)||'';
+  var _ct=cls?_classTeacherSig(cls.id):{name:'',signature:''};
+  var tn=_ct.name, ts=_ct.signature;
   var dn=(DB.settings&&DB.settings.directorName)||'', ds=(DB.settings&&DB.settings.directorSignature)||'';
-  function col(name,sig,label){
+  function col(name,sig,label,manual){
     return '<div style="text-align:center;">'
       +'<div style="font-size:1.05rem;font-weight:800;color:#1a237e;min-height:1.4rem;margin-bottom:2px;">'+(name?esc(name):'&nbsp;')+'</div>'
       +_sigImg(sig,'92px')
-      +(sig?'':'<div style="border-top:2px solid #1a237e;width:170px;margin:0 auto 4px;padding-top:4px;"></div>')
+      +(sig?'':(manual?'<div style="height:80px;"></div>':'<div style="border-top:2px solid #1a237e;width:170px;margin:0 auto 4px;padding-top:4px;"></div>'))
       +'<div style="font-size:.82rem;color:#1a237e;">'+label+'</div></div>';
   }
   return '<div style="display:flex;justify-content:space-between;margin-top:.6rem;padding-top:.5rem;border-top:1px solid #ddd;">'
-    +col(tn,ts,"Class Teacher's Signature")+col(dn,ds,"School Director's Signature")+'</div>';
+    +col(tn,ts,"Class Teacher's Signature")+col(dn,ds,"School Director's Signature",true)+'</div>';
 }
 function addTeacher(){
   var name=document.getElementById('mtn').value.trim();
@@ -13191,7 +13199,7 @@ function genReport(){
 
   // ── SIGNATURES ──
   var _dirName = (DB.settings && DB.settings.directorName) || (DB.users && DB.users.find(function(u){return u.role==='director'||u.role==='admin';})||{}).name || '';
-  var _teacherObj = cls ? (DB.users && DB.users.find(function(u){return u.classTeacher===cls.id&&u.role==='teacher';})) : null;
+  var _teacherObj = cls ? _classTeacherSig(cls.id) : null;
   var _teacherName = _teacherObj ? _teacherObj.name : '';
   var _teacherSig = (_teacherObj && _teacherObj.signature) || '';
   var _dirSig = (DB.settings && DB.settings.directorSignature) || '';
@@ -13204,7 +13212,7 @@ function genReport(){
     +'<div style="text-align:center;">'
     +'<div style="font-size:1.05rem;font-weight:800;color:#1a237e;min-height:1.4rem;margin-bottom:2px;">'+(_dirName?_dirName:'&nbsp;')+'</div>'
     +_sigImg(_dirSig,'92px')
-    +(_dirSig?'':'<div style="border-top:2px solid #1a237e;width:150px;margin-bottom:4px;padding-top:5px;"></div>')
+    +(_dirSig?'':'<div style="height:80px;"></div>')
     +'<div style="font-size:.82rem;color:#1a237e;">School Director\'s Signature</div></div>'
     +'</div>';
 
@@ -16421,7 +16429,7 @@ function genQuizProcl(){
   var html = '<div id="qpProclTable">';
   // Header banner (printable) — compact header, LARGE class / week / dates
   var _rng = _qpWeekRange(weekObj);
-  var _ctU = cls ? (DB.users||[]).find(function(u){return u.role==='teacher' && u.classTeacher===cls.id;}) : null;
+  var _ctU = cls ? _classTeacherSig(cls.id) : null;
   var _ctName = _ctU ? _ctU.name : '';
   var _stIn = document.getElementById('qpWeekStart'); if(_stIn) _stIn.value = _rng.iso;
   html += '<div class="qph-banner" style="text-align:center;padding:.6rem 1rem;background:var(--s1);border:1px solid var(--bd);border-radius:10px;margin-bottom:.8rem;">'
